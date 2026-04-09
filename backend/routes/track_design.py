@@ -412,6 +412,110 @@ async def retry_download(project_id: str, body: dict):
     return {"tracks": result, "retried": retried, "total": len(result)}
 
 
+@router.post("/{project_id}/suno-tracks/scan-siblings", summary="Suno에서 누락된 형제 클립 스캔·다운로드")
+async def scan_siblings(project_id: str, background_tasks: BackgroundTasks):
+    """
+    기존 suno_tracks의 clip ID로 Suno 라이브러리를 방문,
+    같은 생성에서 나온 2번째 곡(형제)을 찾아 다운로드.
+    slot 2로 추가.
+    """
+    state = state_manager.require(project_id)
+    suno_tracks: list[dict] = state.get("suno_tracks", [])
+
+    if not suno_tracks:
+        raise HTTPException(400, "suno_tracks가 없습니다.")
+
+    # 고유 suno_id 목록
+    known_ids = list({t["suno_id"] for t in suno_tracks if t.get("suno_id")})
+
+    if not known_ids:
+        raise HTTPException(400, "다운로드된 clip이 없습니다.")
+
+    background_tasks.add_task(
+        _run_sibling_scan,
+        project_id=project_id,
+        known_ids=known_ids,
+    )
+
+    return {"status": "started", "known_clips": len(known_ids)}
+
+
+async def _run_sibling_scan(project_id: str, known_ids: list[str]) -> None:
+    """형제 클립 스캔 백그라운드 작업."""
+    import subprocess as _sp
+
+    backend_dir = Path(__file__).parent.parent
+    project_dir = backend_dir / "storage" / "projects" / project_id / "tracks"
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    # 별도 프로세스로 실행 (Playwright 호환)
+    script = f"""
+import asyncio, sys, json
+sys.path.insert(0, r'{backend_dir}')
+asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+async def main():
+    from browser.suno_automation import SunoAutomation
+    from core.state_manager import state_manager
+
+    known_ids = {json.dumps(known_ids)}
+
+    async with SunoAutomation(max_concurrent=1, headless=False) as suno:
+        results = await suno.find_siblings(
+            known_ids=known_ids,
+            output_dir=r'{project_dir}',
+        )
+
+    if not results:
+        print("형제 클립 없음", file=sys.stderr)
+        return
+
+    # state.json에 병합
+    state = state_manager.get('{project_id}') or {{}}
+    old_tracks = state.get('suno_tracks') or []
+
+    # 형제 클립 → suno_track 형식으로 변환
+    # sibling_of로 원본 track의 index 찾기
+    id_to_index = {{}}
+    for t in old_tracks:
+        if t.get('suno_id'):
+            id_to_index[t['suno_id']] = t.get('index', 0)
+
+    for r in results:
+        parent_id = r.get('sibling_of', '')
+        parent_index = id_to_index.get(parent_id, 0)
+        old_tracks.append({{
+            'index': parent_index,
+            'title': r.get('title', ''),
+            'suno_id': r['suno_id'],
+            'file_path': r.get('file_path', ''),
+            'status': r.get('status', 'failed'),
+            'slot': 2,
+        }})
+
+    old_tracks.sort(key=lambda t: (t.get('index', 0), t.get('slot', 0)))
+    state_manager.update('{project_id}', {{'suno_tracks': old_tracks}})
+    print(f"{{len(results)}}개 형제 클립 추가 완료", file=sys.stderr)
+
+asyncio.run(main())
+"""
+    try:
+        proc = _sp.Popen(
+            [sys.executable, "-c", script],
+            stdout=_sp.PIPE, stderr=_sp.PIPE,
+        )
+        logger.info(f"형제 스캔 프로세스 시작: PID={proc.pid}")
+
+        while proc.poll() is None:
+            await asyncio.sleep(2)
+
+        stderr = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""
+        logger.info(f"형제 스캔 완료: {stderr.strip()}")
+
+    except Exception as e:
+        logger.error(f"형제 스캔 실패: {e}")
+
+
 @router.put("/{project_id}/suno-tracks/reorder", summary="Suno 트랙 순서 변경")
 async def reorder_suno_tracks(project_id: str, body: dict):
     """body: {"order": [0, 2, 1, ...]}  — 새 순서의 인덱스 배열"""

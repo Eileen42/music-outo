@@ -80,6 +80,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
     }
   }, [playingKey])
 
+  const [scanningStr, setScanningStr] = useState('')
   const handleRetryAll = async () => {
     setRetryingAll(true)
     try {
@@ -87,6 +88,22 @@ export default function SongMaker({ project, onRefresh }: Props) {
       setSunoTracks(res.tracks)
     } catch { /* ignore */ }
     finally { setRetryingAll(false) }
+  }
+
+  const handleScanSiblings = async () => {
+    setScanningStr('스캔 중... Suno 브라우저가 열립니다')
+    try {
+      await api.trackDesign.scanSiblings(project.id)
+      setScanningStr('스캔 진행 중... 완료되면 새로고침하세요')
+      // 10초 후 트랙 갱신 시도
+      setTimeout(async () => {
+        try {
+          const r = await api.trackDesign.sunoTracks(project.id)
+          setSunoTracks(r.tracks)
+          setScanningStr(`완료! ${r.tracks.length}곡`)
+        } catch { /* ignore */ }
+      }, 15000)
+    } catch { setScanningStr('스캔 실패') }
   }
 
   const [registerMsg, setRegisterMsg] = useState('')
@@ -540,11 +557,17 @@ export default function SongMaker({ project, onRefresh }: Props) {
               {sunoTracks.length > 0 && sunoTracks.some(t => t.status === 'download_failed' || t.status === 'duplicate') && (
                 <div className="mb-4 space-y-2">
                   {sunoTracks.some(t => t.status === 'duplicate') && (
-                    <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-800/50 rounded-xl px-4 py-2.5">
+                    <div className="flex items-center justify-between bg-yellow-900/20 border border-yellow-800/50 rounded-xl px-4 py-2.5">
                       <span className="text-xs text-yellow-300">
-                        ⚠ 중복 음원 {sunoTracks.filter(t => t.status === 'duplicate').length}개 감지
-                        — 이전 배치의 버그로 같은 음원이 다른 곡에 할당됨. 새로 Suno 배치를 돌리면 해결됩니다.
+                        ⚠ 중복 {sunoTracks.filter(t => t.status === 'duplicate').length}개 / 누락 곡이 Suno에 있을 수 있습니다
                       </span>
+                      <button
+                        onClick={handleScanSiblings}
+                        disabled={!!scanningStr}
+                        className="text-xs bg-yellow-800 hover:bg-yellow-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap"
+                      >
+                        {scanningStr || '🔍 Suno에서 누락 곡 찾기'}
+                      </button>
                     </div>
                   )}
                   {sunoTracks.some(t => t.status === 'download_failed') && (

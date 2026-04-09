@@ -802,6 +802,107 @@ class SunoAutomation:
                 continue
         raise RuntimeError(f"셀렉터 없음: {label} ({selector})")
 
+    async def find_siblings(
+        self,
+        known_ids: list[str],
+        output_dir: str,
+    ) -> list[dict]:
+        """
+        Suno 라이브러리에서 기존 clip의 형제(같은 생성에서 나온 2번째 곡)를 찾아 다운로드.
+        Suno는 1회 생성 시 2곡 출력 → 하나만 수집된 경우 나머지를 찾는다.
+
+        Returns: [{"suno_id": str, "sibling_of": str, "file_path": str, "title": str}, ...]
+        """
+        out_dir = Path(output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        known_set = set(known_ids)
+        results: list[dict] = []
+
+        page = await self._context.new_page()
+        uuid_re = re.compile(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            re.IGNORECASE,
+        )
+
+        try:
+            # 각 known clip의 페이지를 방문해서 형제 clip 찾기
+            for known_id in known_ids:
+                if not known_id:
+                    continue
+                try:
+                    await page.goto(
+                        f"https://suno.com/song/{known_id}",
+                        wait_until="domcontentloaded",
+                        timeout=20_000,
+                    )
+                    await page.wait_for_timeout(3_000)
+
+                    # 같은 페이지에 있는 다른 song link (형제 클립) 찾기
+                    sibling_ids = await page.evaluate("""
+                        (knownId) => {
+                            const links = Array.from(document.querySelectorAll('a[href*="/song/"]'));
+                            const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+                            const ids = new Set();
+                            for (const a of links) {
+                                const m = (a.href || '').match(uuidRe);
+                                if (m && m[0] !== knownId) ids.add(m[0]);
+                            }
+                            return [...ids];
+                        }
+                    """, known_id)
+
+                    # API 응답에서도 형제 찾기
+                    # (페이지 로딩 시 JSON에 관련 clips가 포함될 수 있음)
+
+                    for sib_id in sibling_ids:
+                        if sib_id in known_set:
+                            continue  # 이미 가지고 있는 클립
+                        if sib_id in {r["suno_id"] for r in results}:
+                            continue  # 이미 이번에 찾은 클립
+
+                        # 형제 클립의 제목 가져오기
+                        title = await page.evaluate("""
+                            (sibId) => {
+                                const link = document.querySelector(`a[href*="${sibId}"]`);
+                                if (!link) return '';
+                                const card = link.closest('[class*="card"], [class*="Card"], article, div');
+                                if (card) {
+                                    const h = card.querySelector('h1, h2, h3, [class*="title"], [class*="Title"]');
+                                    if (h) return h.textContent.trim();
+                                }
+                                return link.textContent.trim() || '';
+                            }
+                        """, sib_id) or f"sibling_of_{known_id[:8]}"
+
+                        # 다운로드
+                        safe_title = re.sub(r'[\\/:*?"<>|]', "_", title)
+                        file_path = await self._download(
+                            clip_id=sib_id,
+                            audio_url="",
+                            out_dir=out_dir,
+                            prefix=f"sib_{safe_title}",
+                        )
+
+                        results.append({
+                            "suno_id": sib_id,
+                            "sibling_of": known_id,
+                            "file_path": file_path,
+                            "title": title,
+                            "status": "completed" if file_path else "download_failed",
+                        })
+                        known_set.add(sib_id)
+                        logger.info(f"형제 클립 발견: {sib_id[:8]} (of {known_id[:8]}) → {title}")
+
+                except Exception as e:
+                    logger.warning(f"형제 검색 실패 [{known_id[:8]}]: {e}")
+                    continue
+
+        finally:
+            await page.close()
+
+        logger.info(f"형제 스캔 완료: {len(results)}개 발견")
+        return results
+
     async def get_credits(self) -> int:
         """남은 크레딧 수 반환. 실패 시 -1."""
         page = await self._context.new_page()
