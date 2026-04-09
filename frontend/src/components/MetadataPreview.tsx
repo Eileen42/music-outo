@@ -1,6 +1,15 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Project } from '../types'
 import { api } from '../api/client'
+
+function fmtTime(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = Math.floor(sec % 60)
+  const mm = String(m).padStart(2, '0')
+  const ss = String(s).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`
+}
 
 interface Props {
   project: Project
@@ -11,6 +20,20 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const meta = project.metadata || { title: null, description: null, tags: [], comment: null }
+
+  // 타임스탬프 자동 계산
+  const timestamps = useMemo(() => {
+    const tracks = project.tracks || []
+    if (tracks.length === 0) return []
+    let elapsed = 0
+    return tracks.map(t => {
+      const ts = fmtTime(elapsed)
+      elapsed += t.duration || 0
+      return { time: ts, title: t.title }
+    })
+  }, [project.tracks])
+
+  const timestampText = timestamps.map(t => `${t.time} ${t.title}`).join('\n')
 
   const [title, setTitle] = useState(meta.title || '')
   const [description, setDescription] = useState(meta.description || '')
@@ -101,6 +124,50 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
           />
           <div className="text-xs text-gray-600 text-right mt-1">{description.length}/5000</div>
         </div>
+
+        {timestamps.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm text-gray-400">타임스탬프</label>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(timestampText)
+                }}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                복사
+              </button>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 font-mono text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">
+              {timestamps.map((t, i) => (
+                <div key={i} className="flex gap-3">
+                  <span className="text-purple-400 shrink-0">{t.time}</span>
+                  <span>{t.title}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-1.5">
+              <button
+                onClick={() => {
+                  const tsBlock = '\n\n🎵 Tracklist\n' + timestampText
+                  setDescription(prev => prev.includes(timestampText) ? prev : prev + tsBlock)
+                }}
+                className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                설명에 추가
+              </button>
+              <button
+                onClick={() => {
+                  const tsBlock = '\n\n🎵 Tracklist\n' + timestampText
+                  setComment(prev => prev.includes(timestampText) ? prev : prev + tsBlock)
+                }}
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                댓글에 추가
+              </button>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm text-gray-400 mb-1">
