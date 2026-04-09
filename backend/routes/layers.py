@@ -15,11 +15,11 @@ async def get_layers(project_id: str):
 
 
 @router.put("")
-async def update_layers(project_id: str, body: LayersUpdateRequest):
+async def update_layers(project_id: str, body: dict):
+    """layers 전체 업데이트 (dict 직접 저장)."""
     state_manager.require(project_id)
-    state = state_manager.update(
-        project_id, {"layers": body.layers.model_dump()}
-    )
+    layers_data = body.get("layers", body)
+    state = state_manager.update(project_id, {"layers": layers_data})
     return state["layers"]
 
 
@@ -56,7 +56,7 @@ async def update_text_layer(project_id: str, layer_id: str, body: dict):
     if not layer:
         raise HTTPException(404, "Text layer not found")
 
-    allowed = {"text", "font_size", "color", "position_x", "position_y", "bold"}
+    allowed = {"text", "font_size", "font_family", "color", "position_x", "position_y", "bold"}
     for k, v in body.items():
         if k in allowed:
             layer[k] = v

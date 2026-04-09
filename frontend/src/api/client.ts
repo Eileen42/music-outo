@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Project, Track, ProjectImages, ProjectMetadata, ProjectLayers, BuildStatus, RepeatConfig, ImageMood, Channel, DesignedTrack, ProjectConcept, SunoTrack } from '../types'
+import type { Project, Track, ProjectImages, ProjectMetadata, ProjectLayers, BuildStatus, RepeatConfig, ImageMood, Channel, DesignedTrack, ProjectConcept, SunoTrack, LayerTemplate } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -145,6 +145,12 @@ export const api = {
       http.put<Channel>(`/api/channels/${id}`, data).then(r => r.data),
     initDefaults: () =>
       http.post<{ created: number; channels: string[] }>('/api/channels/init-defaults').then(r => r.data),
+    listTemplates: (channelId: string) =>
+      http.get<LayerTemplate[]>(`/api/channels/${channelId}/templates`).then(r => r.data),
+    saveTemplate: (channelId: string, template: LayerTemplate) =>
+      http.post(`/api/channels/${channelId}/templates`, template).then(r => r.data),
+    deleteTemplate: (channelId: string, name: string) =>
+      http.delete(`/api/channels/${channelId}/templates/${encodeURIComponent(name)}`).then(r => r.data),
   },
 
   trackDesign: {

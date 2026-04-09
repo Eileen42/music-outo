@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { Project, WaveformLayerConfig, TextLayerConfig } from '../types'
+import type { Project, WaveformLayerConfig, TextLayerConfig, EffectLayerConfig, LayerTemplate } from '../types'
 import { api } from '../api/client'
 
 interface Props { project: Project; onRefresh: () => void }
@@ -39,10 +39,20 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const [texts, setTexts] = useState<TextLayerConfig[]>(
     (layers.text_layers || []).map(t => ({ ...t, font_family: t.font_family || FONTS[0].value }))
   )
+  const [effects, setEffects] = useState<EffectLayerConfig[]>(layers.effect_layers || [])
   const [newText, setNewText] = useState('')
   const [addingText, setAddingText] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
+  const [templates, setTemplates] = useState<LayerTemplate[]>([])
+  const [tplName, setTplName] = useState('')
+
+  // 템플릿 로드
+  useEffect(() => {
+    if (project.channel_id) {
+      api.channels.listTemplates(project.channel_id).then(setTemplates).catch(() => {})
+    }
+  }, [project.channel_id])
 
   // 드래그 상태
   type DragMode = 'move-wf' | 'move-text' | 'resize-wf'
@@ -172,7 +182,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   // ── 저장/텍스트 ──
   const save = async () => {
     setSaving(true)
-    try { await api.layers.update(project.id, { ...layers, waveform_layer: wf, text_layers: texts }); await onRefresh() }
+    try { await api.layers.update(project.id, { ...layers, waveform_layer: wf, text_layers: texts, effect_layers: effects }); await onRefresh() }
     finally { setSaving(false) }
   }
   const addTxt = async () => {
@@ -370,6 +380,94 @@ export default function LayerPreview({ project, onRefresh }: Props) {
           </div>
         </div>
       </div>
+      {/* ── 효과 레이어 ── */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">영상 효과</h3>
+          <button onClick={() => setEffects(prev => [...prev, {
+            enabled: true, name: '새 효과', effect_id: '', params: {}
+          }])} className="text-xs text-purple-400 hover:text-purple-300">+ 추가</button>
+        </div>
+        {effects.length === 0 && <div className="text-center py-3 text-gray-700 text-xs">효과 없음</div>}
+        {effects.map((eff, i) => (
+          <div key={i} className="flex items-center gap-3 bg-gray-800 rounded-lg p-3 mb-2">
+            <label className="flex items-center gap-2 cursor-pointer shrink-0">
+              <input type="checkbox" checked={eff.enabled}
+                onChange={e => setEffects(prev => prev.map((ef, j) => j === i ? { ...ef, enabled: e.target.checked } : ef))}
+                className="w-3.5 h-3.5 accent-purple-600" />
+            </label>
+            <input value={eff.name}
+              onChange={e => setEffects(prev => prev.map((ef, j) => j === i ? { ...ef, name: e.target.value } : ef))}
+              className="flex-1 bg-gray-900 text-white rounded px-2 py-1 text-xs border border-gray-700" placeholder="효과 이름" />
+            <input value={eff.effect_id}
+              onChange={e => setEffects(prev => prev.map((ef, j) => j === i ? { ...ef, effect_id: e.target.value } : ef))}
+              className="w-40 bg-gray-900 text-white rounded px-2 py-1 text-[10px] border border-gray-700 font-mono" placeholder="CapCut effect ID" />
+            {/* 파라미터 */}
+            {Object.entries(eff.params).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">{k}</span>
+                <input type="number" value={v} step={0.01} min={0} max={1}
+                  onChange={e => setEffects(prev => prev.map((ef, j) => j === i ? { ...ef, params: { ...ef.params, [k]: parseFloat(e.target.value) } } : ef))}
+                  className="w-14 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" />
+              </div>
+            ))}
+            <button onClick={() => setEffects(prev => prev.filter((_, j) => j !== i))}
+              className="text-gray-600 hover:text-red-400 text-[10px] shrink-0">✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* ── 템플릿 저장/불러오기 ── */}
+      <div className="bg-gray-900 border border-indigo-900/50 rounded-xl p-4 mt-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">채널 템플릿</h3>
+        <div className="flex gap-2 mb-3">
+          <input value={tplName} onChange={e => setTplName(e.target.value)}
+            placeholder="템플릿 이름 (예: 세레니티엠 템플릿1)"
+            className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-1.5 text-xs border border-gray-700 focus:outline-none focus:border-indigo-500" />
+          <button disabled={!tplName.trim() || !project.channel_id}
+            onClick={async () => {
+              if (!project.channel_id) return
+              await api.channels.saveTemplate(project.channel_id, {
+                name: tplName.trim(),
+                waveform_layer: wf,
+                text_layers: texts.map(({ id: _id, ...rest }) => rest),
+                effect_layers: effects,
+              })
+              const t = await api.channels.listTemplates(project.channel_id)
+              setTemplates(t)
+              setTplName('')
+            }}
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">
+            💾 저장
+          </button>
+        </div>
+        {templates.length > 0 && (
+          <div className="space-y-1.5">
+            {templates.map(tpl => (
+              <div key={tpl.name} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                <span className="flex-1 text-xs text-white">{tpl.name}</span>
+                <span className="text-[10px] text-gray-500">
+                  {tpl.effect_layers?.length || 0}효과 · {tpl.text_layers?.length || 0}텍스트
+                </span>
+                <button onClick={() => {
+                  if (tpl.waveform_layer) setWf(mg(tpl.waveform_layer))
+                  if (tpl.text_layers) setTexts(tpl.text_layers.map(t => ({ ...t, id: crypto.randomUUID(), font_family: t.font_family || FONTS[0].value })))
+                  if (tpl.effect_layers) setEffects(tpl.effect_layers)
+                }}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-0.5 rounded border border-indigo-800 hover:border-indigo-600">
+                  적용
+                </button>
+                <button onClick={async () => {
+                  if (!project.channel_id) return
+                  await api.channels.deleteTemplate(project.channel_id, tpl.name)
+                  setTemplates(prev => prev.filter(t => t.name !== tpl.name))
+                }} className="text-gray-600 hover:text-red-400 text-[10px]">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <p className="text-[10px] text-gray-700 mt-3 text-center">파형 박스: 안쪽 드래그=이동, 코너 드래그=리사이즈 · 텍스트 드래그=이동, 더블클릭=편집</p>
     </div>
   )

@@ -89,6 +89,55 @@ async def update_channel(channel_id: str, body: ChannelUpdate):
         raise HTTPException(404, f"채널을 찾을 수 없습니다: {channel_id}")
 
 
+# ──────────────────────────── 레이어 템플릿 ────────────────────────────
+
+@router.get("/{channel_id}/templates", summary="채널 레이어 템플릿 목록")
+async def list_templates(channel_id: str):
+    try:
+        profile = channel_profile.load(channel_id)
+    except FileNotFoundError:
+        raise HTTPException(404, f"채널을 찾을 수 없습니다: {channel_id}")
+    return profile.get("layer_templates", [])
+
+
+@router.post("/{channel_id}/templates", summary="레이어 템플릿 저장")
+async def save_template(channel_id: str, body: dict):
+    """body: {name, waveform_layer, text_layers, effect_layers}"""
+    try:
+        profile = channel_profile.load(channel_id)
+    except FileNotFoundError:
+        raise HTTPException(404, f"채널을 찾을 수 없습니다: {channel_id}")
+
+    templates = profile.get("layer_templates", [])
+    name = body.get("name", "").strip()
+    if not name:
+        raise HTTPException(400, "템플릿 이름이 필요합니다")
+
+    template = {
+        "name": name,
+        "waveform_layer": body.get("waveform_layer"),
+        "text_layers": body.get("text_layers", []),
+        "effect_layers": body.get("effect_layers", []),
+    }
+
+    # 같은 이름이면 덮어쓰기
+    templates = [t for t in templates if t.get("name") != name]
+    templates.append(template)
+    channel_profile.update(channel_id, {"layer_templates": templates})
+    return {"saved": name, "total": len(templates)}
+
+
+@router.delete("/{channel_id}/templates/{template_name}", summary="레이어 템플릿 삭제")
+async def delete_template(channel_id: str, template_name: str):
+    try:
+        profile = channel_profile.load(channel_id)
+    except FileNotFoundError:
+        raise HTTPException(404)
+    templates = [t for t in profile.get("layer_templates", []) if t.get("name") != template_name]
+    channel_profile.update(channel_id, {"layer_templates": templates})
+    return {"deleted": template_name}
+
+
 @router.post("/init-defaults", summary="기본 3개 채널 생성")
 async def init_defaults():
     created = init_default_channels()

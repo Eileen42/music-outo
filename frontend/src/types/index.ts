@@ -54,10 +54,25 @@ export interface TextLayerConfig {
   bold: boolean
 }
 
+export interface EffectLayerConfig {
+  enabled: boolean
+  name: string               // 표시명 (예: 반딧불이)
+  effect_id: string          // CapCut resource ID
+  params: Record<string, number>  // {animation: 0.46, speed: 0.14}
+}
+
 export interface ProjectLayers {
   background_video: string | null
   waveform_layer: WaveformLayerConfig | null
   text_layers: TextLayerConfig[]
+  effect_layers: EffectLayerConfig[]
+}
+
+export interface LayerTemplate {
+  name: string
+  waveform_layer: WaveformLayerConfig | null
+  text_layers: Omit<TextLayerConfig, 'id'>[]
+  effect_layers: EffectLayerConfig[]
 }
 
 export interface BuildStatus {
@@ -135,6 +150,7 @@ export interface Channel {
   image_style: string[]
   suno_base_prompt: string
   upload_settings?: UploadSettings
+  layer_templates?: LayerTemplate[]
   benchmark_history: BenchmarkResult[]
   created_at: string
   updated_at: string
