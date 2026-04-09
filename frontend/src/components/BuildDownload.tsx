@@ -12,23 +12,31 @@ type BuildMode = 'mp4' | 'capcut'
 export default function BuildDownload({ project, onRefresh }: Props) {
   const [triggering, setTriggering] = useState(false)
   const [buildMode, setBuildMode] = useState<BuildMode>('capcut')
+  const [installing, setInstalling] = useState(false)
   const build = project.build || { status: null, progress: 0, output_file: null, capcut_file: null, error: null }
 
   useEffect(() => {
     if (build.status !== 'processing') return
+    setInstalling(false)
     const interval = setInterval(async () => {
       const status = await api.build.status(project.id)
       if (status.status !== 'processing') {
-        await onRefresh()
         clearInterval(interval)
+        if (status.status === 'done' && buildMode === 'capcut') {
+          setInstalling(true)
+          // CapCut 폴더에 설치 완료 대기
+          setTimeout(() => { setInstalling(false) }, 4000)
+        }
+        await onRefresh()
       }
     }, 2000)
     return () => clearInterval(interval)
-  }, [build.status, project.id, onRefresh])
+  }, [build.status, project.id, onRefresh, buildMode])
 
   const handleBuild = async () => {
     if (!confirm('빌드를 시작하시겠습니까?')) return
     setTriggering(true)
+    setInstalling(false)
     try {
       await api.build.trigger(project.id, buildMode)
       await onRefresh()
@@ -143,7 +151,23 @@ export default function BuildDownload({ project, onRefresh }: Props) {
               </div>
             </>
           )}
-          {isDone && <div className="text-green-400 font-semibold text-sm">✅ 빌드 완료!</div>}
+          {isDone && buildMode === 'capcut' && installing && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                <span className="text-indigo-400 font-semibold text-sm">CapCut 프로젝트 폴더에 설치 중...</span>
+              </div>
+              <div className="w-full bg-gray-800 rounded-full h-2">
+                <div className="bg-indigo-500 h-2 rounded-full animate-pulse" style={{ width: '70%' }} />
+              </div>
+              <p className="text-[10px] text-gray-500">CapCut을 열면 홈 화면에 프로젝트가 나타납니다.</p>
+            </div>
+          )}
+          {isDone && (!installing || buildMode !== 'capcut') && (
+            <div className="text-green-400 font-semibold text-sm">
+              {buildMode === 'capcut' ? '✅ CapCut 프로젝트 설치 완료! CapCut을 열어 확인하세요.' : '✅ 빌드 완료!'}
+            </div>
+          )}
           {isError && (
             <>
               <div className="flex items-center justify-between mb-2">
