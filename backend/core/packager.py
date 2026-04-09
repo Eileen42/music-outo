@@ -94,6 +94,51 @@ class Packager:
         except Exception as e:
             return {"output_file": None, "capcut_file": None, "error": str(e)}
 
+    async def build_capcut_only(
+        self,
+        project_state: dict,
+        project_dir: Path,
+        progress_cb: Optional[Callable[[int, str], None]] = None,
+    ) -> dict:
+        """CapCut 프로젝트 파일만 생성 (FFmpeg 불필요)."""
+        output_dir = project_dir / "outputs"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        def report(pct: int, msg: str = ""):
+            if progress_cb:
+                progress_cb(pct, msg)
+
+        try:
+            tracks = project_state.get("tracks", [])
+            if not tracks:
+                raise ValueError("트랙이 없습니다.")
+
+            # 오디오 병합 (단일 트랙이면 복사)
+            report(20, "오디오 준비 중...")
+            audio_paths = [Path(t["stored_path"]) for t in tracks if t.get("stored_path")]
+            merged_audio = output_dir / "merged_audio.mp3"
+            if len(audio_paths) == 1:
+                import shutil
+                if not merged_audio.exists() or merged_audio.stat().st_size == 0:
+                    shutil.copy(audio_paths[0], merged_audio)
+            elif len(audio_paths) > 1:
+                await audio_pipeline.merge_tracks(audio_paths, merged_audio)
+
+            report(50, "CapCut 프로젝트 생성 중...")
+            capcut_file = await capcut_builder.build(project_state, output_dir)
+            if not capcut_file:
+                capcut_file = await capcut_builder.build_simple_json(project_state, output_dir)
+
+            report(100, "완료!")
+            return {
+                "output_file": None,
+                "capcut_file": str(capcut_file) if capcut_file else None,
+                "error": None,
+            }
+
+        except Exception as e:
+            return {"output_file": None, "capcut_file": None, "error": str(e)}
+
     async def _build_video(
         self,
         audio_path: Path,

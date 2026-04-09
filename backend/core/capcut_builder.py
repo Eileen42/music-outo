@@ -115,7 +115,7 @@ class CapcutBuilder:
 
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "draft_content.json"
-        output_path.write_text(json.dumps(draft, ensure_ascii=False, indent=2))
+        output_path.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
         return output_path
 
 

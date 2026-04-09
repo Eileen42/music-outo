@@ -17,20 +17,24 @@ async def get_build_status(project_id: str):
 
 
 @router.post("", summary="영상 빌드 시작")
-async def trigger_build(project_id: str, background_tasks: BackgroundTasks):
-    """오디오·이미지·레이어를 합쳐 최종 MP4를 생성합니다. 백그라운드로 실행됩니다."""
+async def trigger_build(project_id: str, background_tasks: BackgroundTasks, body: dict = None):
+    """
+    빌드 모드: mp4 (FFmpeg) 또는 capcut (프로젝트 파일).
+    body: {"mode": "mp4" | "capcut"}
+    """
     state = state_manager.require(project_id)
+    mode = (body or {}).get("mode", "capcut")
 
     if state.get("build", {}).get("status") == "processing":
         raise HTTPException(409, "이미 빌드가 진행 중입니다")
 
     state_manager.update(
         project_id,
-        {"build": {"status": "processing", "progress": 0, "error": None}},
+        {"build": {"status": "processing", "progress": 0, "error": None, "mode": mode}},
     )
 
-    background_tasks.add_task(_run_build, project_id)
-    return {"status": "processing"}
+    background_tasks.add_task(_run_build, project_id, mode)
+    return {"status": "processing", "mode": mode}
 
 
 @router.get("/download", summary="완성 영상 다운로드 (MP4)")
@@ -67,17 +71,27 @@ async def download_capcut(project_id: str):
 
 # ─── background task ─────────────────────────────────────────────────────────
 
-async def _run_build(project_id: str):
+async def _run_build(project_id: str, mode: str = "capcut"):
     state = state_manager.get(project_id)
     if not state:
         return
 
     project_dir = state_manager.project_dir(project_id)
 
-    def on_progress(pct: int, msg: str):
+    def on_progress(pct: int, msg: str = ""):
         state_manager.update(project_id, {"build": {"progress": pct}})
 
-    result = await packager.build(state, project_dir, progress_cb=on_progress)
+    try:
+        if mode == "capcut":
+            # CapCut 프로젝트 파일만 생성 (FFmpeg 불필요)
+            on_progress(10)
+            result = await packager.build_capcut_only(state, project_dir, progress_cb=on_progress)
+        else:
+            # MP4 전체 빌드
+            result = await packager.build(state, project_dir, progress_cb=on_progress)
+    except Exception as e:
+        import traceback
+        result = {"error": f"{type(e).__name__}: {e}\n{traceback.format_exc()[-300:]}"}
 
     state_manager.update(
         project_id,
@@ -88,6 +102,7 @@ async def _run_build(project_id: str):
                 "capcut_file": result.get("capcut_file"),
                 "error": result.get("error"),
                 "progress": 100 if not result.get("error") else 0,
+                "mode": mode,
             },
             "status": "ready" if not result.get("error") else "setup",
         },

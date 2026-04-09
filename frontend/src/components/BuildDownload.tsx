@@ -7,11 +7,11 @@ interface Props {
   onRefresh: () => void
 }
 
-type BuildMode = 'mp4' | 'capcut' | 'both'
+type BuildMode = 'mp4' | 'capcut'
 
 export default function BuildDownload({ project, onRefresh }: Props) {
   const [triggering, setTriggering] = useState(false)
-  const [buildMode, setBuildMode] = useState<BuildMode>('both')
+  const [buildMode, setBuildMode] = useState<BuildMode>('capcut')
   const build = project.build || { status: null, progress: 0, output_file: null, capcut_file: null, error: null }
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function BuildDownload({ project, onRefresh }: Props) {
     if (!confirm('빌드를 시작하시겠습니까?')) return
     setTriggering(true)
     try {
-      await api.build.trigger(project.id)
+      await api.build.trigger(project.id, buildMode)
       await onRefresh()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } }; message?: string })
@@ -69,12 +69,6 @@ export default function BuildDownload({ project, onRefresh }: Props) {
       msg: project.subtitle_entries?.length ? `${project.subtitle_entries.length}개 자막` : '없음',
       required: false,
     },
-    {
-      label: '✍️ 메타데이터',
-      ok: !!project.metadata?.title,
-      msg: project.metadata?.title ? '제목 있음' : '없음 (YouTube 업로드 시 필요)',
-      required: false,
-    },
   ]
 
   const isProcessing = build.status === 'processing'
@@ -86,11 +80,10 @@ export default function BuildDownload({ project, onRefresh }: Props) {
       {/* 빌드 모드 선택 */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
         <h3 className="text-sm font-semibold text-gray-200 mb-3">빌드 방식 선택</h3>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {([
-            { mode: 'mp4' as BuildMode, icon: '🎬', label: 'MP4 영상', desc: 'FFmpeg로 직접 영상 렌더링' },
-            { mode: 'capcut' as BuildMode, icon: '✂️', label: 'CapCut 프로젝트', desc: 'CapCut에서 열어 편집/렌더링' },
-            { mode: 'both' as BuildMode, icon: '📦', label: '둘 다', desc: 'MP4 + CapCut 동시 생성' },
+            { mode: 'mp4' as BuildMode, icon: '🎬', label: 'MP4 영상', desc: 'FFmpeg로 직접 영상 렌더링 (FFmpeg 필요)' },
+            { mode: 'capcut' as BuildMode, icon: '✂️', label: 'CapCut 프로젝트', desc: 'CapCut에서 열어 편집 후 렌더링' },
           ]).map(opt => (
             <button
               key={opt.mode}
@@ -107,9 +100,9 @@ export default function BuildDownload({ project, onRefresh }: Props) {
             </button>
           ))}
         </div>
-        {(buildMode === 'mp4' || buildMode === 'both') && (
+        {buildMode === 'mp4' && (
           <p className="text-[10px] text-yellow-500 mt-2">
-            MP4 빌드에는 FFmpeg 설치가 필요합니다. 미설치 시 CapCut 프로젝트만 생성됩니다.
+            MP4 빌드에는 FFmpeg 설치가 필요합니다.
           </p>
         )}
       </div>
