@@ -39,12 +39,15 @@ const CW = 640, CH = 360, S = CW / 1920
 
 function mgWf(s: Partial<WaveformLayerConfig> | null): WaveformLayerConfig { return { ...DEF_WF, ...(s || {}) } }
 function mgTxt(t: Partial<TextLayerConfig> & { id: string; text: string }): TextLayerConfig {
-  return {
-    text: '', font_size: 36, font_family: FONTS[0].value, color: '#FFFFFF', alpha: 1,
+  const base: TextLayerConfig = {
+    id: t.id, text: t.text || '', font_size: 36, font_family: FONTS[0].value, color: '#FFFFFF', alpha: 1,
     position_x: 0.5, position_y: 0.1, scale_x: 1, scale_y: 1,
     bold: false, italic: false, letter_spacing: 0, line_spacing: 0,
     alignment: 'center', shadow: { ...DEF_SHADOW }, animation_in: { ...DEF_ANIM }, animation_out: { ...DEF_ANIM }, role: 'custom',
-    ...t, font_family: t.font_family || FONTS[0].value,
+  }
+  return {
+    ...base, ...t,
+    font_family: t.font_family || base.font_family,
     shadow: { ...DEF_SHADOW, ...(t.shadow || {}) },
     animation_in: { ...DEF_ANIM, ...(t.animation_in || {}) },
     animation_out: { ...DEF_ANIM, ...(t.animation_out || {}) },

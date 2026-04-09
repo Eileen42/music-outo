@@ -92,6 +92,7 @@ export interface ProjectLayers {
   waveform_layer: WaveformLayerConfig | null
   text_layers: TextLayerConfig[]
   effect_layers: EffectLayerConfig[]
+  subtitle_style?: Partial<TextLayerConfig>
 }
 
 export interface LayerTemplate {
