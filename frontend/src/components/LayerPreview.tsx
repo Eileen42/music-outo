@@ -111,6 +111,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
     (layers as unknown as { subtitle_style?: Partial<TextLayerConfig> }).subtitle_style || {}
   )
   const [subPreviewIdx, setSubPreviewIdx] = useState(0)
+  const [playTime, setPlayTime] = useState(0) // 재생 시뮬레이션 시간(초)
 
   // 섹션 토글
   const [openSec, setOpenSec] = useState<Record<string, boolean>>({ waveform: true, text: true, subtitle: true, effect: true, template: false })
@@ -161,6 +162,20 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   }, [effects])
   useEffect(() => { if (!playing) { drawWf(); drawFx(); return }; let on = true; const t = () => { if (!on) return; drawWf(); drawFx(); animRef.current = requestAnimationFrame(t) }; t(); return () => { on = false; cancelAnimationFrame(animRef.current) } }, [playing, drawWf, drawFx])
   useEffect(() => { drawWf(); drawFx() }, [drawWf, drawFx])
+
+  // 재생 시 자막 타임코드 시뮬레이션
+  useEffect(() => {
+    if (!playing || subtitleEntries.length === 0) return
+    const start = Date.now() - playTime * 1000
+    const timer = setInterval(() => {
+      const elapsed = (Date.now() - start) / 1000
+      setPlayTime(elapsed)
+      // 현재 시간에 해당하는 자막 찾기
+      const idx = subtitleEntries.findIndex(e => e.start <= elapsed && e.end >= elapsed)
+      if (idx >= 0) setSubPreviewIdx(idx)
+    }, 200)
+    return () => clearInterval(timer)
+  }, [playing, subtitleEntries.length])
 
   // ── 드래그 ──
   const startDrag = (mode: DragMode, id: string) => (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setDragMode(mode); setDragId(id); const l = texts.find(t => t.id === id); dragStartRef.current = { mx: e.clientY, my: e.clientY, origSize: l?.font_size || 36 } }
@@ -243,7 +258,13 @@ export default function LayerPreview({ project, onRefresh }: Props) {
             <p className="text-[10px] text-gray-600">노래만들기 → 트랙추가에서 SRT 파일을 업로드하세요</p>
           ) : (<>
             <p className="text-[10px] text-green-400 mb-1">✓ {subtitleEntries.length}개 자막 로드됨</p>
-            <div className="flex gap-1 items-center mb-1"><span className="text-[9px] text-gray-500">미리보기</span><button onClick={() => setSubPreviewIdx(Math.max(0, subPreviewIdx - 1))} className="text-[10px] text-gray-500 px-1">◀</button><span className="text-[10px] text-white">{subPreviewIdx + 1}/{subtitleEntries.length}</span><button onClick={() => setSubPreviewIdx(Math.min(subtitleEntries.length - 1, subPreviewIdx + 1))} className="text-[10px] text-gray-500 px-1">▶</button></div>
+            <div className="flex gap-1 items-center mb-1">
+              <button onClick={() => { setSubPreviewIdx(Math.max(0, subPreviewIdx - 1)); setPlayTime(subtitleEntries[Math.max(0, subPreviewIdx - 1)]?.start || 0) }} className="text-[10px] text-gray-500 px-1">◀</button>
+              <span className="text-[10px] text-white">{subPreviewIdx + 1}/{subtitleEntries.length}</span>
+              <button onClick={() => { setSubPreviewIdx(Math.min(subtitleEntries.length - 1, subPreviewIdx + 1)); setPlayTime(subtitleEntries[Math.min(subtitleEntries.length - 1, subPreviewIdx + 1)]?.start || 0) }} className="text-[10px] text-gray-500 px-1">▶</button>
+              <span className="text-[9px] text-gray-600 ml-auto">{Math.floor(playTime / 60)}:{String(Math.floor(playTime % 60)).padStart(2, '0')}</span>
+            </div>
+            {playing && <p className="text-[9px] text-indigo-400">재생 중 — 타임코드에 맞춰 자막 자동 전환</p>}
             <div className="text-[10px] text-gray-400 bg-gray-800 rounded p-1.5 mb-2">{subPreview?.text || '...'}</div>
             <p className="text-[9px] text-gray-600 mb-1">자막 스타일:</p>
             <select value={subStyle.font_family || FONTS[0].value} onChange={e => setSubStyle(s => ({ ...s, font_family: e.target.value }))} className="w-full bg-gray-800 text-white rounded px-1.5 py-0.5 text-[10px] border border-gray-700 mb-1">{FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select>
@@ -280,7 +301,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-white">🎬 레이어 미리보기</h2>
           <div className="flex gap-2">
-            <button onClick={() => setPlaying(p => !p)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${playing ? 'bg-red-700 text-white' : 'bg-gray-700 text-gray-300'}`}>{playing ? '⏸ 정지' : '▶ 미리보기'}</button>
+            <button onClick={() => { if (playing) { setPlaying(false) } else { setPlayTime(0); setSubPreviewIdx(0); setPlaying(true) } }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${playing ? 'bg-red-700 text-white' : 'bg-gray-700 text-gray-300'}`}>{playing ? '⏸ 정지' : '▶ 미리보기'}</button>
             <button onClick={save} disabled={saving} className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-xs font-semibold">{saving ? '저장 중...' : '💾 저장'}</button>
           </div>
         </div>
@@ -301,8 +322,8 @@ export default function LayerPreview({ project, onRefresh }: Props) {
               <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-purple-500/50 hover:bg-purple-400 rounded-sm cursor-se-resize opacity-0 group-hover:opacity-100" onMouseDown={startDrag('resize-text', l.id)} />
             </div>
           ))}
-          {/* 자막 미리보기 */}
-          {subPreview && (
+          {/* 자막 미리보기 — 재생 중엔 타임코드 맞을 때만 표시 */}
+          {subPreview && (!playing || (playTime >= subPreview.start && playTime <= subPreview.end)) && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center" style={{ fontSize: `${(subStyle.font_size || 15) * S * (subStyle.scale_x ?? 0.325)}px`, fontFamily: subStyle.font_family || FONTS[1].value, color: subStyle.color || '#FFFFFF', fontStyle: subStyle.italic ? 'italic' : 'normal', opacity: 0.9, textShadow: '2px 2px 4px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap' }}>
               {subPreview.text}
             </div>
