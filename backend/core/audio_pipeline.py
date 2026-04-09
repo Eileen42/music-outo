@@ -13,6 +13,11 @@ from pathlib import Path
 import aiofiles
 import mutagen
 
+try:
+    from pydub import AudioSegment
+except ImportError:
+    AudioSegment = None  # type: ignore  — FFmpeg 없으면 병합 불가
+
 SUPPORTED_FORMATS = {".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".opus"}
 
 
