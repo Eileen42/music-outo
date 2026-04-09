@@ -1,12 +1,28 @@
 """
-CapCut(剪映) 프로젝트 파일 생성.
-pyJianYingDraft 라이브러리 사용.
+CapCut(剪映) 프로젝트 폴더 생성.
+CapCut이 인식하는 폴더 구조 + draft_content.json 생성.
 """
 from __future__ import annotations
 
-import asyncio
+import json
+import logging
+import shutil
+import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+
+def _uuid() -> str:
+    return str(uuid.uuid4()).upper()
+
+
+def _us(seconds: float) -> int:
+    """초를 마이크로초로."""
+    return int(seconds * 1_000_000)
 
 
 class CapcutBuilder:
@@ -15,108 +31,330 @@ class CapcutBuilder:
         project_state: dict,
         output_dir: Path,
     ) -> Optional[Path]:
-        """
-        프로젝트 상태를 기반으로 CapCut 프로젝트 파일(.jianying or draft_content.json) 생성.
-        """
+        """CapCut 프로젝트 폴더 생성. 반환: 폴더 경로."""
         try:
-            return await asyncio.to_thread(self._build_sync, project_state, output_dir)
-        except ImportError:
-            # pyJianYingDraft 미설치 시 스킵
-            import logging
-            logging.getLogger(__name__).warning(
-                "pyJianYingDraft not installed. CapCut export skipped."
-            )
-            return None
+            return self._build_project_folder(project_state, output_dir)
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"CapCut build failed: {e}")
-            return None
+            logger.error(f"CapCut build failed: {e}", exc_info=True)
+            raise
 
-    def _build_sync(self, project_state: dict, output_dir: Path) -> Path:
-        try:
-            import jianying as jy
-        except ImportError:
-            import pyjianying as jy
+    async def build_simple_json(self, project_state: dict, output_dir: Path) -> Path:
+        """fallback — 간단한 JSON만."""
+        return self._build_project_folder(project_state, output_dir)
 
-        tracks = project_state.get("tracks", [])
-        metadata = project_state.get("metadata", {})
-        layers = project_state.get("layers", {})
-        images = project_state.get("images", {})
+    def _build_project_folder(self, state: dict, output_dir: Path) -> Path:
+        """CapCut 프로젝트 폴더 구조 생성."""
+        tracks = state.get("tracks", [])
+        metadata = state.get("metadata", {})
+        layers = state.get("layers", {})
+        images = state.get("images", {})
+        subtitle_entries = state.get("subtitle_entries", [])
+        project_name = metadata.get("title") or state.get("name", "Untitled")
 
-        # 드래프트 생성
-        draft = jy.Draft()
+        # 프로젝트 폴더 생성
+        project_dir = output_dir / "capcut_project"
+        if project_dir.exists():
+            shutil.rmtree(project_dir)
+        project_dir.mkdir(parents=True)
 
-        # 배경 이미지/영상
+        # 빈 폴더들
+        for d in ["adjust_mask", "matting", "qr_upload", "smart_crop", "subdraft", "Resources", "common_attachment"]:
+            (project_dir / d).mkdir(exist_ok=True)
+
+        # GUID 폴더 (빈 폴더 3개)
+        for _ in range(3):
+            (project_dir / f"{{{_uuid()}}}").mkdir(exist_ok=True)
+
+        # 오디오 총 길이 계산
+        total_duration = sum(t.get("duration", 0) for t in tracks)
+        total_us = _us(total_duration)
+
+        # draft_content.json 생성
+        draft_content = self._build_draft_content(
+            state, tracks, images, layers, subtitle_entries, total_us, project_name
+        )
+        (project_dir / "draft_content.json").write_text(
+            json.dumps(draft_content, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        # draft_meta_info.json
+        draft_id = _uuid()
+        now = datetime.now(timezone.utc).isoformat()
+        meta_info = {
+            "draft_cover": "draft_cover.jpg",
+            "draft_fold_path": str(project_dir),
+            "draft_id": draft_id,
+            "draft_name": project_name,
+            "draft_new_version": "",
+            "draft_removable_storage_device": "",
+            "draft_root_path": str(output_dir),
+            "draft_segment_extra_info": [],
+            "draft_timeline_materials_size_": 0,
+            "tm_draft_create": now,
+            "tm_draft_modified": now,
+            "tm_duration": total_us,
+        }
+        (project_dir / "draft_meta_info.json").write_text(
+            json.dumps(meta_info, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        # draft_settings
+        ts = int(time.time())
+        (project_dir / "draft_settings").write_text(
+            f"[General]\ndraft_create_time={ts}\ndraft_last_edit_time={ts}\nreal_edit_seconds=0\nreal_edit_keys=0\ncloud_last_modify_platform=windows\n",
+            encoding="utf-8",
+        )
+
+        # 나머지 필수 파일 (빈/기본값)
+        (project_dir / "draft.extra").write_text('{"category_id":"","category_name":""}', encoding="utf-8")
+        (project_dir / "draft_agency_config.json").write_text(
+            '{"is_auto_agency_enabled":false,"is_auto_agency_popup":false,"is_single_agency_mode":false,"marterials":null,"use_converter":false,"video_resolution":720}',
+            encoding="utf-8",
+        )
+        (project_dir / "draft_biz_config.json").write_text("{}", encoding="utf-8")
+        (project_dir / "draft_virtual_store.json").write_text('{"draft_materials":[],"draft_virtual_store":[]}', encoding="utf-8")
+        (project_dir / "performance_opt_info.json").write_text('{"manual_cancle_precombine_segs":null,"need_auto_precombine_segs":null}', encoding="utf-8")
+
+        tl_id = _uuid()
+        (project_dir / "timeline_layout.json").write_text(
+            json.dumps({"dockItems": [{"dockIndex": 0, "ratio": 1, "timelineIds": [tl_id], "timelineNames": [tl_id]}], "layoutOrientation": 1}),
+            encoding="utf-8",
+        )
+
+        # 배경 이미지를 커버로 복사
         bg = images.get("background") or images.get("thumbnail")
         if bg and Path(bg).exists():
-            bg_clip = jy.VideoClip(str(bg))
-            draft.add_video_track([bg_clip])
+            try:
+                shutil.copy(bg, project_dir / "draft_cover.jpg")
+            except Exception:
+                pass
 
-        # 오디오 트랙
-        for track in tracks:
-            audio_path = track.get("stored_path")
-            if audio_path and Path(audio_path).exists():
-                audio_clip = jy.AudioClip(str(audio_path))
-                draft.add_audio_track([audio_clip])
-                break  # 첫 번째 트랙만 (병합된 경우)
+        # ZIP으로 압축
+        zip_path = output_dir / f"{project_name}.zip"
+        shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
 
-        # 텍스트 레이어
-        for text_layer in layers.get("text_layers", []):
-            text_clip = jy.TextClip(
-                text=text_layer.get("text", ""),
-                font_size=text_layer.get("font_size", 48),
-                color=text_layer.get("color", "#FFFFFF"),
-            )
-            draft.add_text_track([text_clip])
+        logger.info(f"CapCut project: {zip_path}")
+        return zip_path
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / "capcut_project"
-        draft.save(str(output_path))
-
-        # 저장된 파일 찾기
-        for ext in [".jianying", ".zip", "_draft_content.json"]:
-            candidate = output_dir / f"capcut_project{ext}"
-            if candidate.exists():
-                return candidate
-
-        return output_dir / "capcut_project"
-
-    async def build_simple_json(
-        self,
-        project_state: dict,
-        output_dir: Path,
-    ) -> Path:
-        """
-        pyJianYingDraft 없을 때 fallback:
-        CapCut이 읽을 수 있는 간단한 draft_content.json 생성.
-        """
-        import json
-
-        tracks = project_state.get("tracks", [])
-        metadata = project_state.get("metadata", {})
-
-        draft = {
-            "id": project_state.get("id", ""),
-            "name": metadata.get("title") or project_state.get("name", ""),
-            "tracks": [
-                {
-                    "type": "audio",
-                    "clips": [
-                        {
-                            "path": t.get("stored_path", ""),
-                            "duration": t.get("duration", 0),
-                            "title": t.get("title", ""),
-                        }
-                        for t in tracks
-                    ],
-                }
-            ],
+    def _build_draft_content(
+        self, state: dict, tracks: list, images: dict, layers: dict,
+        subtitle_entries: list, total_us: int, project_name: str,
+    ) -> dict:
+        """draft_content.json 핵심 구조."""
+        materials: dict = {
+            "audios": [], "videos": [], "texts": [], "effects": [],
+            "video_effects": [], "material_animations": [], "speeds": [],
+            "canvases": [], "sound_channel_mappings": [], "vocal_separations": [],
         }
+        track_list: list = []
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / "draft_content.json"
-        output_path.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
-        return output_path
+        # ── 1. 배경 이미지 트랙 ──
+        bg_path = images.get("background") or images.get("thumbnail")
+        if bg_path and Path(bg_path).exists():
+            vid_id = _uuid()
+            materials["videos"].append({
+                "id": vid_id,
+                "path": str(bg_path),
+                "type": "photo",
+                "width": 1920,
+                "height": 1080,
+                "duration": total_us,
+            })
+            bg_seg_id = _uuid()
+            track_list.append({
+                "type": "video",
+                "segments": [{
+                    "id": bg_seg_id,
+                    "material_id": vid_id,
+                    "target_timerange": {"start": 0, "duration": total_us},
+                    "clip": {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 1.0, "y": 1.0}, "rotation": 0.0},
+                    "extra_material_refs": [],
+                }],
+            })
+
+        # ── 2. 효과 트랙 (반딧불이 등) ──
+        effect_layers = layers.get("effect_layers", [])
+        for eff in effect_layers:
+            if not eff.get("enabled"):
+                continue
+            eff_id = _uuid()
+            materials["video_effects"].append({
+                "id": eff_id,
+                "name": eff.get("name", "효과"),
+                "type": "video_effect",
+                "effect_id": eff.get("effect_id", ""),
+                "resource_id": eff.get("effect_id", ""),
+                "adjust_params": [
+                    {"name": k, "value": v, "default_value": v}
+                    for k, v in eff.get("params", {}).items()
+                ],
+            })
+            track_list.append({
+                "type": "effect",
+                "segments": [{
+                    "id": _uuid(),
+                    "material_id": eff_id,
+                    "target_timerange": {"start": 0, "duration": total_us},
+                    "extra_material_refs": [],
+                }],
+            })
+
+        # ── 3. 자막 트랙 (SRT) ──
+        if subtitle_entries:
+            sub_style = layers.get("subtitle_style", {})
+            sub_segments = []
+            for entry in subtitle_entries:
+                txt_id = _uuid()
+                anim_id = _uuid()
+
+                font_size = sub_style.get("font_size", 15)
+                font_family = sub_style.get("font_family", "")
+                color = sub_style.get("color", "#FFFFFF")
+                italic = sub_style.get("italic", False)
+                shadow = sub_style.get("shadow", {})
+
+                materials["texts"].append({
+                    "id": txt_id,
+                    "type": "text",
+                    "content": json.dumps({
+                        "text": entry["text"],
+                        "styles": [{"font": {"path": font_family}, "size": font_size,
+                                    "fill": {"content": {"render_type": "solid", "solid": {"color": [1, 1, 1]}}}}],
+                    }, ensure_ascii=False),
+                    "font_size": float(font_size),
+                    "text_color": color,
+                    "has_shadow": shadow.get("enabled", False),
+                    "shadow_alpha": shadow.get("alpha", 0.36),
+                    "shadow_angle": shadow.get("angle", -45),
+                    "shadow_color": shadow.get("color", "#000000"),
+                    "shadow_distance": shadow.get("distance", 5),
+                    "shadow_smoothing": shadow.get("blur", 1.75),
+                    "alignment": 1,
+                    "italic_degree": 12 if italic else 0,
+                })
+
+                # 애니메이션
+                anim_in = sub_style.get("animation_in", {})
+                animations = []
+                if anim_in and anim_in.get("type") != "none":
+                    animations.append({
+                        "name": anim_in.get("type", "fade_in"),
+                        "duration": _us(anim_in.get("duration", 3)),
+                        "category_name": "인",
+                    })
+                materials["material_animations"].append({"id": anim_id, "animations": animations})
+
+                start_us = _us(entry["start"])
+                dur_us = _us(entry["end"] - entry["start"])
+                sub_segments.append({
+                    "id": _uuid(),
+                    "material_id": txt_id,
+                    "target_timerange": {"start": start_us, "duration": dur_us},
+                    "clip": {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 0.325, "y": 0.325}, "rotation": 0.0},
+                    "extra_material_refs": [anim_id],
+                })
+
+            track_list.append({"type": "text", "segments": sub_segments})
+
+        # ── 4. 텍스트 레이어 트랙 (제목/설명) ──
+        text_layers = layers.get("text_layers", [])
+        for tl in text_layers:
+            txt_id = _uuid()
+            anim_id = _uuid()
+            shadow = tl.get("shadow", {})
+            anim_in = tl.get("animation_in", {})
+
+            materials["texts"].append({
+                "id": txt_id,
+                "type": "text",
+                "content": json.dumps({
+                    "text": tl.get("text", ""),
+                    "styles": [{"font": {"path": tl.get("font_family", "")}, "size": tl.get("font_size", 15),
+                                "fill": {"content": {"render_type": "solid", "solid": {"color": [1, 1, 1]}}}}],
+                }, ensure_ascii=False),
+                "font_size": float(tl.get("font_size", 15)),
+                "text_color": tl.get("color", "#FFFFFF"),
+                "has_shadow": shadow.get("enabled", False),
+                "shadow_alpha": shadow.get("alpha", 0.86),
+                "shadow_angle": shadow.get("angle", -45),
+                "shadow_color": shadow.get("color", "#000000"),
+                "shadow_distance": shadow.get("distance", 5),
+                "shadow_smoothing": shadow.get("blur", 2),
+                "alignment": {"left": 0, "center": 1, "right": 2}.get(tl.get("alignment", "center"), 1),
+                "italic_degree": 12 if tl.get("italic") else 0,
+                "bold_width": 0.08 if tl.get("bold") else 0,
+                "letter_spacing": tl.get("letter_spacing", 0),
+                "line_spacing": tl.get("line_spacing", 0),
+            })
+
+            animations = []
+            if anim_in and anim_in.get("type") != "none":
+                animations.append({
+                    "name": anim_in.get("type", "fade_in"),
+                    "duration": _us(anim_in.get("duration", 3)),
+                    "category_name": "인",
+                })
+            materials["material_animations"].append({"id": anim_id, "animations": animations})
+
+            track_list.append({
+                "type": "text",
+                "segments": [{
+                    "id": _uuid(),
+                    "material_id": txt_id,
+                    "target_timerange": {"start": 0, "duration": total_us},
+                    "clip": {
+                        "transform": {"x": tl.get("position_x", 0.5) * 2 - 1, "y": tl.get("position_y", 0.5) * 2 - 1},
+                        "scale": {"x": tl.get("scale_x", 0.25), "y": tl.get("scale_y", 0.25)},
+                        "rotation": 0.0,
+                    },
+                    "extra_material_refs": [anim_id],
+                }],
+            })
+
+        # ── 5. 오디오 트랙 ──
+        audio_segments = []
+        time_offset = 0
+        for track in tracks:
+            audio_path = track.get("stored_path", "")
+            if not audio_path or not Path(audio_path).exists():
+                continue
+            aud_id = _uuid()
+            dur = track.get("duration", 0)
+            dur_us = _us(dur)
+            materials["audios"].append({
+                "id": aud_id,
+                "path": str(audio_path),
+                "duration": dur_us,
+                "type": "extract_music",
+                "name": track.get("title", ""),
+            })
+            audio_segments.append({
+                "id": _uuid(),
+                "material_id": aud_id,
+                "target_timerange": {"start": _us(time_offset), "duration": dur_us},
+                "source_timerange": {"start": 0, "duration": dur_us},
+                "extra_material_refs": [],
+            })
+            time_offset += dur
+
+        if audio_segments:
+            track_list.append({"type": "audio", "segments": audio_segments})
+
+        return {
+            "canvas_config": {"height": 1080, "ratio": "original", "width": 1920},
+            "color_space": 0,
+            "config": {"adjust_max_index": 1, "attachment_info": []},
+            "create_time": int(time.time()),
+            "duration": total_us,
+            "fps": 30.0,
+            "id": state.get("id", _uuid()),
+            "keyframes": {"audios": [], "effects": [], "videos": []},
+            "materials": materials,
+            "mutable_config": None,
+            "name": project_name,
+            "tracks": track_list,
+            "version": 360000,
+        }
 
 
 capcut_builder = CapcutBuilder()
