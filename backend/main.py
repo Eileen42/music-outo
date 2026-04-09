@@ -46,10 +46,22 @@ app = FastAPI(
     ],
 )
 
-# CORS (개발환경: React dev server 허용)
+# CORS (로컬 dev + Vercel 호스팅 허용)
+_cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+]
+# Vercel 도메인 허용 (.env에 ALLOWED_ORIGINS 추가 가능)
+import os as _os
+_extra = _os.getenv("ALLOWED_ORIGINS", "")
+if _extra:
+    _cors_origins.extend(o.strip() for o in _extra.split(",") if o.strip())
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # 모든 Vercel 배포 URL 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
