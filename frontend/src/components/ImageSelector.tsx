@@ -173,7 +173,7 @@ export default function ImageSelector({ project, onRefresh }: Props) {
           <div className="flex gap-2">
             {([
               { id: 'background', label: '🖼 배경 (1920×1080)', desc: '영상 배경 이미지' },
-              { id: 'thumbnail',  label: '🎯 썸네일 (1280×720)', desc: 'YouTube 썸네일' },
+              { id: 'thumbnail',  label: '🎯 썸네일 (1280×720)', desc: 'YouTube 썸네일 · 미리캔버스' },
               { id: 'additional', label: '📂 참고용', desc: '분위기 참고 이미지' },
             ] as const).map(c => (
               <button
@@ -190,6 +190,19 @@ export default function ImageSelector({ project, onRefresh }: Props) {
               </button>
             ))}
           </div>
+
+          {/* 미리캔버스 링크 (썸네일 선택 시) */}
+          {uploadCat === 'thumbnail' && (
+            <a href="https://www.miricanvas.com/design" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-indigo-900/30 border border-indigo-800 rounded-xl px-4 py-2.5 hover:bg-indigo-900/50 transition-colors">
+              <span className="text-lg">🎨</span>
+              <div>
+                <div className="text-xs font-semibold text-indigo-300">미리캔버스에서 썸네일 만들기</div>
+                <div className="text-[10px] text-gray-500">1280×720 템플릿으로 YouTube 썸네일 디자인</div>
+              </div>
+              <span className="text-gray-600 ml-auto">↗</span>
+            </a>
+          )}
 
           {/* 드래그앤드롭 */}
           <div

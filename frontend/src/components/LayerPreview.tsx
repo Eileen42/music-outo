@@ -265,7 +265,22 @@ export default function LayerPreview({ project, onRefresh }: Props) {
               <span className="text-[9px] text-gray-600 ml-auto">{Math.floor(playTime / 60)}:{String(Math.floor(playTime % 60)).padStart(2, '0')}</span>
             </div>
             {playing && <p className="text-[9px] text-indigo-400">재생 중 — 타임코드에 맞춰 자막 자동 전환</p>}
-            <div className="text-[10px] text-gray-400 bg-gray-800 rounded p-1.5 mb-2">{subPreview?.text || '...'}</div>
+            {/* 타임라인 자막 목록 (현재 자막 하이라이트) */}
+            <div className="max-h-28 overflow-y-auto space-y-0.5 mb-2">
+              {subtitleEntries.slice(Math.max(0, subPreviewIdx - 2), subPreviewIdx + 5).map((e, i) => {
+                const realIdx = Math.max(0, subPreviewIdx - 2) + i
+                const isCurrent = realIdx === subPreviewIdx
+                const mm = Math.floor(e.start / 60)
+                const ss = Math.floor(e.start % 60)
+                return (
+                  <div key={realIdx} onClick={() => { setSubPreviewIdx(realIdx); setPlayTime(e.start) }}
+                    className={`flex gap-1.5 px-1.5 py-1 rounded cursor-pointer text-[10px] ${isCurrent ? 'bg-indigo-900/50 border border-indigo-700' : 'hover:bg-gray-800'}`}>
+                    <span className="text-gray-600 shrink-0 w-8">{mm}:{String(ss).padStart(2,'0')}</span>
+                    <span className={isCurrent ? 'text-white' : 'text-gray-500'}>{e.text.split('\n')[0].slice(0, 30)}</span>
+                  </div>
+                )
+              })}
+            </div>
             <p className="text-[9px] text-gray-600 mb-1">자막 스타일:</p>
             <select value={subStyle.font_family || FONTS[0].value} onChange={e => setSubStyle(s => ({ ...s, font_family: e.target.value }))} className="w-full bg-gray-800 text-white rounded px-1.5 py-0.5 text-[10px] border border-gray-700 mb-1">{FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select>
             <div className="flex gap-1 items-center"><input type="color" value={subStyle.color || '#FFFFFF'} onChange={e => setSubStyle(s => ({ ...s, color: e.target.value }))} className="w-5 h-5 rounded cursor-pointer" /><input type="number" value={subStyle.font_size || 15} onChange={e => setSubStyle(s => ({ ...s, font_size: parseInt(e.target.value) }))} className="w-10 bg-gray-800 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" /><span className="text-[8px] text-gray-600">px</span><button onClick={() => setSubStyle(s => ({ ...s, italic: !s.italic }))} className={`px-1 py-0.5 rounded text-[10px] italic ${subStyle.italic ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500'}`}>I</button></div>
