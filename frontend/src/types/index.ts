@@ -150,6 +150,8 @@ export interface Project {
   channel_id?: string
   benchmark_url?: string
   benchmark_data?: Record<string, unknown>
+  subtitle_srt_path?: string
+  subtitle_entries?: { start: number; end: number; text: string }[]
   tracks: Track[]
   images: ProjectImages
   metadata: ProjectMetadata

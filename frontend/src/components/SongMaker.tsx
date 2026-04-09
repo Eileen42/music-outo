@@ -1029,9 +1029,9 @@ export default function SongMaker({ project, onRefresh }: Props) {
               }}
               className="block w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-gray-300 hover:file:bg-gray-700 cursor-pointer"
             />
-            {(project as unknown as { subtitle_srt_path?: string }).subtitle_srt_path && (
+            {project.subtitle_srt_path && (
               <p className="text-xs text-green-400 mt-2">
-                ✓ SRT 파일 업로드됨
+                ✓ SRT 파일 업로드됨 ({project.subtitle_entries?.length || 0}개 자막)
               </p>
             )}
           </div>

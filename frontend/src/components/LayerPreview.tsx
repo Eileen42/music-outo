@@ -106,7 +106,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const [editId, setEditId] = useState<string | null>(texts[0]?.id || null)
 
   // 자막
-  const subtitleEntries = (project as unknown as { subtitle_entries?: { start: number; end: number; text: string }[] }).subtitle_entries || []
+  const subtitleEntries = project.subtitle_entries || []
   const [subStyle, setSubStyle] = useState<Partial<TextLayerConfig>>(
     (layers as unknown as { subtitle_style?: Partial<TextLayerConfig> }).subtitle_style || {}
   )
