@@ -129,8 +129,12 @@ class CapcutBuilder:
             except Exception:
                 pass
 
-        # ZIP으로 압축
-        zip_path = output_dir / f"{project_name}.zip"
+        # ZIP으로 압축 (파일명 안전하게)
+        import re
+        safe_name = re.sub(r'[\\/:*?"<>|]', '_', project_name)[:80].strip()
+        if not safe_name:
+            safe_name = "capcut_project"
+        zip_path = output_dir / f"{safe_name}.zip"
         shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
 
         logger.info(f"CapCut project: {zip_path}")

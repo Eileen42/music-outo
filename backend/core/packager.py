@@ -100,7 +100,7 @@ class Packager:
         project_dir: Path,
         progress_cb: Optional[Callable[[int, str], None]] = None,
     ) -> dict:
-        """CapCut 프로젝트 파일만 생성 (FFmpeg 불필요)."""
+        """CapCut 프로젝트 파일만 생성 (FFmpeg 불필요, 오디오 병합 안 함)."""
         output_dir = project_dir / "outputs"
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -113,21 +113,8 @@ class Packager:
             if not tracks:
                 raise ValueError("트랙이 없습니다.")
 
-            # 오디오 병합 (단일 트랙이면 복사)
-            report(20, "오디오 준비 중...")
-            audio_paths = [Path(t["stored_path"]) for t in tracks if t.get("stored_path")]
-            merged_audio = output_dir / "merged_audio.mp3"
-            if len(audio_paths) == 1:
-                import shutil
-                if not merged_audio.exists() or merged_audio.stat().st_size == 0:
-                    shutil.copy(audio_paths[0], merged_audio)
-            elif len(audio_paths) > 1:
-                await audio_pipeline.merge_tracks(audio_paths, merged_audio)
-
-            report(50, "CapCut 프로젝트 생성 중...")
+            report(30, "CapCut 프로젝트 생성 중...")
             capcut_file = await capcut_builder.build(project_state, output_dir)
-            if not capcut_file:
-                capcut_file = await capcut_builder.build_simple_json(project_state, output_dir)
 
             report(100, "완료!")
             return {
