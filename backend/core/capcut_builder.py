@@ -25,6 +25,61 @@ def _us(seconds: float) -> int:
     return int(seconds * 1_000_000)
 
 
+# 샘플에서 추출한 segment 기본 키 (CapCut이 이 키들을 모두 요구)
+_SEG_SKELETON: dict = {}
+
+
+def _load_seg_skeleton() -> dict:
+    global _SEG_SKELETON
+    if _SEG_SKELETON:
+        return _SEG_SKELETON
+    p = Path(__file__).parent.parent / "assets" / "capcut_skeleton.json"
+    if p.exists():
+        skel = json.loads(p.read_text(encoding="utf-8"))
+        ss = skel.get("segment_skeleton")
+        if ss:
+            _SEG_SKELETON = ss
+            return ss
+    # 하드코딩 기본값
+    _SEG_SKELETON = {}
+    return _SEG_SKELETON
+
+
+def _make_speed(materials: dict) -> str:
+    """speed material 생성, ID 반환."""
+    sid = _uuid()
+    materials["speeds"].append({
+        "curve_speed": None, "id": sid, "mode": 0, "speed": 1.0, "type": "speed",
+    })
+    return sid
+
+
+def _make_segment(
+    material_id: str, start_us: int, duration_us: int,
+    materials: dict,
+    render_index: int = 0,
+    clip: dict | None = None,
+    extra_refs: list | None = None,
+    source_start: int = 0,
+) -> dict:
+    """CapCut segment 생성 (모든 필수 키 포함)."""
+    speed_id = _make_speed(materials)
+    seg = dict(_load_seg_skeleton())  # 스켈레톤 복사
+    seg.update({
+        "id": _uuid(),
+        "material_id": material_id,
+        "target_timerange": {"start": start_us, "duration": duration_us},
+        "source_timerange": {"start": source_start, "duration": duration_us},
+        "render_index": render_index,
+        "speed": 1.0,
+        "extra_material_refs": extra_refs or [],
+        "clip": clip or {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 1.0, "y": 1.0}, "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False}},
+        "visible": True,
+        "volume": 1.0,
+    })
+    return seg
+
+
 class CapcutBuilder:
     async def build(
         self,
@@ -198,16 +253,10 @@ class CapcutBuilder:
                 "height": 1080,
                 "duration": total_us,
             })
-            bg_seg_id = _uuid()
             track_list.append({
                 "type": "video",
-                "segments": [{
-                    "id": bg_seg_id,
-                    "material_id": vid_id,
-                    "target_timerange": {"start": 0, "duration": total_us},
-                    "clip": {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 1.0, "y": 1.0}, "rotation": 0.0},
-                    "extra_material_refs": [],
-                }],
+                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
+                "segments": [_make_segment(vid_id, 0, total_us, materials, render_index=0)],
             })
 
         # ── 2. 효과 트랙 (반딧불이 등) ──
@@ -229,12 +278,8 @@ class CapcutBuilder:
             })
             track_list.append({
                 "type": "effect",
-                "segments": [{
-                    "id": _uuid(),
-                    "material_id": eff_id,
-                    "target_timerange": {"start": 0, "duration": total_us},
-                    "extra_material_refs": [],
-                }],
+                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
+                "segments": [_make_segment(eff_id, 0, total_us, materials, render_index=11000)],
             })
 
         # ── 3. 자막 트랙 (SRT) ──
@@ -284,15 +329,17 @@ class CapcutBuilder:
 
                 start_us = _us(entry["start"])
                 dur_us = _us(entry["end"] - entry["start"])
-                sub_segments.append({
-                    "id": _uuid(),
-                    "material_id": txt_id,
-                    "target_timerange": {"start": start_us, "duration": dur_us},
-                    "clip": {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 0.325, "y": 0.325}, "rotation": 0.0},
-                    "extra_material_refs": [anim_id],
-                })
+                sub_segments.append(_make_segment(
+                    txt_id, start_us, dur_us, materials, render_index=14000,
+                    clip={"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 0.325, "y": 0.325}, "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False}},
+                    extra_refs=[anim_id],
+                ))
 
-            track_list.append({"type": "text", "segments": sub_segments})
+            track_list.append({
+                "type": "text",
+                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
+                "segments": sub_segments,
+            })
 
         # ── 4. 텍스트 레이어 트랙 (제목/설명) ──
         text_layers = layers.get("text_layers", [])
@@ -336,17 +383,16 @@ class CapcutBuilder:
 
             track_list.append({
                 "type": "text",
-                "segments": [{
-                    "id": _uuid(),
-                    "material_id": txt_id,
-                    "target_timerange": {"start": 0, "duration": total_us},
-                    "clip": {
+                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
+                "segments": [_make_segment(
+                    txt_id, 0, total_us, materials, render_index=14000,
+                    clip={
                         "transform": {"x": tl.get("position_x", 0.5) * 2 - 1, "y": tl.get("position_y", 0.5) * 2 - 1},
                         "scale": {"x": tl.get("scale_x", 0.25), "y": tl.get("scale_y", 0.25)},
-                        "rotation": 0.0,
+                        "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False},
                     },
-                    "extra_material_refs": [anim_id],
-                }],
+                    extra_refs=[anim_id],
+                )],
             })
 
         # ── 5. 오디오 트랙 ──
@@ -366,17 +412,17 @@ class CapcutBuilder:
                 "type": "extract_music",
                 "name": track.get("title", ""),
             })
-            audio_segments.append({
-                "id": _uuid(),
-                "material_id": aud_id,
-                "target_timerange": {"start": _us(time_offset), "duration": dur_us},
-                "source_timerange": {"start": 0, "duration": dur_us},
-                "extra_material_refs": [],
-            })
+            audio_segments.append(_make_segment(
+                aud_id, _us(time_offset), dur_us, materials, render_index=0,
+            ))
             time_offset += dur
 
         if audio_segments:
-            track_list.append({"type": "audio", "segments": audio_segments})
+            track_list.append({
+                "type": "audio",
+                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
+                "segments": audio_segments,
+            })
 
         # 스켈레톤 + 우리 데이터 병합
         result = dict(base)
