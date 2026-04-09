@@ -146,7 +146,13 @@ export default function BuildDownload({ project, onRefresh }: Props) {
           {isDone && <div className="text-green-400 font-semibold text-sm">✅ 빌드 완료!</div>}
           {isError && (
             <>
-              <div className="text-red-400 font-semibold text-sm mb-2">❌ 빌드 실패</div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-red-400 font-semibold text-sm">❌ 빌드 실패</span>
+                <button onClick={async () => { await api.build.reset(project.id); await onRefresh() }}
+                  className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700 hover:border-gray-500">
+                  초기화
+                </button>
+              </div>
               {build.error && (
                 <div className="text-red-300 text-xs font-mono bg-gray-900 rounded-lg p-3 overflow-auto max-h-32">{build.error}</div>
               )}

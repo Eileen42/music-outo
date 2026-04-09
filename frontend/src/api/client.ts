@@ -100,6 +100,8 @@ export const api = {
       http.get<BuildStatus>(`/api/projects/${projectId}/build/status`).then(r => r.data),
     trigger: (projectId: string, mode: 'mp4' | 'capcut' = 'capcut') =>
       http.post(`/api/projects/${projectId}/build`, { mode }).then(r => r.data),
+    reset: (projectId: string) =>
+      http.post(`/api/projects/${projectId}/build/reset`).then(r => r.data),
     downloadUrl: (projectId: string) => `${BASE}/api/projects/${projectId}/build/download`,
     downloadCapcutUrl: (projectId: string) => `${BASE}/api/projects/${projectId}/build/download-capcut`,
   },

@@ -37,6 +37,15 @@ async def trigger_build(project_id: str, background_tasks: BackgroundTasks, body
     return {"status": "processing", "mode": mode}
 
 
+@router.post("/reset", summary="빌드 상태 초기화")
+async def reset_build(project_id: str):
+    state_manager.require(project_id)
+    state_manager.update(project_id, {
+        "build": {"status": None, "progress": 0, "error": None, "output_file": None, "capcut_file": None}
+    })
+    return {"reset": True}
+
+
 @router.get("/download", summary="완성 영상 다운로드 (MP4)")
 async def download_output(project_id: str):
     state = state_manager.require(project_id)
