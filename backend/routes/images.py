@@ -85,6 +85,24 @@ async def generate_images(project_id: str, body: dict):
 
     custom_prompt = body.get("custom_prompt", "").strip() if body.get("custom_prompt") else ""
 
+    # 벤치마크/컨셉 정보로 프롬프트 보강 (커스텀 프롬프트가 없을 때)
+    if not custom_prompt and not mood:
+        concept = state.get("project_concept") or {}
+        benchmark = state.get("benchmark_data") or {}
+        bm_analysis = benchmark.get("ai_analysis") or {}
+        if concept or bm_analysis:
+            parts = []
+            if concept.get("genre"):
+                parts.append(concept["genre"])
+            if concept.get("core_mood"):
+                parts.append(concept["core_mood"])
+            if concept.get("atmosphere"):
+                parts.append(concept["atmosphere"])
+            if bm_analysis.get("music_style"):
+                parts.append(bm_analysis["music_style"])
+            if parts:
+                custom_prompt = f"YouTube music video background, {', '.join(parts)}, cinematic, high quality, 1920x1080"
+
     if not custom_prompt and not mood:
         raise HTTPException(400, "이미지 설명을 입력하거나 먼저 레퍼런스 이미지를 분석하세요.")
 

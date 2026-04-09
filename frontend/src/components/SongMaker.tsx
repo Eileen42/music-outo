@@ -33,7 +33,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [channel, setChannel] = useState<Channel | null>(null)
   const [tracks, setTracks] = useState<DesignedTrack[]>(project.designed_tracks ?? [])
   const [concept, setConcept] = useState<ProjectConcept | null>(null)
-  const [benchmarkUrl, setBenchmarkUrl] = useState('')
+  const [benchmarkUrl, setBenchmarkUrl] = useState(project.benchmark_url || '')
   const [count, setCount] = useState(20)
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')

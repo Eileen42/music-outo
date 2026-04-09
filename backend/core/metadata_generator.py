@@ -35,11 +35,40 @@ class MetadataGenerator:
             for i, t in enumerate(tracks)
         )
 
+        # 벤치마크 참조 정보
+        benchmark = project_state.get("benchmark_data") or {}
+        bm_analysis = benchmark.get("ai_analysis") or {}
+        concept = project_state.get("project_concept") or {}
+
+        benchmark_ref = ""
+        if bm_analysis:
+            benchmark_ref = (
+                f"\n[참고 벤치마크 영상]\n"
+                f"- 제목: {benchmark.get('title', '')}\n"
+                f"- 스타일: {bm_analysis.get('music_style', '')}\n"
+                f"- 타겟: {bm_analysis.get('target_audience', '')}\n"
+                f"- 구조: {bm_analysis.get('content_structure', '')}\n"
+                f"- SEO 키워드: {', '.join(bm_analysis.get('seo_keywords', []))}\n"
+            )
+
+        concept_ref = ""
+        if concept:
+            concept_ref = (
+                f"\n[프로젝트 컨셉]\n"
+                f"- 장르: {concept.get('genre', '')}\n"
+                f"- 분위기: {concept.get('core_mood', '')}\n"
+                f"- 템포: {concept.get('tempo', '')} ({concept.get('bpm_range', '')})\n"
+                f"- 악기: {concept.get('instrumentation', '')}\n"
+                f"- 분위기: {concept.get('atmosphere', '')}\n"
+            )
+
         ctx = {
             "project_name": name,
             "playlist_title": playlist_title,
             "track_list": track_list,
             "track_count": len(tracks),
+            "benchmark_ref": benchmark_ref,
+            "concept_ref": concept_ref,
         }
 
         title = await self._gen_title(ctx)
@@ -65,10 +94,11 @@ YouTube 음악 플레이리스트 영상 제목을 작성하세요.
 트랙 수: {ctx['track_count']}
 트랙 목록:
 {ctx['track_list']}
-
+{ctx['benchmark_ref']}{ctx['concept_ref']}
 조건:
 - 100자 이내
 - 클릭하고 싶은 제목
+- 벤치마크 영상의 제목 스타일을 참고하되 그대로 복사하지 않기
 - 한국어 또는 영어 (플레이리스트 언어에 맞게)
 - 마크다운 없이 제목만 출력
 """
@@ -86,13 +116,13 @@ YouTube 영상 설명란을 작성하세요.
 플레이리스트: {ctx['playlist_title']}
 트랙 목록:
 {ctx['track_list']}
-
+{ctx['benchmark_ref']}{ctx['concept_ref']}
 형식:
-- 첫 2~3줄: 영상 소개
+- 첫 2~3줄: 영상 소개 (컨셉의 분위기를 반영)
 - 트랙리스트 (타임스탬프 없이 제목만)
 - 태그라인 또는 문구
-- 저작권 안내 (해당 시)
 - 구독/좋아요 유도 문구
+- 벤치마크 영상의 설명란 구조를 참고하되 복사하지 않기
 """
         result = await gemini_client.generate_text(prompt)
         return result.strip()
@@ -103,9 +133,11 @@ YouTube 영상 태그를 생성하세요.
 플레이리스트: {ctx['playlist_title']}
 트랙 목록:
 {ctx['track_list']}
-
+{ctx['benchmark_ref']}{ctx['concept_ref']}
 조건:
 - 최대 30개 태그
+- 벤치마크 영상의 SEO 키워드를 참고
+- 장르, 분위기, 용도(수면, 명상, 집중 등) 포함
 - 관련성 높은 것부터
 - JSON 배열로만 응답: ["태그1", "태그2", ...]
 """
@@ -127,9 +159,10 @@ YouTube 영상에 고정할 첫 번째 댓글을 작성하세요.
 플레이리스트: {ctx['playlist_title']}
 트랙 목록:
 {ctx['track_list']}
-
+{ctx['concept_ref']}
 조건:
 - 친근하고 자연스러운 톤
+- 컨셉의 분위기를 반영
 - 트랙리스트 포함
 - 500자 이내
 """

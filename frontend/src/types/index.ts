@@ -95,6 +95,8 @@ export interface Project {
   updated_at: string
   status: string
   channel_id?: string
+  benchmark_url?: string
+  benchmark_data?: Record<string, unknown>
   tracks: Track[]
   images: ProjectImages
   metadata: ProjectMetadata

@@ -808,10 +808,11 @@ class SunoAutomation:
         output_dir: str,
     ) -> list[dict]:
         """
-        Suno 라이브러리에서 기존 clip의 형제(같은 생성에서 나온 2번째 곡)를 찾아 다운로드.
-        Suno는 1회 생성 시 2곡 출력 → 하나만 수집된 경우 나머지를 찾는다.
+        Suno 라이브러리 feed API에서 곡 목록 수집.
+        같은 제목의 곡이 2개 → 하나는 이미 있고(known) 다른 하나가 형제.
 
-        Returns: [{"suno_id": str, "sibling_of": str, "file_path": str, "title": str}, ...]
+        Returns: [{"suno_id": str, "sibling_of": str, "file_path": str,
+                   "title": str, "status": str}, ...]
         """
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -819,88 +820,99 @@ class SunoAutomation:
         results: list[dict] = []
 
         page = await self._context.new_page()
-        uuid_re = re.compile(
-            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-            re.IGNORECASE,
-        )
+        all_clips: list[dict] = []
+        seen_ids: set[str] = set()
+
+        async def on_response(resp):
+            if "suno" not in resp.url:
+                return
+            ct = resp.headers.get("content-type", "")
+            if "json" not in ct:
+                return
+            try:
+                data = await resp.json()
+                clips = data.get("clips") or data.get("data") or []
+                if not isinstance(clips, list):
+                    return
+                for c in clips:
+                    if not isinstance(c, dict):
+                        continue
+                    cid = c.get("id", "")
+                    if cid and cid not in seen_ids:
+                        seen_ids.add(cid)
+                        all_clips.append({
+                            "id": cid,
+                            "title": c.get("title", ""),
+                            "audio_url": c.get("audio_url", ""),
+                        })
+            except Exception:
+                pass
 
         try:
-            # 각 known clip의 페이지를 방문해서 형제 clip 찾기
-            for known_id in known_ids:
-                if not known_id:
-                    continue
-                try:
-                    await page.goto(
-                        f"https://suno.com/song/{known_id}",
-                        wait_until="domcontentloaded",
-                        timeout=20_000,
-                    )
+            page.on("response", on_response)
+            await page.goto("https://suno.com/me", wait_until="domcontentloaded", timeout=30_000)
+            await page.wait_for_timeout(5_000)
+
+            for scroll in range(50):
+                found = known_set & seen_ids
+                if found == known_set:
+                    logger.info(f"모든 known ID 발견 (스크롤 {scroll+1}회, {len(all_clips)}곡)")
+                    break
+
+                prev = len(all_clips)
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(2_500)
+
+                if len(all_clips) == prev:
                     await page.wait_for_timeout(3_000)
+                    if len(all_clips) == prev:
+                        logger.info(f"스크롤 끝 ({scroll+1}회, {len(all_clips)}곡, {len(found)}/{len(known_set)} known)")
+                        break
 
-                    # 같은 페이지에 있는 다른 song link (형제 클립) 찾기
-                    sibling_ids = await page.evaluate("""
-                        (knownId) => {
-                            const links = Array.from(document.querySelectorAll('a[href*="/song/"]'));
-                            const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-                            const ids = new Set();
-                            for (const a of links) {
-                                const m = (a.href || '').match(uuidRe);
-                                if (m && m[0] !== knownId) ids.add(m[0]);
-                            }
-                            return [...ids];
-                        }
-                    """, known_id)
-
-                    # API 응답에서도 형제 찾기
-                    # (페이지 로딩 시 JSON에 관련 clips가 포함될 수 있음)
-
-                    for sib_id in sibling_ids:
-                        if sib_id in known_set:
-                            continue  # 이미 가지고 있는 클립
-                        if sib_id in {r["suno_id"] for r in results}:
-                            continue  # 이미 이번에 찾은 클립
-
-                        # 형제 클립의 제목 가져오기
-                        title = await page.evaluate("""
-                            (sibId) => {
-                                const link = document.querySelector(`a[href*="${sibId}"]`);
-                                if (!link) return '';
-                                const card = link.closest('[class*="card"], [class*="Card"], article, div');
-                                if (card) {
-                                    const h = card.querySelector('h1, h2, h3, [class*="title"], [class*="Title"]');
-                                    if (h) return h.textContent.trim();
-                                }
-                                return link.textContent.trim() || '';
-                            }
-                        """, sib_id) or f"sibling_of_{known_id[:8]}"
-
-                        # 다운로드
-                        safe_title = re.sub(r'[\\/:*?"<>|]', "_", title)
-                        file_path = await self._download(
-                            clip_id=sib_id,
-                            audio_url="",
-                            out_dir=out_dir,
-                            prefix=f"sib_{safe_title}",
-                        )
-
-                        results.append({
-                            "suno_id": sib_id,
-                            "sibling_of": known_id,
-                            "file_path": file_path,
-                            "title": title,
-                            "status": "completed" if file_path else "download_failed",
-                        })
-                        known_set.add(sib_id)
-                        logger.info(f"형제 클립 발견: {sib_id[:8]} (of {known_id[:8]}) → {title}")
-
-                except Exception as e:
-                    logger.warning(f"형제 검색 실패 [{known_id[:8]}]: {e}")
-                    continue
-
+            page.remove_listener("response", on_response)
+        except Exception as e:
+            logger.error(f"라이브러리 스캔 실패: {e}")
         finally:
             await page.close()
 
-        logger.info(f"형제 스캔 완료: {len(results)}개 발견")
+        logger.info(f"라이브러리 {len(all_clips)}곡 수집")
+
+        # 제목으로 그룹핑: 같은 제목 = 같은 생성에서 나온 2곡
+        from collections import defaultdict
+        by_title: dict[str, list[dict]] = defaultdict(list)
+        for clip in all_clips:
+            title = clip.get("title", "").strip()
+            if title:
+                by_title[title].append(clip)
+
+        # known에 있는 곡의 제목과 매칭 → 같은 제목의 다른 곡이 형제
+        for title, clips in by_title.items():
+            known_in_group = [c for c in clips if c["id"] in known_set]
+            unknown_in_group = [c for c in clips if c["id"] not in known_set]
+
+            if not known_in_group or not unknown_in_group:
+                continue  # 형제 없음
+
+            parent_id = known_in_group[0]["id"]
+            for unk in unknown_in_group:
+                safe_title = re.sub(r'[\\/:*?"<>|]', "_", title)
+                prefix = f"v2_{safe_title}"
+                file_path = await self._download(
+                    clip_id=unk["id"],
+                    audio_url=unk.get("audio_url", ""),
+                    out_dir=out_dir,
+                    prefix=prefix,
+                )
+                results.append({
+                    "suno_id": unk["id"],
+                    "sibling_of": parent_id,
+                    "file_path": file_path,
+                    "title": title,
+                    "status": "completed" if file_path else "download_failed",
+                })
+                logger.info(f"형제 다운로드: '{title}' {unk['id'][:8]} → {'OK' if file_path else 'FAIL'}")
+
+        logger.info(f"형제 스캔 완료: {len(results)}개")
         return results
 
     async def get_credits(self) -> int:

@@ -88,10 +88,12 @@ async def design_tracks(body: DesignRequest):
     concept = result.get("concept", {})
     tracks  = result.get("tracks", [])
 
-    # 프로젝트에 저장
+    # 프로젝트에 저장 (벤치마크 포함 — 이미지/메타데이터 단계에서 참조)
     state_manager.update(body.project_id, {
         "designed_tracks":   tracks,
         "project_concept":   concept,
+        "benchmark_url":     benchmark_used,
+        "benchmark_data":    benchmark or {},
     })
 
     return {
