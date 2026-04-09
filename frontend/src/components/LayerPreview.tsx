@@ -97,7 +97,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const [effects, setEffects] = useState<EffectLayerConfig[]>(layers.effect_layers || [])
   const [newText, setNewText] = useState('')
   const [addingText, setAddingText] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(texts[0]?.id || null)
   const [playing, setPlaying] = useState(false)
   const [templates, setTemplates] = useState<LayerTemplate[]>([])
   const [tplName, setTplName] = useState('')
@@ -475,6 +475,28 @@ export default function LayerPreview({ project, onRefresh }: Props) {
                         className="w-10 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" />}
                       {l.animation_in?.type!=='none'&&<span className="text-[9px] text-gray-600">초</span>}
                     </div>
+                    {/* 퇴장 애니메이션 */}
+                    <div className="flex gap-1 items-center">
+                      <span className="text-[9px] text-gray-600">퇴장</span>
+                      <select value={l.animation_out?.type||'none'} onChange={e=>updTxt(l.id,{animation_out:{type:e.target.value as TextAnimation['type'],duration:l.animation_out?.duration||2}})}
+                        className="flex-1 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700">
+                        {ANIM_TYPES.map(a=><option key={a.value} value={a.value}>{a.label}</option>)}</select>
+                      {l.animation_out?.type!=='none'&&<input type="number" value={l.animation_out?.duration||2} step={0.5} min={0.5} max={10}
+                        onChange={e=>updTxt(l.id,{animation_out:{...l.animation_out!,duration:parseFloat(e.target.value)}})}
+                        className="w-10 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" />}
+                      {l.animation_out?.type!=='none'&&<span className="text-[9px] text-gray-600">초</span>}
+                    </div>
+                    {/* 스케일 */}
+                    <div className="flex gap-2 items-center">
+                      <span className="text-[9px] text-gray-600 w-8">가로</span>
+                      <input type="range" min={0.1} max={2} step={0.05} value={l.scale_x??1}
+                        onChange={e=>updTxt(l.id,{scale_x:parseFloat(e.target.value)})} className="flex-1 accent-purple-600 h-1" />
+                      <span className="text-[9px] text-gray-500 w-8">{Math.round((l.scale_x??1)*100)}%</span>
+                      <span className="text-[9px] text-gray-600 w-8">세로</span>
+                      <input type="range" min={0.1} max={2} step={0.05} value={l.scale_y??1}
+                        onChange={e=>updTxt(l.id,{scale_y:parseFloat(e.target.value)})} className="flex-1 accent-purple-600 h-1" />
+                      <span className="text-[9px] text-gray-500 w-8">{Math.round((l.scale_y??1)*100)}%</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -524,7 +546,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
             <span className="flex-1 text-xs text-white">{tpl.name}</span>
             <button onClick={()=>{
               if(tpl.waveform_layer)setWf(mg(tpl.waveform_layer))
-              if(tpl.text_layers)setTexts(tpl.text_layers.map(t=>({...t,id:crypto.randomUUID(),font_family:t.font_family||FONTS[0].value})))
+              if(tpl.text_layers)setTexts(tpl.text_layers.map(t=>migrateText({...t,id:crypto.randomUUID(),text:t.text||''})))
               if(tpl.effect_layers)setEffects(tpl.effect_layers)
             }} className="text-[10px] text-indigo-400 hover:text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">적용</button>
             <button onClick={async()=>{

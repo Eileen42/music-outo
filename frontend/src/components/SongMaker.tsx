@@ -1006,7 +1006,36 @@ export default function SongMaker({ project, onRefresh }: Props) {
 
       {/* ── 트랙 추가 탭 ── */}
       {tab === 'upload' && (
-        <TrackEditor project={project} onRefresh={onRefresh} />
+        <div>
+          <TrackEditor project={project} onRefresh={onRefresh} />
+
+          {/* SRT 자막 업로드 */}
+          <div className="mt-6 pt-4 border-t border-gray-800">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">확언/자막 SRT 파일</h3>
+            <p className="text-xs text-gray-500 mb-3">SRT 파일을 업로드하면 레이어 설정에서 자막으로 사용됩니다.</p>
+            <input
+              type="file"
+              accept=".srt"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                try {
+                  const res = await api.layers.uploadSrt(project.id, file)
+                  alert(`SRT 업로드 완료: ${res.entries_count}개 자막`)
+                  onRefresh()
+                } catch {
+                  alert('SRT 업로드 실패')
+                }
+              }}
+              className="block w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-gray-300 hover:file:bg-gray-700 cursor-pointer"
+            />
+            {(project as unknown as { subtitle_srt_path?: string }).subtitle_srt_path && (
+              <p className="text-xs text-green-400 mt-2">
+                ✓ SRT 파일 업로드됨
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
