@@ -1,0 +1,1605 @@
+{
+  "prompt_template": "{base_prompt}, {mood_modifier}, {time_modifier}, {weather_modifier}, {color_modifier}, {variation_suffix}, photorealistic, high detail, 16:9 cinematic composition, suitable for YouTube music video background",
+  "categories": [
+    {
+      "id": "nature",
+      "label_ko": "자연 풍경",
+      "label_en": "Nature",
+      "sub_categories": [
+        {
+          "id": "forest",
+          "label_ko": "숲",
+          "label_en": "Forest",
+          "base_prompt": "A dense ancient forest with towering trees creating a natural cathedral canopy overhead, their thick roots weaving across the moss-covered ground. Dappled light filters down through layered foliage, illuminating patches of ferns, fallen logs, and a narrow winding dirt path disappearing into the depths. The forest floor is rich with texture — soft lichen, mushrooms at the base of oaks, and the occasional wildflower catching a stray beam of light.",
+          "mood_modifiers": {
+            "peaceful": "serene and undisturbed, a gentle stillness where only leaves rustle softly",
+            "melancholic": "hauntingly beautiful with a quiet longing, as if the forest holds faded memories",
+            "energetic": "alive with motion — birds darting between branches, light flickering dynamically through the canopy",
+            "dreamy": "soft and otherworldly, the light diffused into a hazy glow that makes the scene feel like a half-remembered dream",
+            "mysterious": "shadowy and deep, with hidden paths leading into darkness and the feeling that something ancient watches from between the trees"
+          },
+          "time_modifiers": {
+            "dawn": "at the very first light before sunrise, the sky barely visible through the canopy, everything hushed and cool",
+            "morning": "in early morning when slanted golden rays break through the trees and mist still clings to the ground",
+            "afternoon": "under bright midday light, the canopy creating complex patterns of sun and shade on the forest floor",
+            "sunset": "bathed in warm amber and orange glow as the last sunlight angles sharply through the trunks",
+            "night": "under moonlight filtering through the canopy, the forest floor in deep shadow with occasional silver patches of light"
+          },
+          "weather_modifiers": {
+            "clear": "under a crisp clear sky glimpsed in fragments through the leaves, the air clean and sharp",
+            "rain": "in gentle rainfall, droplets tapping on leaves and running down bark, the ground dark and wet, puddles forming in footprints",
+            "snow": "dusted lightly with snow, white caps on branches and a soft white blanket over the forest floor muffling all sound",
+            "fog": "partially veiled in low morning fog that drifts between trunks, blurring distant trees into soft grey silhouettes",
+            "cloudy": "under a diffused overcast sky that softens all shadows and gives the green a deep saturated richness"
+          },
+          "color_modifiers": {
+            "warm": "in warm amber and golden tones, the light honeyed and the shadows a deep burnt sienna",
+            "cool": "in cool green and blue-grey tones, the shadows deep teal and the highlights a cold silver-white",
+            "neutral": "in natural balanced greens and earthy browns, true to life and grounded",
+            "vibrant": "with intensely saturated emerald greens and rich deep browns, almost hyperreal in its vividness",
+            "muted": "in soft desaturated sage and dusty taupe tones, like a faded photograph of something beautiful"
+          },
+          "variation_suffixes": [
+            "wide panoramic shot looking down a long forest path stretching to the vanishing point",
+            "intimate low-angle shot from the forest floor looking up through the canopy to the sky above",
+            "medium shot centered on a single ancient tree, its bark detailed and textured in the foreground",
+            "aerial view looking down through the canopy gaps at the dappled forest floor far below",
+            "side-lit shot where one half of the scene is in bright light and the other in deep shadow"
+          ]
+        },
+        {
+          "id": "mountain",
+          "label_ko": "산",
+          "label_en": "Mountain",
+          "base_prompt": "Majestic mountain peaks rising dramatically against the open sky, their rocky ridgelines etched sharply above the treeline where alpine meadows give way to bare granite. A winding trail picks its way through boulders and hardy dwarf shrubs, leading the eye toward the summit above. The sheer scale of the landscape dwarfs everything, conveying timeless geological power — snow-capped peaks in the distance, vast valleys falling away on either side.",
+          "mood_modifiers": {
+            "peaceful": "calm and contemplative, the silence of high altitude broken only by distant wind",
+            "melancholic": "vast and lonely, the immensity of the mountains evoking a beautiful and aching solitude",
+            "energetic": "dramatic and invigorating, with strong wind-swept clouds and a sense of conquest and achievement",
+            "dreamy": "ethereal and otherworldly, the peaks half-hidden in cloud as if floating between earth and sky",
+            "mysterious": "brooding and primeval, the dark peaks looming over the scene like ancient sentinels"
+          },
+          "time_modifiers": {
+            "dawn": "in the pre-dawn blue hour, the peaks beginning to catch the first pink alpenglow on their highest points",
+            "morning": "in early morning with long shadows stretching across the slopes and the valleys still in cool shadow below",
+            "afternoon": "under bright high-altitude sunlight, the rocks casting hard crisp shadows and the sky a deep saturated blue",
+            "sunset": "in the golden hour with the western faces of the peaks blazing orange and pink while eastern faces fall into purple shadow",
+            "night": "under a vast star-filled sky, the peaks silhouetted black against the Milky Way arching overhead"
+          },
+          "weather_modifiers": {
+            "clear": "under a perfectly clear alpine sky of deep saturated blue, visibility extending to distant ranges",
+            "rain": "with dark storm clouds rolling in over the peaks, rain visible as grey curtains in the valleys below",
+            "snow": "in fresh snowfall, every surface blanketed in white, the air thick with drifting flakes",
+            "fog": "with clouds threading through the valleys and around the mid-slopes, the peaks emerging above the cloud sea",
+            "cloudy": "under dramatic layered clouds that cast moving shadows across the slopes, the light constantly shifting"
+          },
+          "color_modifiers": {
+            "warm": "in warm golden and amber tones, the rocks glowing orange and the snow pink in the warm light",
+            "cool": "in cool blue and grey tones, the snow blue-white and the shadows deep indigo",
+            "neutral": "in natural rock greys and earthy greens, realistic and unenhanced",
+            "vibrant": "with intensely saturated colors — vivid blue sky, bright white snow, deep green valley far below",
+            "muted": "in soft muted greys and dusty sage, like a pencil sketch come to life"
+          },
+          "variation_suffixes": [
+            "sweeping wide shot showing the full mountain range from a high plateau viewpoint",
+            "dramatic low-angle shot from a rocky foreground looking steeply up the face of the peak",
+            "telephoto compressed shot of layered ridgelines receding into haze in the distance",
+            "shot from a mountain trail looking back down into the valley with the peak above",
+            "close-up detail of weathered rock face and alpine wildflowers at the base of the summit"
+          ]
+        },
+        {
+          "id": "sea_beach",
+          "label_ko": "바다/해변",
+          "label_en": "Sea & Beach",
+          "base_prompt": "A pristine beach where long gentle waves roll in from a vast expanse of turquoise and deep-blue sea, breaking in white foam at the shoreline and retreating to leave intricate patterns in the wet sand. Sea grass and smooth driftwood dot the upper beach, while tiny shells and sea glass catch the light near the water's edge. The horizon is a perfect clean line far out to sea, and the sound of waves creates an endless rhythmic backdrop.",
+          "mood_modifiers": {
+            "peaceful": "utterly calm and meditative, the sea barely breathing, the beach empty and still",
+            "melancholic": "windswept and wistful, the sea moody and the empty beach carrying a sense of longing",
+            "energetic": "dynamic with strong waves, blowing sea foam, and a sense of raw natural power",
+            "dreamy": "soft and hazy, the horizon blurred and the light filtered into pastel tones like a watercolor",
+            "mysterious": "the sea dark and vast, the beach isolated, with the feeling that the ocean holds unknowable depths"
+          },
+          "time_modifiers": {
+            "dawn": "in the pale grey-pink light just before sunrise, the sea silver and the beach empty and peaceful",
+            "morning": "in bright early morning light, the sea sparkling with a million tiny reflections, shadows long on the sand",
+            "afternoon": "under strong midday sun, the sea a brilliant turquoise and the sand white and hot",
+            "sunset": "in the golden hour with the sea reflecting layers of orange, pink, and purple from the sky above",
+            "night": "under moonlight, the sea a shifting silver-black, waves glowing faintly as they break"
+          },
+          "weather_modifiers": {
+            "clear": "under a perfect blue sky with a few high clouds, the sea calm and brilliantly clear",
+            "rain": "in a light coastal rain, the sea pocked with raindrops and the beach deserted, the air fresh and clean",
+            "snow": "in rare coastal snow, the beach white and the sea grey and cold, flakes drifting over dark water",
+            "fog": "in sea mist, the horizon lost in grey, the waves emerging from the fog close to shore",
+            "cloudy": "under dramatic coastal clouds, the sea dark below and shafts of light breaking through gaps"
+          },
+          "color_modifiers": {
+            "warm": "in warm honey and peach tones, the sand golden and the sea catching orange light",
+            "cool": "in cool aquamarine and pale blue, the sea vivid cyan and the shadows a soft purple",
+            "neutral": "in natural coastal tones — sand beige, sea teal, sky pale blue",
+            "vibrant": "with intensely saturated tropical colors, the sea an impossible electric turquoise",
+            "muted": "in soft washed-out tones, the sand pale grey and the sea a muted steel blue"
+          },
+          "variation_suffixes": [
+            "wide shot looking down the length of the beach to where it curves away in the distance",
+            "low ground-level shot at the waterline with a wave breaking toward the camera",
+            "shot from an elevated coastal cliff looking down at the beach and breaking waves below",
+            "intimate close-up of wet sand with shells and sea foam at the water's edge",
+            "looking directly out to sea at the horizon with the beach in the foreground"
+          ]
+        },
+        {
+          "id": "lake",
+          "label_ko": "호수",
+          "label_en": "Lake",
+          "base_prompt": "A serene mountain lake lying still as a mirror, perfectly reflecting the surrounding peaks, forests, and sky in its glassy surface so that it becomes impossible to tell where the real landscape ends and the reflection begins. Rocky shores scattered with smooth stones give way to slopes of pine and larch at the water's edge, their roots trailing into the shallows. The silence is total — the lake seems to exist outside of time, a perfect natural mirror that doubles the world.",
+          "mood_modifiers": {
+            "peaceful": "supremely tranquil, not a ripple disturbing the mirror surface, the world held in perfect stillness",
+            "melancholic": "quietly melancholy, the reflection slightly distorted, the lake holding the impression of departed seasons",
+            "energetic": "alive with gentle ripples from a breeze, the reflections dancing and breaking into abstract patterns",
+            "dreamy": "almost surreal in its stillness, the reflections so perfect the scene seems to float in an undefined space",
+            "mysterious": "dark and deep, the lake's depths unknowable, the still surface hiding what lies below"
+          },
+          "time_modifiers": {
+            "dawn": "at first light when the lake is perfectly still and the sky begins to color in the reflection before the sun rises",
+            "morning": "in early morning mist still hovering over the surface, the light soft and the air cold and clear",
+            "afternoon": "under bright afternoon light, the lake a brilliant blue and the reflections sharp and clear",
+            "sunset": "at golden hour, the lake a sheet of fire reflecting orange, gold, and crimson from the sky",
+            "night": "under stars reflected perfectly in the black mirror surface, the Milky Way doubled below"
+          },
+          "weather_modifiers": {
+            "clear": "on a perfectly clear calm day, the reflections undistorted and razor-sharp",
+            "rain": "in light rain, the surface pocked with rings from each raindrop, the reflections broken into rippling circles",
+            "snow": "in winter with thin ice forming at the edges and snow dusting the surrounding banks",
+            "fog": "wrapped in morning fog that drifts over the surface and obscures the far shore",
+            "cloudy": "under heavy clouds reflected in the dark surface of the lake, the light dramatic and shifting"
+          },
+          "color_modifiers": {
+            "warm": "in amber and gold tones, the reflection of a warm sky shimmering on the surface",
+            "cool": "in deep blue and grey tones, the cold clear water reflecting a cool sky",
+            "neutral": "in natural balanced tones, the blues and greens of sky and forest reflected faithfully",
+            "vibrant": "with vivid saturated colors — electric blue sky, deep green forest, bright reflections",
+            "muted": "in soft muted greens and greys, the reflection slightly blurred and desaturated"
+          },
+          "variation_suffixes": [
+            "wide panoramic shot showing the full lake with mountains perfectly reflected in the still water",
+            "close-up of the shoreline where rocks meet the water, reflection of sky visible in the shallows",
+            "shot from the water's edge looking across the full width of the lake to the far shore",
+            "elevated viewpoint looking down at the lake from the hillside above, the reflection visible",
+            "tight shot of the mirror reflection where sky and mountain meet in perfect symmetry"
+          ]
+        },
+        {
+          "id": "field_meadow",
+          "label_ko": "들판/초원",
+          "label_en": "Field & Meadow",
+          "base_prompt": "An expansive open meadow rolling gently to the horizon, filled with tall wild grasses and scattered wildflowers — daisies, poppies, cornflowers — all swaying in a slow warm breeze. Rolling hills frame the scene at the edges, and a solitary tree stands in the middle distance casting a long shadow across the grass. The vast open sky occupies the upper half of the scene, and a narrow path winds through the flowers toward the distant hills.",
+          "mood_modifiers": {
+            "peaceful": "utterly calm and open, the breeze gentle, the flowers barely moving, a sense of boundless ease",
+            "melancholic": "the wildflowers fading at season's end, the grass yellowing slightly, a beauty tinged with transience",
+            "energetic": "wind-swept and dynamic, the grasses bending strongly, flowers bobbing, clouds racing overhead",
+            "dreamy": "the meadow soft and gauzy, the light hazy, the flowers blurred slightly as if seen through morning eyes",
+            "mysterious": "the meadow stretching impossibly far, the path curving out of sight, something unknown beyond the horizon"
+          },
+          "time_modifiers": {
+            "dawn": "in the first pale light, the meadow dew-covered and glittering, the sky pale pink and lavender",
+            "morning": "in bright early morning with long shadows from the solitary tree and the flowers fresh and open",
+            "afternoon": "under high sun with the grasses a brilliant green and the sky a deep saturated blue",
+            "sunset": "in golden hour, the entire meadow lit in amber light and long shadows turning the scene to gold",
+            "night": "under a starlit sky, the meadow silver in moonlight, fireflies drifting among the grasses"
+          },
+          "weather_modifiers": {
+            "clear": "under a perfect blue sky with high white cumulus clouds and the air crystal clear",
+            "rain": "in a light summer rain, the flowers heavy-headed, the grasses dark and wet, the air smelling of petrichor",
+            "snow": "in late spring snow, wildflowers pushing through a light dusting of white, incongruous and beautiful",
+            "fog": "in morning ground fog that drifts at knee height through the grasses, the hills soft and indistinct",
+            "cloudy": "under a dramatic cloudscape that casts moving pools of light and shadow across the meadow"
+          },
+          "color_modifiers": {
+            "warm": "in warm golden-green tones, the flowers warm yellow and the grass amber in the warm light",
+            "cool": "in cool blue-green tones, the sky a deep cerulean and the shadows blue-purple",
+            "neutral": "in natural balanced greens and whites, true-to-life wildflower colors",
+            "vibrant": "with intensely saturated colors — red poppies, blue cornflowers, vivid green grass",
+            "muted": "in soft sage and dusty lavender tones, the colors faded and impressionistic"
+          },
+          "variation_suffixes": [
+            "wide panoramic establishing shot showing the full breadth of the meadow to the horizon",
+            "low angle shot from within the flower level looking across at the blooms with the sky above",
+            "medium shot centered on the solitary tree with the meadow spreading around it in all directions",
+            "path-following shot looking down the winding trail as it disappears into the distant hills",
+            "close-up texture shot of wildflowers and grasses in the foreground with the meadow blurred behind"
+          ]
+        },
+        {
+          "id": "valley_waterfall",
+          "label_ko": "계곡/폭포",
+          "label_en": "Valley & Waterfall",
+          "base_prompt": "A dramatic waterfall cascading down a mossy cliff face, the white water splitting into threads and reuniting as it falls into a deep crystal-clear pool below, ringed by smooth ancient rocks and lush ferns. Mist rises from the base of the falls, catching light and creating miniature rainbows, and the surrounding forest closes in on all sides with ancient trees whose roots drink from the stream. The stream flows away from the pool over smooth stepped stones, threading through a narrow valley of extraordinary lush greenery.",
+          "mood_modifiers": {
+            "peaceful": "the waterfall a soft murmur, the pool still and clear, the valley a sanctuary of absolute quiet",
+            "melancholic": "the waterfall powerful yet lonely, the valley enclosed and hidden from the world above",
+            "energetic": "the waterfall thundering and powerful, spray flying, the pool churning with energy",
+            "dreamy": "the mist from the falls blurring everything softly, the scene half-real and half-imagined",
+            "mysterious": "the valley deep and shadowed, the waterfall emerging from darkness above as if from another world"
+          },
+          "time_modifiers": {
+            "dawn": "in the first pale light that barely reaches the valley floor, the waterfall a white thread in the dimness",
+            "morning": "in angled morning light that catches the spray and creates a rainbow at the base of the falls",
+            "afternoon": "in bright direct light, the pool glowing turquoise and the waterfall sparkling white",
+            "sunset": "in late golden light that just reaches the top of the falls, warming the mist to pink and gold",
+            "night": "in moonlight, the waterfall a silver thread, the pool reflecting moonlight in the deep shadow"
+          },
+          "weather_modifiers": {
+            "clear": "under clear skies visible above the valley walls, the water a brilliant white against dark rock",
+            "rain": "swollen by rain into a more powerful torrent, the pool churning and the surrounding rocks streaming with water",
+            "snow": "in winter, ice forming at the edges of the falls and snow on every horizontal surface",
+            "fog": "with mist from the falls merging with valley fog, visibility limited to the immediate foreground",
+            "cloudy": "under diffused overcast light that makes the greens vibrant and the water a deep clear teal"
+          },
+          "color_modifiers": {
+            "warm": "in warm golden tones where sunlight reaches, the rock amber and the moss a rich warm green",
+            "cool": "in cool blue-green tones, the water vivid teal and the shadows deep blue",
+            "neutral": "in natural earthy tones, the rock grey-brown and the moss a natural mid-green",
+            "vibrant": "with intensely saturated colors — electric green moss, vivid teal water, bright white foam",
+            "muted": "in soft muted greens and greys, the scene quiet and restrained in its palette"
+          },
+          "variation_suffixes": [
+            "wide shot showing the full height of the waterfall from base pool to the top of the cliff",
+            "low angle from within the spray zone looking up at the falls with mist surrounding the lens",
+            "medium shot focused on the pool at the base with the falling water reflected in its surface",
+            "upstream view looking down the valley stream with the waterfall in the far background",
+            "extreme close-up of water rushing over mossy rocks at the stream's edge with fine detail"
+          ]
+        },
+        {
+          "id": "desert",
+          "label_ko": "사막",
+          "label_en": "Desert",
+          "base_prompt": "Vast sweeping sand dunes creating elegant parabolic curves across the desert, their windward faces rippled with fine parallel ridges and their slip faces dropping steeply into shadow below. Ancient sandstone mesas and formations rise from the desert floor in the distance, carved into impossible shapes by millennia of wind. The sky above the desert is immense and unobstructed, and the silence and stillness of the landscape is absolute — nothing moves except a slow drift of sand grains along the ridgeline.",
+          "mood_modifiers": {
+            "peaceful": "utterly still and contemplative, the desert in perfect silence, a meditation on emptiness",
+            "melancholic": "vast and indifferent, the endless dunes dwarfing human concerns, a beautiful desolation",
+            "energetic": "in a sandstorm's aftermath, the dunes freshly shaped, the air still carrying dust at the horizon",
+            "dreamy": "the heat haze making the distant formations shimmer and dance, the air thick and surreal",
+            "mysterious": "the formations casting strange deep shadows, the sense that the desert holds ancient secrets"
+          },
+          "time_modifiers": {
+            "dawn": "in the pre-dawn coolness, the dunes pale lavender and the eastern sky beginning to glow",
+            "morning": "in early morning with raking light revealing every ripple on the dune faces in sharp shadow",
+            "afternoon": "under brutal midday sun, the sand blazing white and the shadows minimal and harsh",
+            "sunset": "in the golden hour, the dunes a deep burnished orange and the shadows long and blue-purple",
+            "night": "under an unpolluted desert sky ablaze with stars, the dunes pale silver in moonlight"
+          },
+          "weather_modifiers": {
+            "clear": "under a cloudless sky of deep saturated blue, the visibility extending to infinity",
+            "rain": "in an impossible rare desert rain, dark wet patches spreading across the sand, ozone in the air",
+            "snow": "in rare desert snowfall, a thin white layer over orange dunes — a surreal juxtaposition",
+            "fog": "in a rare desert fog, the distant formations fading into grey, the foreground dunes emerging from mist",
+            "cloudy": "under dramatic desert thunderhead clouds, their shadows crossing the dunes in dark patches"
+          },
+          "color_modifiers": {
+            "warm": "in deep warm amber, orange, and sienna tones, the desert at its most characteristically warm",
+            "cool": "in unexpected cool lavender and blue shadows, the dunes cooled to purple in the cool light",
+            "neutral": "in natural sandy tones of pale gold and warm beige, understated and elegant",
+            "vibrant": "with intensely saturated rusty orange dunes under a vivid blue sky, maximum contrast",
+            "muted": "in soft dusty rose and faded ochre, the colors bleached and ancient-feeling"
+          },
+          "variation_suffixes": [
+            "sweeping wide shot across multiple dune ridges receding to the horizon",
+            "dramatic shot from the crest of a dune looking down the steep slip face far below",
+            "intimate close-up of sand ripple patterns with a dune crest as a graphic silhouette",
+            "shot looking across the flat desert floor with mesa formations as a dramatic backdrop",
+            "silhouette shot with a single dune ridgeline as a clean graphic against the sky"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "indoor_cozy",
+      "label_ko": "실내 아늑함",
+      "label_en": "Indoor Cozy",
+      "sub_categories": [
+        {
+          "id": "cafe",
+          "label_ko": "카페",
+          "label_en": "Cafe",
+          "base_prompt": "A small intimate cafe with warm amber lighting from vintage pendant lamps hanging over dark wooden tables, each surface worn smooth with years of use. Large windows look out onto the street outside, their glass slightly steamed, with rain tracks or condensation creating abstract patterns on the pane. The counter holds a gleaming espresso machine, rows of glass jars filled with coffee beans, and a handwritten menu on a chalkboard — the whole space smells of fresh coffee and warm pastry.",
+          "mood_modifiers": {
+            "peaceful": "unhurried and quiet, just one or two patrons lost in books, the cafe a refuge from the world outside",
+            "melancholic": "a rainy day cafe, slightly empty, the warmth inside contrasting with the cold grey street beyond the window",
+            "energetic": "busy with the morning rush, the espresso machine steaming, baristas moving quickly, the air alive with conversation",
+            "dreamy": "soft and hazily lit, the steam from coffee cups drifting upward, time moving slowly and sweetly",
+            "mysterious": "dimly lit and tucked away, the kind of place you might find by accident and never find again"
+          },
+          "time_modifiers": {
+            "dawn": "before opening, chairs still on tables, the first espresso brewing for the staff in the pre-dawn quiet",
+            "morning": "in the morning rush, sunlight streaming through the front windows across steaming cups on wooden tables",
+            "afternoon": "in the quiet afternoon lull, a few students at laptops, soft music playing, the light warm and low",
+            "sunset": "in the evening with warm lamplight taking over from the fading window light, the outside world going dark",
+            "night": "at night, the windows glowing amber from inside against the dark street, a warm beacon in the darkness"
+          },
+          "weather_modifiers": {
+            "clear": "with bright morning sunlight streaming through clean windows, casting sharp shadows across the tables",
+            "rain": "on a rainy day, rain streaming down the windows, the warmth inside all the more precious by contrast",
+            "snow": "in winter with snow visible outside the steamed windows, the cafe a cocoon of warmth",
+            "fog": "on a foggy morning, the world outside barely visible, the cafe an island of clarity and warmth",
+            "cloudy": "on a grey day, the diffused light outside making the warm interior lamps glow all the brighter"
+          },
+          "color_modifiers": {
+            "warm": "in deep amber and honey tones, the wood rich and the lamplight golden",
+            "cool": "in a modern cafe with cooler grey and white tones, the wood light and the light clean",
+            "neutral": "in natural warm neutrals — beige walls, medium wood tones, cream crockery",
+            "vibrant": "with a colorful interior — bright tiles, painted walls, plants everywhere, full of life",
+            "muted": "in soft muted tones — sage green, dusty rose, warm grey, a carefully curated palette"
+          },
+          "variation_suffixes": [
+            "wide shot of the full cafe interior from just inside the door, showing the whole space",
+            "intimate shot of a window table with a coffee cup and the rain-streaked glass behind",
+            "counter-level shot looking along the bar at the espresso machine and stacked cups",
+            "overhead shot looking down at a single table with coffee, book, and hands",
+            "shot from outside the cafe looking through the warm glowing window at the interior"
+          ]
+        },
+        {
+          "id": "study_library",
+          "label_ko": "서재/도서관",
+          "label_en": "Study & Library",
+          "base_prompt": "A richly furnished personal study lined floor-to-ceiling with dark wooden bookshelves packed with well-worn books, their spines a tapestry of muted colors. A large mahogany desk sits near a tall window, its surface covered with open books, papers, a globe, and a green banker's lamp casting a circle of warm light. The room smells of paper and leather, and a comfortable reading chair sits in the corner beneath a floor lamp, a cup of tea steaming on the side table beside it.",
+          "mood_modifiers": {
+            "peaceful": "quiet and deeply focused, a sanctuary of knowledge, the only sound the occasional turning of a page",
+            "melancholic": "dusty with the weight of accumulated years, the books holding the thoughts of people long gone",
+            "energetic": "mid-research, papers everywhere, books open and stacked, the desk alive with active inquiry",
+            "dreamy": "the lamp casting long soft shadows among the shelves, the room feeling like another world entirely",
+            "mysterious": "the shelves extending into shadow, the titles illegible, the sense that some books here should not be read"
+          },
+          "time_modifiers": {
+            "dawn": "in the very early morning, the lamp still on from an all-night reading session, the window beginning to lighten",
+            "morning": "in morning light coming through tall windows, dust motes drifting in beams across the bookshelves",
+            "afternoon": "in quiet afternoon when the light is soft and the study is at its most peaceful",
+            "sunset": "as the window light fades and the lamp becomes the dominant source, the shadows deepening",
+            "night": "deep in the night with only the desk lamp lit, the rest of the room in deep warm shadow"
+          },
+          "weather_modifiers": {
+            "clear": "with bright daylight through clean windows illuminating the book spines in warm clear light",
+            "rain": "with rain on the windows providing the perfect excuse to stay inside, the patter a backdrop to reading",
+            "snow": "with snow visible through the window, the study warm against the cold outside",
+            "fog": "on a foggy day when the window looks out onto nothing but grey, the interior self-contained",
+            "cloudy": "on a grey day with diffused window light that makes the lamp even more inviting"
+          },
+          "color_modifiers": {
+            "warm": "in deep warm tones of mahogany brown, forest green leather, and amber lamplight",
+            "cool": "in a modern study with lighter tones, white shelves, and cool daylight",
+            "neutral": "in natural wood and paper tones, warm without being dramatic",
+            "vibrant": "with colorful book spines creating a rainbow across the shelves, art on the walls",
+            "muted": "in aged and faded tones, the colors of old paper and worn leather"
+          },
+          "variation_suffixes": [
+            "wide shot from the doorway showing the full study with all four walls of bookshelves",
+            "close shot of the desk with the lamp, books, and writing materials in intimate detail",
+            "shot looking up at towering bookshelves from below, books stretching to the ceiling",
+            "view from the reading chair looking across the room at the desk and window",
+            "extreme close-up of book spines, their titles and colors filling the frame"
+          ]
+        },
+        {
+          "id": "bedroom",
+          "label_ko": "침실",
+          "label_en": "Bedroom",
+          "base_prompt": "A beautifully arranged bedroom with a high bed piled with soft pillows and a rumpled linen duvet, positioned beneath a large window with sheer curtains drifting gently in a breeze. Warm wooden floors extend around the bed to vintage furniture — a nightstand with a small lamp and a few well-loved objects, a wooden chair draped with clothes. Everything has been arranged with casual comfort in mind, and the light is soft and indirect, making the whole room feel like an embrace.",
+          "mood_modifiers": {
+            "peaceful": "completely still and quiet, the bed made, the curtains barely moving, a room ready for perfect rest",
+            "melancholic": "the late afternoon light low and golden, the room still holding the warmth of the day that is ending",
+            "energetic": "morning light flooding in, the bed just left, the day beginning with promise",
+            "dreamy": "the sheer curtains soft in a breeze, the light hazy, the whole room halfway between sleep and waking",
+            "mysterious": "dimly lit with just a bedside lamp, the corners in shadow, the feeling of late night secrets"
+          },
+          "time_modifiers": {
+            "dawn": "in the first pale light, the room barely illuminated, the white bedding just visible in the dimness",
+            "morning": "in bright morning light streaming through the curtains, the room golden and full of the promise of the day",
+            "afternoon": "in soft afternoon light filtered by sheer curtains, the room warm and quiet",
+            "sunset": "in the last warm light of the day, the room glowing amber before the lamps take over",
+            "night": "with only the bedside lamp on, the room in warm intimate shadow, the window dark outside"
+          },
+          "weather_modifiers": {
+            "clear": "with crisp morning sunlight making the white bedding luminous",
+            "rain": "on a rainy day, the sound of rain on the window, the bed the perfect place to stay",
+            "snow": "with snow falling past the window, the room doubly warm and cozy by contrast",
+            "fog": "on a misty morning, the window looking into fog, the bedroom a warm private world",
+            "cloudy": "on a grey day with soft diffused light, the room muted and peaceful"
+          },
+          "color_modifiers": {
+            "warm": "in warm cream and honey tones, the wood rich and the fabrics soft amber",
+            "cool": "in cool white and pale blue, the linen crisp and the room fresh and airy",
+            "neutral": "in natural warm neutrals — white linen, light wood, soft beige walls",
+            "vibrant": "with color — patterned cushions, plants on the windowsill, colorful art on the walls",
+            "muted": "in soft muted tones of sage, dusty pink, and warm grey, a carefully curated calm"
+          },
+          "variation_suffixes": [
+            "wide shot from the doorway showing the full bedroom with the bed and window beyond",
+            "intimate shot from the pillow level looking along the bed toward the window",
+            "shot from outside the window looking in at the warm lit bedroom interior",
+            "overhead top-down shot of the perfectly arranged bed with pillows and duvet",
+            "side-angle shot capturing the nightstand, lamp, and draped curtain in one frame"
+          ]
+        },
+        {
+          "id": "attic",
+          "label_ko": "다락방",
+          "label_en": "Attic",
+          "base_prompt": "A charming attic room with sloping ceilings following the roofline, the wooden beams exposed and warm overhead, the floor old and slightly creaky under worn rugs. A small circular or dormer window looks out from one sloping wall, and beneath it sits a weathered wooden desk covered with the materials of a creative life — paints, sketches, plants, old photographs. Shelves are improvisational, stacked books balanced on trunks, and the whole space has the feeling of a private world carved out under the roof of a larger house.",
+          "mood_modifiers": {
+            "peaceful": "quiet and private, the attic a secret sanctuary above the world, perfectly still",
+            "melancholic": "dusty with accumulated memory, old objects holding the traces of past lives",
+            "energetic": "a busy creative studio, works in progress everywhere, alive with active creation",
+            "dreamy": "the light through the small window filtering softly, the sloping walls creating an enveloping cocoon",
+            "mysterious": "shadowy in its corners, trunks that have never been opened, the attic knowing things it does not tell"
+          },
+          "time_modifiers": {
+            "dawn": "in the first grey light through the dormer window, the attic just emerging from darkness",
+            "morning": "with morning light coming through the small window at a steep angle across the dusty floor",
+            "afternoon": "in quiet afternoon when the light through the window is softest and time slows",
+            "sunset": "with the last slanted rays of the day cutting through the window across the wooden floor",
+            "night": "lit only by a small lamp on the desk, the sloping ceiling in warm shadow above"
+          },
+          "weather_modifiers": {
+            "clear": "with clear morning light from the dormer window making dust motes visible in the beam",
+            "rain": "with rain pattering loudly on the roof just above, a percussive soundtrack to solitude",
+            "snow": "with snow on the roof audible as a muffled silence, and frost on the dormer window",
+            "fog": "on a misty morning with the view from the window dissolved into soft grey",
+            "cloudy": "on an overcast day, the light diffused and even, good for working"
+          },
+          "color_modifiers": {
+            "warm": "in warm amber tones of old wood, worn rugs, and soft lamplight",
+            "cool": "lighter and airier, the sloping walls white and the wood pale",
+            "neutral": "in natural wood and paper tones, the attic's authentic aged palette",
+            "vibrant": "with color from art pinned to the walls, plants in the window, painted objects",
+            "muted": "in soft aged tones of faded fabrics, old paper, and weathered wood"
+          },
+          "variation_suffixes": [
+            "wide shot showing the full attic with sloping ceilings and the window at the far end",
+            "shot from the desk looking up at the sloping beam ceiling above",
+            "view through the dormer window from inside, with the attic in warm focus behind",
+            "close shot of the window ledge with plants and small objects against the outside view",
+            "looking down the length of the attic from one end, the floor rug in the foreground"
+          ]
+        },
+        {
+          "id": "japanese_room",
+          "label_ko": "일본식 방(다다미)",
+          "label_en": "Japanese Tatami Room",
+          "base_prompt": "A traditional Japanese room floored in fresh green tatami mats, their woven texture casting a subtle grid pattern in the light. Sliding shoji screens filter the light to a perfect milky white softness, and through a partially open screen, a small enclosed garden of raked gravel, moss, and a single stone is visible. The room is spare and precise — a low wooden table, cushions for sitting, a single hanging scroll and a small ceramic vase with one or two branches, everything placed with deliberate intention.",
+          "mood_modifiers": {
+            "peaceful": "an embodiment of wabi-sabi, the room holding a profound and unhurried stillness",
+            "melancholic": "the light fading through the shoji, the season turning, the impermanence of beauty made visible",
+            "energetic": "the morning light sharp through the screens, the day beginning with crisp intention",
+            "dreamy": "the filtered light through shoji creating a soft white glow, the room floating in luminous quiet",
+            "mysterious": "the garden barely visible through the cracked screen, the room holding a silence that is not quite empty"
+          },
+          "time_modifiers": {
+            "dawn": "in the first grey-white light through shoji, the room barely luminous in the pre-dawn",
+            "morning": "with morning light turning the shoji panels a warm glowing white",
+            "afternoon": "in the quiet of afternoon, the garden beyond the screens in soft light",
+            "sunset": "the shoji glowing amber and gold as the sun sets behind them",
+            "night": "with a small paper lantern providing the only light, the room in soft warm shadow"
+          },
+          "weather_modifiers": {
+            "clear": "the shoji bright white in clear sunlight, the garden sharp and precise beyond",
+            "rain": "rain audible in the garden, the gravel darkened and wet, the sound a quiet percussion",
+            "snow": "snow visible through the screen in the garden, the room doubly quiet and still",
+            "fog": "on a misty morning, the garden almost invisible through the fog and the screen",
+            "cloudy": "under overcast light, the shoji a softer grey-white, the room even more serene"
+          },
+          "color_modifiers": {
+            "warm": "in warm honey tones, the wood amber and the light through shoji golden",
+            "cool": "in cool white and pale grey, the room spare and cool as a winter morning",
+            "neutral": "in natural tatami green, pale wood, and cream shoji",
+            "vibrant": "with the garden's moss and stones in rich green and grey through the open screen",
+            "muted": "in the subdued palette of wabi-sabi — aged wood, pale tatami, soft grey"
+          },
+          "variation_suffixes": [
+            "wide shot from corner showing full tatami room with shoji screens and garden glimpse",
+            "shot looking directly at a shoji screen with the garden's silhouette visible through it",
+            "low angle from tatami level looking across the room at the hanging scroll and vase",
+            "shot through the open screen into the garden from inside the room",
+            "close-up detail of tatami texture with a tea bowl or ceramic object in the corner"
+          ]
+        },
+        {
+          "id": "fireplace",
+          "label_ko": "벽난로 앞",
+          "label_en": "By the Fireplace",
+          "base_prompt": "A deep stone or brick fireplace with a roaring fire sending orange and gold light dancing across a cozy living room, the flames reflecting in the surfaces of every object nearby. A thick sheepskin rug lies in front of the hearth, and nearby a comfortable armchair is positioned to bask in the warmth, a knitted blanket draped over one arm and a glass of something warm on the side table. The mantelpiece above holds candles, books, and a few meaningful objects, and the walls of the room fade into warm amber shadow at the edges.",
+          "mood_modifiers": {
+            "peaceful": "deeply comfortable and warm, the fire the center of everything, the room held in its gentle embrace",
+            "melancholic": "the fire burning low as the evening deepens, the warmth tinged with the bittersweetness of things passing",
+            "energetic": "the fire roaring at full height, crackling and spitting, the room full of dancing light",
+            "dreamy": "the fire reduced to embers, the room in deep amber shadow, the mind drifting between waking and sleep",
+            "mysterious": "the fire the only light, the corners of the room in complete shadow, faces lit dramatically from below"
+          },
+          "time_modifiers": {
+            "dawn": "the fire burning through the night to the early morning, embers deep red in the pre-dawn",
+            "morning": "a morning fire just lit, the flames young and energetic, daylight beginning at the windows",
+            "afternoon": "an afternoon fire on a cold day, the room warm against the cold visible outside",
+            "sunset": "as the day ends and the fire takes over from the fading daylight as the room's source of warmth",
+            "night": "deep in the night with only the fire and perhaps a lamp, the darkness beyond complete"
+          },
+          "weather_modifiers": {
+            "clear": "on a clear cold night, the fire all the more welcome against the crisp darkness outside",
+            "rain": "with rain on the windows outside, the fire inside the perfect counterpoint",
+            "snow": "with snow falling outside making the fire inside feel like the center of the universe",
+            "fog": "on a foggy evening, the fire the only real warmth and light in a grey world",
+            "cloudy": "on a cold grey day, the fire lit early, the room warm against the uninviting outside"
+          },
+          "color_modifiers": {
+            "warm": "dominated entirely by fire's warm amber, orange, and gold, everything suffused in its glow",
+            "cool": "with cooler tones in the shadows contrasting dramatically with the warm fire",
+            "neutral": "in natural stone, wood, and wool tones with the fire providing the color accent",
+            "vibrant": "the flames vivid orange and yellow, the fire at its most dramatic and alive",
+            "muted": "the fire reflected softly in muted amber tones, the room in subdued warm shadow"
+          },
+          "variation_suffixes": [
+            "wide shot of the full fireplace with the rug and armchair in the room around it",
+            "close shot looking directly into the fire, the flames filling the frame",
+            "shot from the armchair's perspective looking at the fire, book or drink in foreground",
+            "overhead shot looking down at the hearthrug with firelight reflections from above",
+            "wide shot from across the room, the fireplace glowing as a warm focal point in the distance"
+          ]
+        },
+        {
+          "id": "studio_workshop",
+          "label_ko": "작업실/스튜디오",
+          "label_en": "Studio & Workshop",
+          "base_prompt": "A creative studio or workshop filled with the evidence of ongoing work — canvases leaning against walls, jars of brushes and pens on a long table, natural light flooding in through large windows. The space is organized chaos, every surface having its logic, half-finished projects alongside completed pieces, reference images pinned to walls alongside sketches and color tests. The room has a specific smell of linseed oil or wood shavings or ink, and the whole space vibrates with creative energy even when empty.",
+          "mood_modifiers": {
+            "peaceful": "the studio empty and still, work paused, the space resting between creative sessions",
+            "melancholic": "the late afternoon light on a finished piece that must soon leave, the studio holding completed work",
+            "energetic": "mid-project, paint still wet, tools scattered, the work in full swing",
+            "dreamy": "the morning light soft on works in progress, the studio quiet with potential",
+            "mysterious": "evening light making shadows of easels and tools, the studio at its most atmospheric"
+          },
+          "time_modifiers": {
+            "dawn": "before the day's work begins, the studio cool and full of possibility",
+            "morning": "in morning light from large windows illuminating the workspace and work in progress",
+            "afternoon": "in afternoon light, the best light for seeing color truly, the work session at full intensity",
+            "sunset": "as the natural light fails and artificial light takes over, the mood shifting",
+            "night": "under bright artificial work lighting, the night outside irrelevant to the work inside"
+          },
+          "weather_modifiers": {
+            "clear": "with bright clear light through large windows, ideal working conditions",
+            "rain": "with rain on the skylights providing a rhythmic backdrop to focused work",
+            "snow": "with snow diffusing the north light to a perfect cool even illumination",
+            "fog": "with fog outside making the studio feel more self-contained and focused",
+            "cloudy": "under the ideal overcast north light — consistent, cool, perfect for seeing color"
+          },
+          "color_modifiers": {
+            "warm": "in warm afternoon light, the white walls golden and the wood tones rich",
+            "cool": "in cool north light, the whites truly white and the colors accurate",
+            "neutral": "in the natural palette of a working studio — white walls, wood, raw materials",
+            "vibrant": "splashed with color from works in progress, paint marks, and art on every wall",
+            "muted": "in a spare and monochrome studio, the work providing the only color"
+          },
+          "variation_suffixes": [
+            "wide shot showing the full studio space with work, tools, and large windows",
+            "close shot of the work table with tools and materials arranged in working order",
+            "shot looking at a piece of work on the wall or easel from across the room",
+            "overhead view of the work surface covered with creative materials",
+            "shot through the studio window looking in at the work-filled space from outside"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "city_night",
+      "label_ko": "도시 야경",
+      "label_en": "City Night",
+      "sub_categories": [
+        {
+          "id": "neon_street",
+          "label_ko": "네온사인 거리",
+          "label_en": "Neon Sign Street",
+          "base_prompt": "A narrow urban street lined on both sides with glowing neon signs in multiple languages, their light flooding the wet pavement in pools of vivid color — reds, blues, pinks, yellows — all reflected and doubled in the rain puddles below. The street is a visual cacophony of signs advertising bars, restaurants, and shops, their glow competing with each other overhead and creating an atmosphere of electric urban energy. People move through the light, their faces lit from below and the sides, umbrellas catching the colored reflections.",
+          "mood_modifiers": {
+            "peaceful": "the street quiet after midnight, the neons still blazing but the crowds gone, a neon ghost town",
+            "melancholic": "rain-wet and late, the neons reflected in empty puddles, the street's energy faded to loneliness",
+            "energetic": "at peak evening hours, crowds pressing through, the lights at their most vivid and alive",
+            "dreamy": "the neons blurred in the rain and reflected endlessly, reality softened to pure color",
+            "mysterious": "the street leading to a vanishing point of glowing light, figures half-seen in the colored dark"
+          },
+          "time_modifiers": {
+            "dawn": "at 4am, the neons still on but the street near-empty, the sky beginning to lighten above",
+            "morning": "in the morning when the neons are switched off and only their frames remain, the magic gone",
+            "afternoon": "in daylight when the neons are pale and the street is ordinary, waiting for dark",
+            "sunset": "at blue hour when the neons are first turned on against the still-blue dusk sky",
+            "night": "at peak night, the neons blazing at full intensity against the complete darkness"
+          },
+          "weather_modifiers": {
+            "clear": "on a dry night, the neons reflected in shop windows but not the pavement",
+            "rain": "in rain, the pavement a perfect mirror of all the neons, the wet reflections doubling everything",
+            "snow": "in rare urban snow, the neons coloring the white flakes as they fall, surreal and beautiful",
+            "fog": "in urban fog, the neons blurred and blooming, their light diffused into soft haloes",
+            "cloudy": "under low clouds that reflect the city's light, the sky a warm orange-pink backdrop"
+          },
+          "color_modifiers": {
+            "warm": "dominated by warm reds, oranges, and yellows from the neon signs",
+            "cool": "dominated by cool blues, greens, and purples from the neons, the street ice-cold",
+            "neutral": "a mix of all neon colors creating a complex multicolored palette",
+            "vibrant": "at maximum saturation, every neon at full intensity, the most vivid possible version",
+            "muted": "the neons seen through heavy rain, their light softened and blurred"
+          },
+          "variation_suffixes": [
+            "wide shot looking down the length of the neon street with signs on both sides",
+            "low puddle-level shot with the neon reflections dominating the foreground",
+            "shot from beneath a neon sign looking up at its underside glowing overhead",
+            "narrow alley version with neons strung between buildings overhead",
+            "rainy shot where the reflections in puddles are the primary subject"
+          ]
+        },
+        {
+          "id": "jazz_bar",
+          "label_ko": "재즈 바/라운지",
+          "label_en": "Jazz Bar & Lounge",
+          "base_prompt": "An intimate jazz bar or lounge with low amber lighting over small round tables where couples lean together in conversation, smoke curling upward in slow spirals. A small stage at one end holds a grand piano, a double bass, and a drum kit, with a single spotlight trained on the microphone stand. The walls are dark-painted brick hung with old jazz photographs and framed concert posters, the bar along one side lined with bottles catching the light, and the whole room carries the feel of a place where music is taken seriously.",
+          "mood_modifiers": {
+            "peaceful": "between sets, the musicians on break, the room in murmured conversation, the piano silent",
+            "melancholic": "a slow blues number, the room quiet and attentive, the music touching something real",
+            "energetic": "the band at full swing, the room on its feet, the bass and drums driving the energy",
+            "dreamy": "the saxophone in a slow ballad, smoke and amber light, time suspended in the notes",
+            "mysterious": "the room in shadow beyond the spotlight, figures indistinct, the music the only certainty"
+          },
+          "time_modifiers": {
+            "dawn": "at closing time, the last notes fading, the musicians packing up in the early morning",
+            "morning": "before opening, the bar quiet, instruments on the stage waiting, chairs still on tables",
+            "afternoon": "in the afternoon for a rare early set, the room half-lit and almost empty",
+            "sunset": "as the early evening crowd arrives and the first set begins",
+            "night": "deep in the night during the late set, the room at its most atmospheric and alive"
+          },
+          "weather_modifiers": {
+            "clear": "on a clear night, the bar's amber light spilling out the door onto the street",
+            "rain": "on a rainy night, the sound of rain on the windows behind the music",
+            "snow": "in winter, the bar warmer and more intimate for the cold outside",
+            "fog": "on a foggy night, the bar a beacon of warmth and music in the grey",
+            "cloudy": "on a cloudy evening, the bar's interior light all the more welcoming"
+          },
+          "color_modifiers": {
+            "warm": "in deep amber, gold, and mahogany tones, the room rich and dark",
+            "cool": "with a hint of blue in the shadows, the spotlight a cold white above the warm amber",
+            "neutral": "in natural bar tones — dark wood, aged brick, warm but not overwhelming",
+            "vibrant": "the spotlight vivid, the musicians lit sharply, the rest of the room in contrast",
+            "muted": "in very dark and subdued tones, the room lit only minimally, deeply shadowed"
+          },
+          "variation_suffixes": [
+            "wide shot from the back of the room showing stage, bar, and tables",
+            "stage-level shot from behind the piano looking out at the audience",
+            "intimate table shot with a cocktail glass and candle with the stage visible beyond",
+            "shot of the bar with bottles lit from behind and the room reflected in the mirror",
+            "close shot of the microphone stand and spotlight with the smoky room behind"
+          ]
+        },
+        {
+          "id": "rooftop",
+          "label_ko": "옥상 뷰",
+          "label_en": "Rooftop View",
+          "base_prompt": "A rooftop terrace high above the city at night, the skyline stretching in all directions with thousands of lit windows in office towers and residential buildings, the streets far below rivers of moving headlights and taillights. The rooftop itself has a low parapet, perhaps a few chairs and a table, potted plants, and string lights overhead adding a human scale to the vast urban vista. The city hums far below with a sound like a distant ocean, and from this height the whole thing looks like a circuit board come to life.",
+          "mood_modifiers": {
+            "peaceful": "the city spread out below, quiet at this height, the rooftop a place above the noise",
+            "melancholic": "alone on the rooftop with the whole lit city visible, somehow making the aloneness more profound",
+            "energetic": "the city at peak activity, traffic flowing, buildings blazing with light, the energy palpable even from above",
+            "dreamy": "the city lights blurred slightly, the rooftop removed from the world below as if floating",
+            "mysterious": "the city a dark sea of lights, the street level unknowable from here, the night full of secrets below"
+          },
+          "time_modifiers": {
+            "dawn": "at the first light, the city lights still on but the sky beginning to pale at the horizon",
+            "morning": "in the early morning when the city is coming alive, the streets filling, the sky brightening",
+            "afternoon": "in the daytime, the skyline clear and detailed, no city lights but the full scale of the buildings",
+            "sunset": "at the magic moment of blue hour, city lights coming on against the last colored sky",
+            "night": "at full night with the complete skyline blazing against the black sky"
+          },
+          "weather_modifiers": {
+            "clear": "on a clear night with perfect visibility to the far edges of the city",
+            "rain": "in the rain, the city lights reflected in puddles on the rooftop surface, doubled and shimmering",
+            "snow": "in a light snowfall, the city lights soft and diffused, the snowflakes glowing as they fall",
+            "fog": "in low fog, the tops of towers emerging from it, the street level hidden",
+            "cloudy": "under a low cloud ceiling that reflects the city's light back down, the sky a warm orange"
+          },
+          "color_modifiers": {
+            "warm": "the city predominantly warm in amber and orange streetlights, the windows warm yellow",
+            "cool": "the city in cooler LED light, the office towers blue-white, the scene crisp and modern",
+            "neutral": "a mix of warm and cool city lights creating a complex natural urban palette",
+            "vibrant": "the city at its most colorful — neon signs, colored architectural lighting, vivid and alive",
+            "muted": "the city in a hazy night with lights softened by atmosphere, dreamlike and blurred"
+          },
+          "variation_suffixes": [
+            "wide panoramic view of the full skyline from the rooftop edge",
+            "shot looking down steeply at the street far below between buildings",
+            "intimate rooftop shot with string lights in foreground and skyline beyond",
+            "shot from a low chair looking up at buildings towering above with the sky between",
+            "180-degree sweep of the skyline with the rooftop foreground leading to the vista"
+          ]
+        },
+        {
+          "id": "rainy_city",
+          "label_ko": "빗속 도시",
+          "label_en": "Rainy City",
+          "base_prompt": "A city street at night in steady rain, every surface alive with reflections — the wet asphalt holding the inverted images of traffic lights, shop signs, and streetlamps in wavering pools of color. Pedestrians hurry beneath umbrellas, their forms reflected below them, and taxis and buses send sheets of spray from puddles as they pass. The whole scene shimmers and shifts, reality doubled in the wet streets, the rain blurring the edges of things and making the ordinary world strange and beautiful.",
+          "mood_modifiers": {
+            "peaceful": "a light rain on empty streets, the reflections undisturbed, the city at rest",
+            "melancholic": "a solitary figure under an umbrella, the rain and empty streets amplifying aloneness",
+            "energetic": "heavy rain and busy streets, umbrellas everywhere, the city refusing to slow down",
+            "dreamy": "the reflections perfectly preserved in still puddles, the city doubled and surreal",
+            "mysterious": "the rain reducing visibility, figures half-seen, the street stretching to an uncertain end"
+          },
+          "time_modifiers": {
+            "dawn": "in the pre-dawn rain, the streets empty and the reflections undisturbed",
+            "morning": "in morning rain, commuters rushing past with umbrellas, the city wet and busy",
+            "afternoon": "in afternoon rain, the grey sky and wet streets creating a monochrome palette",
+            "sunset": "at dusk when rain and fading light create an extraordinary ambiguity in the reflections",
+            "night": "at night with maximum reflections — every light source doubled in the wet streets"
+          },
+          "weather_modifiers": {
+            "clear": "not applicable — this is a rain scene; use light drizzle vs heavy rain instead",
+            "rain": "in moderate steady rain, the puddles forming and the reflections continuously disturbed",
+            "snow": "in sleet, the precipitation somewhere between rain and snow, the pavement icy",
+            "fog": "in rainy fog, visibility reduced to a short distance, the lights blooming in the moisture",
+            "cloudy": "in the pause between showers, the streets still wet and shining"
+          },
+          "color_modifiers": {
+            "warm": "the wet streets reflecting warm amber and red traffic lights and shop signs",
+            "cool": "the reflections dominated by cool blue-white streetlights and neon, the scene cold and crisp",
+            "neutral": "a realistic urban night-rain palette, multiple colors mixed in the reflections",
+            "vibrant": "the reflections vivid and saturated, every colored light intensified in the wet surfaces",
+            "muted": "the rain heavy enough to blur the reflections to soft smears of color, almost abstract"
+          },
+          "variation_suffixes": [
+            "wide shot looking down a rain-wet street with reflections stretching toward the camera",
+            "low puddle-level shot where a reflection of lights fills the foreground",
+            "shot from inside a car or window looking out through rain-streaked glass",
+            "umbrella-height shot looking along the street with umbrellas in the foreground",
+            "close-up of ripples in a large puddle with a blurred reflection behind"
+          ]
+        },
+        {
+          "id": "riverside_bridge",
+          "label_ko": "강변/다리",
+          "label_en": "Riverside & Bridge",
+          "base_prompt": "A graceful bridge spanning a wide dark river at night, its structure lit from below with warm light that reflects in the moving water as rippling columns of gold and white. The city skyline is visible on both banks, its towers reflected in the dark river and their lights broken into shifting streaks by the current. The bridge's arc against the skyline is a classic urban composition, and along the riverbank, walks and benches are lit with pools of lamp light where the occasional figure pauses to look at the view.",
+          "mood_modifiers": {
+            "peaceful": "the river slow-moving and the bridge empty, the reflections steady and beautiful",
+            "melancholic": "the river wide and dark, the bridge lit and empty, a sense of the unbridgeable",
+            "energetic": "traffic crossing the bridge, the city lights blazing, the river alive with reflected motion",
+            "dreamy": "the river at its stillest, the reflections perfect and surreal in their symmetry",
+            "mysterious": "the bridge disappearing into fog at one end, the river dark and the depths unknowable"
+          },
+          "time_modifiers": {
+            "dawn": "at first light, the bridge and skyline emerging from darkness, the river dark below",
+            "morning": "in early morning with the city waking up, the bridge carrying first commuters",
+            "afternoon": "in daylight, the river sparkling and the bridge structure in full detail",
+            "sunset": "at the magic hour with the sky reflected in the river alongside the city lights",
+            "night": "at full night with the bridge lights and city skyline fully reflected in the dark water"
+          },
+          "weather_modifiers": {
+            "clear": "on a clear night with perfect reflections in still water",
+            "rain": "in rain, the reflections broken into radiating rings where drops hit the surface",
+            "snow": "in winter, the bridge railing dusted with snow, the river dark below",
+            "fog": "in river fog, the far bank barely visible, the bridge emerging from the grey",
+            "cloudy": "under low clouds reflecting city light, the sky a warm orange above the dark river"
+          },
+          "color_modifiers": {
+            "warm": "warm amber and golden bridge lights reflected in warm tones in the dark water",
+            "cool": "cool blue-white light from modern bridge illumination, crisp and contemporary",
+            "neutral": "a natural urban river palette, mixed warm and cool lights in complex reflections",
+            "vibrant": "brightly lit bridge with colored architectural lighting, vivid reflections",
+            "muted": "soft low light, the reflections gentle and understated"
+          },
+          "variation_suffixes": [
+            "wide shot showing the full bridge span with city skyline reflected in the river",
+            "shot from the bridge looking down at the river with the reflection of bridge lights",
+            "perspective shot along the pedestrian walkway of the bridge toward the far end",
+            "from the riverbank looking across the water at the bridge and skyline beyond",
+            "low angle from under the bridge with the arch overhead and water and city visible"
+          ]
+        },
+        {
+          "id": "night_alley",
+          "label_ko": "골목길",
+          "label_en": "Night Alley",
+          "base_prompt": "A narrow urban alley at night, the brick walls close on both sides and the sky a thin strip of deep blue-black above, with fire escapes and overhead cables crossing between the buildings. A single alley lamp or window from an upper floor casts a pool of warm light on the wet ground below, surrounded by deep shadow. At the far end of the alley, the main street is visible — a bright rectangle of activity that makes the alley all the more contained and intimate by contrast.",
+          "mood_modifiers": {
+            "peaceful": "the alley deserted and quiet, the lamp burning, the world outside reduced to a glow at the end",
+            "melancholic": "a single figure retreating down the alley toward the light at the end",
+            "energetic": "the alley used as a shortcut by hurrying figures, the light at the end busy and bright",
+            "dreamy": "the lamp light soft and the shadows deep, the alley existing outside of ordinary time",
+            "mysterious": "the shadows deep and unreadable, the sound of footsteps invisible, the alley a stage for unknowns"
+          },
+          "time_modifiers": {
+            "dawn": "the alley between night and morning, the sky just beginning to lighten above the buildings",
+            "morning": "the alley catching its first direct sun, the shadow retreating up one wall",
+            "afternoon": "the alley in a narrow strip of direct sun or in complete building shadow",
+            "sunset": "the warm last light visible only at the far bright end of the alley",
+            "night": "the alley at full dark, the lamp making its small warm stand against the darkness"
+          },
+          "weather_modifiers": {
+            "clear": "the alley dry, the lamp casting hard shadows, the sky a clear dark between the buildings",
+            "rain": "the alley wet, rain dripping from fire escapes, the puddles reflecting the lamp",
+            "snow": "a thin line of snow down the center of the alley, the walls keeping most of it off",
+            "fog": "the fog filling the alley, the end invisible, the lamp a diffused glow",
+            "cloudy": "the alley overcast, the lamp dominant in the grey light"
+          },
+          "color_modifiers": {
+            "warm": "the lamp casting warm amber into the alley, the bricks warm-toned",
+            "cool": "the alley predominantly blue-grey and cool, the lamp a lonely warm point",
+            "neutral": "in natural urban tones — aged brick, dark asphalt, dim yellow lamplight",
+            "vibrant": "a neon sign at the alley's end casting colored light into the space",
+            "muted": "the alley in dark desaturated tones, barely lit and atmospheric"
+          },
+          "variation_suffixes": [
+            "long shot looking down the full length of the alley to the bright end",
+            "mid-alley shot looking back toward the street entrance from inside",
+            "shot looking up between the walls at the narrow strip of sky above",
+            "close shot of the pool of lamplight on the wet alley floor",
+            "wide-angle shot that shows both walls converging toward the vanishing point at the end"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "city_day",
+      "label_ko": "도시 낮풍경",
+      "label_en": "City Day",
+      "sub_categories": [
+        {
+          "id": "cafe_terrace",
+          "label_ko": "예쁜 카페 테라스",
+          "label_en": "Cafe Terrace",
+          "base_prompt": "A charming outdoor cafe terrace with small round tables and wicker chairs set out on a stone pavement, shaded by cream canvas umbrellas and climbing roses or wisteria on a trellis above. Each table holds a small vase with a single flower, a menu card, and perhaps a steaming coffee cup just set down. The terrace opens onto a picturesque street or square, and the whole scene suggests a leisurely mid-morning on a beautiful day where time has generously slowed.",
+          "mood_modifiers": {
+            "peaceful": "unhurried and gentle, one or two patrons reading, the street quiet, the morning generous",
+            "melancholic": "the terrace empty in the afternoon, the umbrellas closed, the day almost over",
+            "energetic": "busy with the lunch crowd, conversation and laughter, the terrace full of life",
+            "dreamy": "the light filtered through the wisteria, dappled and soft, the terrace suspended in a beautiful afternoon",
+            "mysterious": "the terrace empty despite being set perfectly, as if the guests just left or are about to arrive"
+          },
+          "time_modifiers": {
+            "dawn": "the terrace being set up, chairs being arranged before opening, the light just beginning",
+            "morning": "in morning light, the first coffees being served, the air fresh and the day beginning",
+            "afternoon": "in afternoon light filtered through the umbrella and overhead plants, warm and golden",
+            "sunset": "in evening light, the terrace glowing in the last warm sun, lingering patrons",
+            "night": "the terrace lit by outdoor heaters and string lights for an evening sitting"
+          },
+          "weather_modifiers": {
+            "clear": "on a perfect clear day, ideal terrace weather, the umbrellas almost unnecessary",
+            "rain": "the terrace under a covered awning in light rain, the street wet beyond the shelter",
+            "snow": "the terrace chairs dusted lightly with snow, the surrounding street white and still",
+            "fog": "on a misty morning, the terrace emerging from the fog, the street beyond indistinct",
+            "cloudy": "on an overcast but warm day, the diffused light even and flattering"
+          },
+          "color_modifiers": {
+            "warm": "in warm honey and cream tones, the flowers golden, the umbrellas warm white",
+            "cool": "in a cooler modern cafe palette — white and grey with accents of blue or green",
+            "neutral": "in natural stone, cream canvas, and wooden chair tones, classically beautiful",
+            "vibrant": "with colorful flowers, patterned tiles, and bright umbrellas, full of French joie de vivre",
+            "muted": "in soft faded tones — sage umbrellas, dusty pink walls, a gentle vintage palette"
+          },
+          "variation_suffixes": [
+            "wide shot showing the full terrace from across the street",
+            "intimate shot of a single table setting with the terrace and street behind",
+            "overhead shot looking down at the terrace layout from a window above",
+            "shot through the climbing flowers or wisteria at the terrace below",
+            "street-level shot looking along the terrace with the tables receding in perspective"
+          ]
+        },
+        {
+          "id": "european_street",
+          "label_ko": "유럽풍 거리",
+          "label_en": "European Street",
+          "base_prompt": "A beautiful European street of colorful narrow buildings several stories tall, their facades painted in washes of ochre, terracotta, pale yellow, and dusty blue, with window boxes of geraniums and shutters thrown open to the morning. The cobblestone road curves slightly ahead, and at the end of the street a church tower or dome provides a punctuation to the view. Sunlight falls at a low angle across the facades, casting long shadows on the stones and making the colors glow.",
+          "mood_modifiers": {
+            "peaceful": "the street quiet in the morning before the day begins, only a cat on a doorstep",
+            "melancholic": "the afternoon getting late, the light going, the street quiet and reflective",
+            "energetic": "market day or holiday, the street full of people, flowers being sold, voices echoing",
+            "dreamy": "the light hazy and golden, the colors soft, the street from a remembered summer",
+            "mysterious": "an empty street in an unknown city, beautiful but lacking the familiar references"
+          },
+          "time_modifiers": {
+            "dawn": "the street just beginning to light, the facades pale in the pre-dawn, shutters still closed",
+            "morning": "in the morning with the sun angled across the facades and long shadows on the cobbles",
+            "afternoon": "in the afternoon when the facades are in full color and the street is alive",
+            "sunset": "in the golden hour when the warm facades turn to burnished gold and copper",
+            "night": "the street lit by lamp posts, the building windows glowing, the cobbles reflecting light"
+          },
+          "weather_modifiers": {
+            "clear": "on a perfect clear day, the sky a saturated blue above the colorful facades",
+            "rain": "wet cobblestones reflecting the colored facades above, the flowers heavy with rain",
+            "snow": "a light snowfall on the European street, the colors muted under white, fairytale-like",
+            "fog": "a misty morning, the end of the street soft and indistinct, the near facades sharp",
+            "cloudy": "under soft overcast light that makes the colors rich without harsh shadows"
+          },
+          "color_modifiers": {
+            "warm": "the facades predominantly warm — ochre, terracotta, amber, golden",
+            "cool": "the facades predominantly cool — pale blue, grey, lavender, with white trim",
+            "neutral": "in a natural European palette of aged stone and muted painted stucco",
+            "vibrant": "maximum color saturation, the facades vivid and the flowers bright",
+            "muted": "in a faded historic palette, the colors aged and gentle"
+          },
+          "variation_suffixes": [
+            "wide shot looking down the street showing multiple colorful facades in perspective",
+            "intimate shot of a single doorway with flower boxes and open shutters",
+            "low angle looking up at the facades and sky above the narrow street",
+            "shot looking down at the cobblestones with the facades reflected if wet",
+            "corner view where two streets meet showing both directions"
+          ]
+        },
+        {
+          "id": "quiet_park",
+          "label_ko": "한적한 공원",
+          "label_en": "Quiet Park",
+          "base_prompt": "A beautiful city park at its most peaceful — wide paths edged with beds of seasonal flowers wind between mature trees whose canopies create islands of shade on the grass. Park benches are positioned at intervals, each in a pool of shade, and the distant sounds of the city are muffled by the trees into a pleasant background hum. A small ornamental pond or fountain may be visible, and the light through the trees creates a constantly shifting mosaic of shadow and brightness on the grass below.",
+          "mood_modifiers": {
+            "peaceful": "the park in absolute midweek calm, the benches mostly empty, the trees breathing slowly",
+            "melancholic": "the park in autumn, leaves falling, the season's beauty at its most transient",
+            "energetic": "weekend activity, families and joggers, the park full of life and movement",
+            "dreamy": "the morning park in soft light with mist between the trees, the city not yet awake",
+            "mysterious": "the park in an off-season emptiness, the trees bare, the paths leaf-covered and unused"
+          },
+          "time_modifiers": {
+            "dawn": "the park in the first light, dew on every surface, one or two early joggers",
+            "morning": "in morning light through the trees, the park peaceful and fresh",
+            "afternoon": "in afternoon shade under the trees, the light golden and the grass warm",
+            "sunset": "in the golden hour, the park's trees long-shadowed and the light amber",
+            "night": "the park lit by path lamps, the trees in dark shadow above"
+          },
+          "weather_modifiers": {
+            "clear": "on a clear warm day ideal for the park, the sky visible through the canopy",
+            "rain": "in light summer rain, the park beautiful in green richness, paths wet",
+            "snow": "the park under snow, the paths cleared but the grass and benches white",
+            "fog": "in morning fog that makes the park trees into silhouettes and hides the city entirely",
+            "cloudy": "under overcast sky, the park's greens rich and saturated"
+          },
+          "color_modifiers": {
+            "warm": "in warm golden-green light, the tree canopy amber-tinged in the warm light",
+            "cool": "in cool morning tones, the shadow blue and the light crisp",
+            "neutral": "in natural park tones — grass green, bark brown, sky blue, flowers in season",
+            "vibrant": "in spring with flowers at maximum bloom, the park at its most colorful",
+            "muted": "in autumn muted tones of brown, russet, and faded yellow"
+          },
+          "variation_suffixes": [
+            "wide shot down a tree-lined path with the trees forming a natural tunnel",
+            "shot from a park bench looking across the lawn to trees in the distance",
+            "overhead shot from a slight elevation looking down at the path pattern",
+            "intimate shot of a single bench under a tree with dappled light",
+            "through-tree shot with trees in close foreground and the open park beyond"
+          ]
+        },
+        {
+          "id": "flower_path",
+          "label_ko": "꽃길/가로수길",
+          "label_en": "Flower Path & Tree-lined Street",
+          "base_prompt": "A wide pedestrian street or path lined on both sides with flowering trees in full bloom — cherry blossoms, magnolias, or wisteria — their branches arching overhead to create a tunnel of white and pink petals. Petals drift constantly through the air and collect in drifts on the pavement, and the light through the canopy of flowers is filtered to a soft pink-white glow. The path stretches ahead through the floral tunnel, inviting forward movement, and the scene is overwhelmingly, almost unbearably beautiful.",
+          "mood_modifiers": {
+            "peaceful": "the path quiet, petals drifting in silence, the beauty available to anyone who pauses",
+            "melancholic": "peak bloom on the cusp of fading, the petals falling fast, the beauty already ending",
+            "energetic": "the path busy with people photographing and walking, the energy celebratory",
+            "dreamy": "the petals blurring in a breeze, the path soft-focus and pink-white, dreamlike",
+            "mysterious": "the path curving and the end hidden by the canopy, the beauty leading somewhere unknown"
+          },
+          "time_modifiers": {
+            "dawn": "the path empty in the first light, the blossoms pale and the petals undisturbed",
+            "morning": "in morning light, the blossoms glowing with backlit translucence",
+            "afternoon": "in full afternoon light, the colors at their most vivid, the path busy",
+            "sunset": "in golden hour, the blossoms tinged pink-gold, extraordinarily beautiful",
+            "night": "the path lit at night, the blossoms glowing in the artificial light"
+          },
+          "weather_modifiers": {
+            "clear": "on a clear day, the sky blue between the white-pink blossoms overhead",
+            "rain": "in light spring rain, the blossoms heavy-headed, petals falling faster",
+            "snow": "late snow on already-blooming trees, a surreal double beauty",
+            "fog": "on a misty morning, the path disappearing into white, the blossoms in soft focus",
+            "cloudy": "under soft overcast, the blossoms lit evenly, no harsh shadows"
+          },
+          "color_modifiers": {
+            "warm": "the blossoms warm pink and cream, the light through them honey-golden",
+            "cool": "the blossoms white with cool blue shadows, crisp and clean",
+            "neutral": "natural blossom pink and white against the grey-brown bark of the trees",
+            "vibrant": "the pink intensely saturated, the sky vivid blue, the green of new leaves electric",
+            "muted": "soft faded pink and white, the scene pastel and gentle"
+          },
+          "variation_suffixes": [
+            "wide shot looking straight down the center of the blossom tunnel",
+            "low angle looking up through the canopy of blossoms to the sky above",
+            "ground level shot of petal drifts on the pavement with the path beyond",
+            "shot from the side showing the depth of the blossom canopy and the path below",
+            "close shot of a single branch heavy with blossom against the blurred path"
+          ]
+        },
+        {
+          "id": "fountain_square",
+          "label_ko": "분수 광장",
+          "label_en": "Fountain Square",
+          "base_prompt": "A grand public square centered on an elegant stone fountain, its multiple jets of water catching the sunlight and casting prismatic light on the stones around it. The square is paved in worn stone or mosaic, and cafes and shops line its perimeter under covered arcades, their awnings providing shade for tables and chairs outside. Pigeons and people share the space, the former drinking at the fountain's edge and the latter sitting on its rim or on nearby benches, the whole scene an image of public life at its most gracious.",
+          "mood_modifiers": {
+            "peaceful": "the square in a midweek quiet, the fountain the dominant sound, people unhurried",
+            "melancholic": "the square at the end of the day, the light going, the fountains about to be turned off",
+            "energetic": "market day or festival, the square packed with people, music playing, the fountains a backdrop",
+            "dreamy": "the spray of the fountain creating a fine mist that catches the light, rainbow visible",
+            "mysterious": "the square empty in an early morning, the fountain running for no audience, the arcades dark"
+          },
+          "time_modifiers": {
+            "dawn": "the square nearly empty, the fountain running, the light just coming, pigeons claiming the space",
+            "morning": "the square beginning to fill, the fountain lit by angled morning sun",
+            "afternoon": "in full afternoon with the fountain in direct sun and the square at its busiest",
+            "sunset": "in golden light, the fountain throwing gold sparks, the square at its most beautiful",
+            "night": "the fountain lit from beneath, the square in evening atmosphere with lamps"
+          },
+          "weather_modifiers": {
+            "clear": "on a perfect sunny day, the fountain sparkling brilliantly in the direct sun",
+            "rain": "in light rain, the fountain and rain creating an orchestral effect in the square",
+            "snow": "winter without fountain, the square and its statuary under snow, quiet",
+            "fog": "in morning fog, the fountain heard before it is fully seen, emerging from the grey",
+            "cloudy": "on an overcast day, the fountain subtler and the square more contemplative"
+          },
+          "color_modifiers": {
+            "warm": "in warm golden light, the stone honey-colored and the water catching amber",
+            "cool": "in cool clear light, the water vivid blue-white and the stone grey",
+            "neutral": "in natural stone tones — warm grey, aged marble, natural water colors",
+            "vibrant": "with colored parasols, flower stalls, and vivid sunlight making the scene radiant",
+            "muted": "in soft grey and cream, the square dignified and understated"
+          },
+          "variation_suffixes": [
+            "wide shot from one end of the square showing the full fountain and surrounding buildings",
+            "shot from fountain-level looking across the water at the square beyond",
+            "overhead shot from a building window looking down at the fountain and plaza pattern",
+            "intimate shot of the fountain's jets and water detail with the square soft behind",
+            "shot from beneath the arcade looking out at the fountain in the sunlit square"
+          ]
+        },
+        {
+          "id": "open_market",
+          "label_ko": "노천 마켓",
+          "label_en": "Open Market",
+          "base_prompt": "A vibrant open-air market with rows of canvas-covered stalls selling flowers, fruit, vegetables, cheese, and artisan goods, their colors creating a rich visual feast of reds, yellows, greens, and purples. The market is busy with shoppers moving between the stalls, the vendors calling out and arranging their displays, and the whole space is alive with the energy of commerce and community. Overhead, bunting or string lights are strung between the stalls, and the smell of fresh flowers, bread, and coffee from a nearby stand perfumes the air.",
+          "mood_modifiers": {
+            "peaceful": "the market in the first hour before it gets busy, the stalls set and waiting, the air fresh",
+            "melancholic": "the market at closing time, the stalls being packed up, the abundance of the morning reduced",
+            "energetic": "the market at its peak Saturday morning height, crowded and loud and wonderful",
+            "dreamy": "the flower stalls in soft morning light, the colors dreamlike and abundant",
+            "mysterious": "an antique market with old objects whose histories are unknown, the stalls full of stories"
+          },
+          "time_modifiers": {
+            "dawn": "the stallholders setting up before dawn, the market still dark, the day being built",
+            "morning": "the market at its peak freshness, the produce and flowers at their best",
+            "afternoon": "the market thinning toward closing time, the best goods gone but the atmosphere lingering",
+            "sunset": "a night market just beginning, the stalls lit with hanging lights as the day ends",
+            "night": "a full night market, the stalls under lights, the market a warm island in the dark"
+          },
+          "weather_modifiers": {
+            "clear": "on a perfect market day, clear and not too hot, ideal conditions",
+            "rain": "under the canvas awnings in light rain, the market persisting despite the weather",
+            "snow": "a winter market with Christmas goods and hot drinks, the stalls under heavy canvases",
+            "fog": "a misty morning market, the further stalls soft and indistinct",
+            "cloudy": "on a grey day when the colors of the produce and flowers are all the more welcome"
+          },
+          "color_modifiers": {
+            "warm": "dominated by warm autumn produce colors — pumpkins, apples, gold chrysanthemums",
+            "cool": "dominated by cool fresh spring flowers — whites, blues, lavender, fresh greens",
+            "neutral": "in the natural palette of a produce market — earthy, fresh, and abundant",
+            "vibrant": "at maximum color — the flower stalls in full bloom, every color represented",
+            "muted": "in a soft vintage palette, the market photographed with film-like restraint"
+          },
+          "variation_suffixes": [
+            "wide shot down the main market aisle with stalls on both sides in perspective",
+            "intimate shot of a single flower stall with blooms filling the frame",
+            "overhead shot from above looking down at the market layout and color",
+            "shot from within the crowd looking at a fruit or vegetable stall",
+            "shot from the end of the market looking in, with the stalls framing the view"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "animation",
+      "label_ko": "애니메이션/일러스트",
+      "label_en": "Animation & Illustration",
+      "sub_categories": [
+        {
+          "id": "ghibli",
+          "label_ko": "지브리풍 풍경",
+          "label_en": "Ghibli-style Landscape",
+          "base_prompt": "A lush and luminous landscape in the visual style of Studio Ghibli — rolling green hills with impossibly vivid grass, a sky full of towering white clouds with soft grey bases, and in the middle distance a cluster of small buildings with steep roofs partly hidden in trees. The light is golden and clear, and every surface seems to glow with an inner warmth. A small winding path leads through the grass toward the buildings, and wildflowers dot the hillside, the whole scene imbued with a sense of magic being simply an everyday feature of this world.",
+          "mood_modifiers": {
+            "peaceful": "idyllic and safe, the world benign and abundant, the feeling that all shall be well",
+            "melancholic": "the season turning, the golden light that of late summer's end, beautiful and fleeting",
+            "energetic": "wind in the grass and clouds racing, the scene dynamic and alive with movement",
+            "dreamy": "soft and hazy at the edges, the light magical, the world more beautiful than the real one",
+            "mysterious": "the path leading to something just out of sight, the world hinting at its hidden magic"
+          },
+          "time_modifiers": {
+            "dawn": "in the first light, the hills misty and the dew sparkling, the day full of promise",
+            "morning": "in golden morning light, the shadows long and the colors brilliant",
+            "afternoon": "in the warm afternoon when the world is at its most abundant and comfortable",
+            "sunset": "in the extraordinary Ghibli golden hour, the sky pink and orange, the grass amber",
+            "night": "under a Ghibli night sky full of large gentle stars, the fireflies beginning to appear"
+          },
+          "weather_modifiers": {
+            "clear": "under a Ghibli blue sky with the perfect cumulus clouds that define the style",
+            "rain": "in a Ghibli rainstorm with large drops and characters running for shelter in the imagination",
+            "snow": "in winter with deep clean snow, the world quiet and the sky grey-white",
+            "fog": "in morning mist that makes the hills into floating islands of green",
+            "cloudy": "under dramatic Ghibli storm clouds building on the horizon, the light extraordinary"
+          },
+          "color_modifiers": {
+            "warm": "in the characteristic warm Ghibli palette — gold, amber, and deep green",
+            "cool": "in a cooler Ghibli palette suggesting autumn or early spring",
+            "neutral": "in the natural but vivid Ghibli color grading, true to the studio's visual language",
+            "vibrant": "at maximum Ghibli saturation, the colors more vivid than reality",
+            "muted": "in the quieter Ghibli palette of misty mornings, soft and gentle"
+          },
+          "variation_suffixes": [
+            "wide establishing panoramic shot of the full Ghibli landscape",
+            "path-level intimate shot following the winding trail through the scene",
+            "sky-dominant shot with the landscape reduced to a green strip below vast clouds",
+            "detail shot of Ghibli-style wildflowers and grass in close foreground",
+            "shot from a tree or elevated point looking out over the landscape"
+          ]
+        },
+        {
+          "id": "lofi_room",
+          "label_ko": "Lo-fi 스타일 방",
+          "label_en": "Lo-fi Style Room",
+          "base_prompt": "A cozy illustrated bedroom in the lo-fi aesthetic — a desk in front of a window through which city lights or rain can be seen at night, covered with a computer, books, plants, and the small objects of a life in progress. A desk lamp casts warm light, and a figure (or suggestion of one) sits studying or listening to music, a cat perhaps curled nearby on the chair. The illustration style is clean and slightly simplified, with careful attention to the comfort of the small objects — a steaming mug, sticky notes, a small succulent, headphones hung on the monitor.",
+          "mood_modifiers": {
+            "peaceful": "the room quiet, the city asleep outside, the study a private cocoon of warm light",
+            "melancholic": "the late-night study session, the city dark, the deadline close, the room the whole world",
+            "energetic": "the desk covered in active work, multiple things open, the energy focused and alive",
+            "dreamy": "the lamp soft, the music playing, the work forgotten for a moment in reverie",
+            "mysterious": "the city outside unknown and vast, the room the only certain thing"
+          },
+          "time_modifiers": {
+            "dawn": "the figure still at the desk as dawn breaks outside the window, having worked all night",
+            "morning": "morning light beginning to supplement the lamp, the city waking beyond the window",
+            "afternoon": "a quiet afternoon study session, coffee on the desk, everything unhurried",
+            "sunset": "the lamp not yet needed as the warm sunset light fills the room through the window",
+            "night": "deep in the night, the lamp the only light, the city dark and rainy outside"
+          },
+          "weather_modifiers": {
+            "clear": "the window showing a clear night sky and city lights beyond",
+            "rain": "rain streaming down the window, the room the perfect refuge, the animation's signature",
+            "snow": "snow falling past the window, the room warm and the scene iconic",
+            "fog": "the city outside barely visible through fog, the room the clearest thing",
+            "cloudy": "a grey sky outside making the lamp's warmth all the more welcoming"
+          },
+          "color_modifiers": {
+            "warm": "in warm amber lamp tones, the room a golden haven against the cool city outside",
+            "cool": "with a cooler palette — the city blue outside, the room in soft blue and grey",
+            "neutral": "in the characteristic lo-fi balanced palette of warm room and cool outside",
+            "vibrant": "with small colorful accents — bright plant, colorful book covers, a vivid screen",
+            "muted": "in the desaturated lo-fi film aesthetic, soft and slightly faded"
+          },
+          "variation_suffixes": [
+            "classic lo-fi wide shot showing desk, window, and the full room composition",
+            "close shot of the desk surface with all its carefully placed objects",
+            "window-focused shot showing the city or rain outside through the glass",
+            "shot from outside the window looking in at the warm lit desk",
+            "overhead shot looking down at the desk and its contents from above"
+          ]
+        },
+        {
+          "id": "fantasy_castle",
+          "label_ko": "판타지 성/마을",
+          "label_en": "Fantasy Castle & Village",
+          "base_prompt": "A fantastical castle on a dramatic cliff or floating island, its towers impossibly tall and its architecture a dream of pointed spires, flying buttresses, and wide windows glowing from within with warm golden light. Below the castle, a small village nestles in the valley or at the cliff's base, its rooftops crowded together and its chimneys smoking, the scale making the castle appear even more vast by comparison. The landscape around is gorgeous and impossible — floating rocks perhaps, enormous ancient trees, or a river that curves in ways that geography would not normally permit.",
+          "mood_modifiers": {
+            "peaceful": "the kingdom at rest, the castle quiet, the village sleepy, a world in safe hands",
+            "melancholic": "the castle abandoned, its towers dark, the village below slowly emptying over generations",
+            "energetic": "the kingdom alive with activity, banners flying, the village market busy, celebration in the air",
+            "dreamy": "the castle half in cloud, the scale impossible and beautiful, the world not quite real",
+            "mysterious": "the castle lit from within with no visible occupant, the village keeping its distance, the mystery deep"
+          },
+          "time_modifiers": {
+            "dawn": "the castle in the first light, the towers catching the sunrise before the village below",
+            "morning": "the kingdom waking, the village beginning its day beneath the castle's watchful towers",
+            "afternoon": "the full fantasy world in daylight, every detail clear and extraordinary",
+            "sunset": "the castle silhouetted against an extraordinary fantasy sunset, the village lit gold below",
+            "night": "the castle windows glowing in the dark, the village lit by streetlamps, the sky full of stars"
+          },
+          "weather_modifiers": {
+            "clear": "under a fantasy clear sky perhaps of a slightly deeper blue than reality",
+            "rain": "in a fantasy storm with lightning illuminating the castle dramatically",
+            "snow": "in deep snow, the castle white-roofed, the village buried, the world hushed",
+            "fog": "in cloud and mist, only the highest towers visible above, the lower village hidden",
+            "cloudy": "under dramatic fantasy clouds, the light extraordinary and changing"
+          },
+          "color_modifiers": {
+            "warm": "in warm golden tones of fantasy summer, the castle stone honey-colored",
+            "cool": "in cool blue and grey of a northern fantasy kingdom, severe and beautiful",
+            "neutral": "in a realistic fantasy palette, the colors believable despite the impossible architecture",
+            "vibrant": "in saturated fantasy colors — vivid sky, bright banners, magical color everywhere",
+            "muted": "in a faded fairy-tale palette of soft greys and washed-out colors"
+          },
+          "variation_suffixes": [
+            "wide establishing shot showing castle and village in their full landscape context",
+            "low angle looking up dramatically at the castle towers from the village below",
+            "aerial view looking down at the village with the castle rising above it",
+            "shot from inside the castle walls looking out over the village and landscape",
+            "detail shot of the village rooftops with the castle towers visible behind"
+          ]
+        },
+        {
+          "id": "space_stars",
+          "label_ko": "우주/별",
+          "label_en": "Space & Stars",
+          "base_prompt": "A breathtaking illustrated cosmic scene with swirling nebulae in vivid purples, blues, and pinks providing a backdrop to a field of stars ranging from faint distant points to nearby bright clusters, all rendered with the luminous quality of astronomical illustration. A planet or moon may occupy one quadrant, its surface detailed and its terminator line casting dramatic shadow, while the Milky Way stretches across the scene in a broad band of concentrated stellar light. The whole image vibrates with the scale of space — the darkness is not empty but full of light, color, and structure.",
+          "mood_modifiers": {
+            "peaceful": "the cosmos at its most contemplative, the scale making all small concerns dissolve",
+            "melancholic": "the vast loneliness of space, beautiful but also isolating beyond comprehension",
+            "energetic": "a dynamic scene near a stellar event, the nebula forming, the energy visible",
+            "dreamy": "the nebula colors soft and swirling, the stars gentle, the cosmos a beautiful dream",
+            "mysterious": "the dark regions between stars suggesting unknowable depths and hidden things"
+          },
+          "time_modifiers": {
+            "dawn": "a star field with a planet's dawn visible, sunlight just touching the limb",
+            "morning": "the early universe, newly formed stars blazing in their birth nebula",
+            "afternoon": "a mature stellar system in its stable middle age, the light steady and clear",
+            "sunset": "the death of a star, a supernova's last light illuminating the surrounding nebula",
+            "night": "deep space far from any star, the cosmos at its darkest and most star-filled"
+          },
+          "weather_modifiers": {
+            "clear": "the view unobstructed by any gas clouds, the stars perfectly sharp",
+            "rain": "impossible in space — use 'stellar wind' instead: the scene swept by energetic particles",
+            "snow": "a comet or ice field nearby, frozen particles drifting in the foreground",
+            "fog": "a dense nebula reducing visibility to the immediate vicinity, the light scattered",
+            "cloudy": "gas clouds drifting across the star field, the cosmos half-veiled"
+          },
+          "color_modifiers": {
+            "warm": "dominated by warm nebula colors — red hydrogen emission, orange and gold stellar light",
+            "cool": "dominated by cool blues and purples, the reflection nebula and deep space blue",
+            "neutral": "in natural Hubble-palette tones, scientifically inspired color mapping",
+            "vibrant": "at maximum cosmic saturation, the nebula colors intensely vivid",
+            "muted": "in the deep true colors of space, dark and subtle with the stars as bright points"
+          },
+          "variation_suffixes": [
+            "wide panoramic view of the full nebula with star field and planets",
+            "close view of a dense star cluster, each star individually visible",
+            "dramatic view of a planet's face with the nebula as backdrop",
+            "abstract close shot of nebula gas clouds in intricate color and texture",
+            "wide view with a galaxy visible as a separate island of stars in the distance"
+          ]
+        },
+        {
+          "id": "watercolor",
+          "label_ko": "수채화풍",
+          "label_en": "Watercolor Style",
+          "base_prompt": "A scene rendered in delicate watercolor style — loose and translucent washes of color that allow the white of the paper to show through in the lightest areas, with soft edges where colors bleed into each other while wet. The subject could be a landscape, interior, or still life, but the medium defines the aesthetic: the transparency of the paint layers, the visible brushstrokes in the mid-tones, the darkest areas where color has been carefully built up in layers, and the overall sense of light captured in a spontaneous and direct way.",
+          "mood_modifiers": {
+            "peaceful": "the watercolor at its most serene — soft washes, minimal detail, pure light",
+            "melancholic": "the colors slightly blue and grey, the scene incomplete as if memory is imperfect",
+            "energetic": "bold gestural brushstrokes and vivid saturated color, the watercolor confident",
+            "dreamy": "the edges lost in soft wet blooms, the colors merging and soft",
+            "mysterious": "the darkest areas dense and intense, the light saved as bare white paper"
+          },
+          "time_modifiers": {
+            "dawn": "the palest possible watercolor palette — pink, lavender, pale gold on near-white paper",
+            "morning": "fresh morning light translated into clear clean watercolor washes",
+            "afternoon": "warm afternoon colors in transparent amber and golden watercolor layers",
+            "sunset": "dramatic sunset colors — wet-on-wet orange and pink bleeds into blue",
+            "night": "dark watercolor with the light saved as bare paper or delicate fine work"
+          },
+          "weather_modifiers": {
+            "clear": "the characteristic watercolor sky — wet-on-wet graduated blue from top to horizon",
+            "rain": "the paper literally rained on, blooms and backruns from water drops in the wet paint",
+            "snow": "white paper as snow, the scene built around the negative space",
+            "fog": "the most watercolor-native condition — all soft edges, lost-and-found transitions",
+            "cloudy": "the grey of watercolor clouds, wet into wet, soft and blooming"
+          },
+          "color_modifiers": {
+            "warm": "a warm watercolor palette — yellow ochre, burnt sienna, raw umber, warm greys",
+            "cool": "a cool watercolor palette — Prussian blue, cerulean, viridian, cool lavender",
+            "neutral": "a natural watercolor palette following the true colors of the subject",
+            "vibrant": "saturated pure watercolor — cadmium red, cobalt blue, lemon yellow at full strength",
+            "muted": "a very understated watercolor — mostly greys and muted earth tones, quiet beauty"
+          },
+          "variation_suffixes": [
+            "loose gestural watercolor with maximum spontaneity and visible brushstrokes",
+            "detailed watercolor with careful rendering in the focal area and lost edges elsewhere",
+            "wet-on-wet watercolor where all edges are soft and colors bleed together",
+            "dry brush watercolor with visible texture of the paper grain in the light areas",
+            "mixed media watercolor with visible pencil sketch lines beneath the paint"
+          ]
+        },
+        {
+          "id": "fairy_tale",
+          "label_ko": "동화풍",
+          "label_en": "Fairy Tale Style",
+          "base_prompt": "A scene from a fairy tale rendered in a warm and slightly naive illustration style — a cottage in a forest clearing with a smoking chimney, surrounded by oversized mushrooms and flowers, the trees having slightly anthropomorphic curves and the whole scene lit with the golden light of an eternal afternoon. The scale relationships are slightly off in the charming way of picture books, with flowers as large as the cottage door and a path of stepping stones that seem made for smaller feet. Everything in the scene is designed to be safe, warm, and full of the suggestion of story.",
+          "mood_modifiers": {
+            "peaceful": "the cottage warm and welcoming, the forest friendly, all the world a safe and beautiful place",
+            "melancholic": "the cottage dark and the forest wilder, the fairy tale turning toward its sadder possibilities",
+            "energetic": "the scene full of fairy tale activity — animals helping, magic happening, the story mid-action",
+            "dreamy": "the light golden and unreal, the flowers impossibly large, the world a waking dream",
+            "mysterious": "the path leading into the darker part of the forest, the cottage a known safe point in an unknown world"
+          },
+          "time_modifiers": {
+            "dawn": "the fairy tale world at the beginning of the story, everything possible",
+            "morning": "the world fresh and bright, the cottage sending up its first smoke",
+            "afternoon": "the eternal fairy tale afternoon — golden, safe, and full of wonder",
+            "sunset": "the forest darkening at the edges as the safe golden center holds",
+            "night": "the fairy tale night — moonlit clearing, fireflies, the cottage windows warm"
+          },
+          "weather_modifiers": {
+            "clear": "the ideal fairy tale day — perfect, golden, and impossible to improve",
+            "rain": "a fairy tale shower that makes everything fresh and rainbows appear",
+            "snow": "the fairy tale winter — deep, clean, and full of footprints leading to hidden things",
+            "fog": "the mysterious fairy tale mist that hides and reveals in equal measure",
+            "cloudy": "a sky that promises the arrival of something important to the story"
+          },
+          "color_modifiers": {
+            "warm": "in warm honey and amber tones, the illustration palette deeply cozy",
+            "cool": "in cooler tones suggesting the northern fairy tale tradition — blues and greys and frost",
+            "neutral": "in the natural picture-book palette, warm but not artificially sweetened",
+            "vibrant": "in the most vivid fairy tale colors, the world too beautiful to be real",
+            "muted": "in the slightly faded palette of an old fairy tale book, nostalgic and precious"
+          },
+          "variation_suffixes": [
+            "wide establishing shot of the cottage in the clearing with the forest behind",
+            "close shot of the cottage door with its magical details and the path leading to it",
+            "interior view looking out through the cottage window at the fairy tale world outside",
+            "overhead view looking down at the clearing and cottage from a bird's perspective",
+            "detail shot of the fantastical elements — mushrooms, flowers, magical objects — in the foreground"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abstract",
+      "label_ko": "추상/미니멀",
+      "label_en": "Abstract & Minimal",
+      "sub_categories": [
+        {
+          "id": "gradient",
+          "label_ko": "그라데이션",
+          "label_en": "Gradient",
+          "base_prompt": "A vast, pure gradient field moving from one color to another across the entire frame in a slow, perfectly even transition, the kind of gradient that seems to contain depth and atmosphere despite being essentially simple. The gradient may be linear, radial, or subtly curved, and at its best transitions through an unexpected middle color that elevates it beyond the expected. Slight texture or grain is added to prevent it from feeling completely digital, giving it the quality of a lit environment rather than a color fill.",
+          "mood_modifiers": {
+            "peaceful": "a gradient as gentle and slow as a breath, the transition almost imperceptible",
+            "melancholic": "moving from warm to cool, or light to dark, a transition with emotional resonance",
+            "energetic": "a high-contrast vibrant gradient, the color shift dramatic and immediate",
+            "dreamy": "a soft gradient with a subtle middle hue that takes the eye on a gentle journey",
+            "mysterious": "a dark gradient that gives away very little, hinting at depths"
+          },
+          "time_modifiers": {
+            "dawn": "the gradient of pre-dawn — deep blue below, pale lavender above, the sky in transition",
+            "morning": "the gradient of morning — pale gold to warm white, optimism in color",
+            "afternoon": "a vivid midday gradient — deep sky blue above to warm earth below",
+            "sunset": "the classic sunset gradient — deep violet below through rose, orange, to pale yellow",
+            "night": "the night gradient — near-black below through deep blue to the darkest navy above"
+          },
+          "weather_modifiers": {
+            "clear": "the clean gradient of a clear sky, no interference, pure color transition",
+            "rain": "a stormy gradient — dark grey above sliding to lighter grey below, rain grey",
+            "snow": "a winter gradient — pale blue-grey above to pure white below",
+            "fog": "a foggy gradient — minimal color range, the transition between light and lighter grey",
+            "cloudy": "a dramatic gradient — dark blue-grey above to pale warm grey below"
+          },
+          "color_modifiers": {
+            "warm": "moving through warm colors — deep amber to pale gold, or crimson to orange to yellow",
+            "cool": "moving through cool colors — deep navy to pale cyan, or violet to pale blue",
+            "neutral": "a subtle neutral gradient — warm grey to cool grey, or cream to pale taupe",
+            "vibrant": "a vivid complementary gradient — deep magenta to bright cyan, or purple to orange",
+            "muted": "a muted desaturated gradient — dusty rose to soft sage, quiet and refined"
+          },
+          "variation_suffixes": [
+            "perfectly linear horizontal gradient, the transition moving left to right",
+            "radial gradient from a bright center point fading to a dark periphery",
+            "diagonal gradient moving from bottom-left to top-right with a dramatic shift",
+            "gradient with visible subtle grain and texture making it feel atmospheric",
+            "multi-stop gradient that transitions through three or four related colors"
+          ]
+        },
+        {
+          "id": "geometric",
+          "label_ko": "기하학적 패턴",
+          "label_en": "Geometric Pattern",
+          "base_prompt": "A composed abstract image built from geometric forms — triangles, circles, rectangles, and hexagons arranged with the precision of mathematical intention, each element in perfect relationship to the others. The composition has a clear focal structure, with the geometric elements organized in a way that creates rhythm, depth, and visual movement across the frame. The shapes are rendered with absolute precision, their edges sharp and their surfaces either flat-color or subtly textured, and the whole composition has the satisfying inevitability of a mathematical proof made visible.",
+          "mood_modifiers": {
+            "peaceful": "the geometry ordered and balanced, the composition settled and harmonious",
+            "melancholic": "asymmetric and with a sense of displacement, the geometry suggesting incompleteness",
+            "energetic": "dynamic geometry with diagonal elements and strong contrast, kinetic energy in form",
+            "dreamy": "the geometry soft-edged or layered with transparency, the shapes overlapping gently",
+            "mysterious": "the geometry complex and not immediately legible, hiding pattern within pattern"
+          },
+          "time_modifiers": {
+            "dawn": "the geometry in pale light colors, soft greys and whites with a pale color accent",
+            "morning": "fresh and clean geometric composition, bright and open",
+            "afternoon": "the geometry in strong direct light, creating strong shadows within the composition",
+            "sunset": "warm geometric palette with shadow elements lit in amber and orange",
+            "night": "dark background geometry where the shapes are defined by light rather than color"
+          },
+          "weather_modifiers": {
+            "clear": "the geometry in clean high-contrast, the shapes perfectly defined",
+            "rain": "the geometry softened by a rainy overlay texture, the edges slightly blurred",
+            "snow": "geometric forms in white and very pale grey, the background dark, like snowflakes",
+            "fog": "the geometry soft and slightly indistinct, the forms blending at their edges",
+            "cloudy": "the geometry in diffused soft light, the shadows gentle and the contrast moderate"
+          },
+          "color_modifiers": {
+            "warm": "the geometry in warm colors — burnt orange, golden yellow, deep red",
+            "cool": "the geometry in cool colors — deep navy, cyan, pale blue, grey",
+            "neutral": "black, white, and grey geometry, the composition entirely dependent on form",
+            "vibrant": "the geometry in vivid primary and secondary colors, maximum visual energy",
+            "muted": "the geometry in soft dusty tones — sage, dusty rose, warm grey, taupe"
+          },
+          "variation_suffixes": [
+            "symmetrical composition with a strong central axis of bilateral balance",
+            "grid-based composition with modular repeating geometric units",
+            "radial composition with geometric elements emanating from a central point",
+            "layered transparent geometric shapes creating complex overlapping color fields",
+            "minimal composition with a single dominant geometric form and generous negative space"
+          ]
+        },
+        {
+          "id": "wave_fluid",
+          "label_ko": "파동/물결",
+          "label_en": "Wave & Fluid",
+          "base_prompt": "An abstract rendering of fluid dynamics — wave forms or liquid surfaces captured at the moment of their most beautiful complexity, the light catching the curves and valleys of the fluid forms to create a composition of shadow and highlight. The waves may be large and rolling or fine and intricate, but all have the quality of motion captured: they suggest the instant before or after they were at this exact form, and the next moment would be completely different. The surface texture ranges from glassy smooth in the wave crests to textured and complex in the troughs.",
+          "mood_modifiers": {
+            "peaceful": "slow smooth waves, the rhythm gentle and regular, a sea at rest",
+            "melancholic": "waves at the moment of breaking, the beauty of dissolution made visible",
+            "energetic": "turbulent dynamic waves with complex overlapping forms and strong shadows",
+            "dreamy": "impossibly slow waves, as if time has slowed to make this moment last",
+            "mysterious": "waves in total darkness, only the light on their crests making them visible"
+          },
+          "time_modifiers": {
+            "dawn": "the first light on a calm sea, the wave forms lit from a very low angle",
+            "morning": "morning light on water, the reflections bright and the shadows cool",
+            "afternoon": "direct overhead light on water, creating complex shadow and highlight",
+            "sunset": "warm light on waves, the shadow sides blue and the lit sides gold",
+            "night": "moonlight on dark water, only the wave crests catching the silver light"
+          },
+          "weather_modifiers": {
+            "clear": "the waves lit by clear direct sun, maximum shadow and highlight contrast",
+            "rain": "rain drops on the wave surface adding a micro-texture to the macro movement",
+            "snow": "impossible sea-snow — the abstract treatment allows this surreal combination",
+            "fog": "the waves visible only close to the viewer, the distance lost in fog",
+            "cloudy": "diffused light on waves, the shadows soft and the highlights gentle"
+          },
+          "color_modifiers": {
+            "warm": "warm water tones — amber, copper, and golden light on the wave forms",
+            "cool": "cool water tones — deep navy, cyan, and cool grey in the shadows and light",
+            "neutral": "the natural colour of water in its various depths — teal, deep blue, near-black",
+            "vibrant": "impossibly vivid water — electric turquoise, deep sapphire, bright highlights",
+            "muted": "soft desaturated water tones, the sea in overcast grey-green"
+          },
+          "variation_suffixes": [
+            "overhead abstract view of the wave surface as pure pattern and texture",
+            "side-on view of a single large wave form with full shadow and highlight",
+            "close abstract shot of the wave texture in extreme detail, almost unrecognizable",
+            "long exposure effect where the waves are blurred to silk in slow motion",
+            "multiple overlapping wave forms creating complex interference pattern"
+          ]
+        },
+        {
+          "id": "smoke_fog",
+          "label_ko": "연기/안개",
+          "label_en": "Smoke & Fog",
+          "base_prompt": "An abstract composition dominated by the fluid forms of smoke or fog — translucent volumes that fold and curl in slow motion, their edges soft and their interiors complex with light scatter. The smoke forms against a dark background reveal their full tonal range, from the near-transparent wisps at the edges to the dense concentrations near the source, and the light catching them from one side creates dramatic chiaroscuro within the swirling forms. The composition is always different, always evolving, captured at one moment of its endless transformation.",
+          "mood_modifiers": {
+            "peaceful": "the smoke slow and gentle, the forms unhurried, the atmosphere contemplative",
+            "melancholic": "the smoke rising from something no longer burning, the dissipation a metaphor",
+            "energetic": "turbulent smoke with strong directional energy, the forms complex and dynamic",
+            "dreamy": "the fog at its softest, the forms blending imperceptibly, the world dissolving",
+            "mysterious": "deep smoke or fog with a light source barely visible within, hidden origins"
+          },
+          "time_modifiers": {
+            "dawn": "morning fog at the ground, the rising sun beginning to burn through from above",
+            "morning": "smoke in morning light, the forms backlit and translucent",
+            "afternoon": "smoke in direct light, the forms casting shadows on each other",
+            "sunset": "smoke in the golden hour, the forms colored amber and pink by the warm light",
+            "night": "smoke or fog at night, lit only by an artificial light source against total darkness"
+          },
+          "weather_modifiers": {
+            "clear": "smoke against a perfectly clear background, the forms maximally defined",
+            "rain": "smoke in damp air, the forms heavier and less mobile, drooping slightly",
+            "snow": "smoke and snow together — the density of the smoke contrasting with the light snowflakes",
+            "fog": "fog itself as subject — ground fog in layers, the scene defined by its own atmosphere",
+            "cloudy": "smoke rising into an overcast sky, the grey on grey requiring careful light management"
+          },
+          "color_modifiers": {
+            "warm": "smoke or fog lit in warm amber or golden light, the forms colored warm against dark",
+            "cool": "smoke in cool blue or silver light, the forms ghostly and cold",
+            "neutral": "white smoke or grey fog in natural light, the tonal composition the primary interest",
+            "vibrant": "colored smoke — a photographer's smoke bomb — in vivid unexpected color",
+            "muted": "smoke in very low light, barely distinguishable from the darkness, subtle and difficult"
+          },
+          "variation_suffixes": [
+            "single thin stream of smoke rising perfectly vertical against a dark background",
+            "large billowing smoke cloud in full development, maximum volume and complexity",
+            "ground-level fog hugging the surface, the world above it clear",
+            "backlit smoke where the light source is directly behind and the smoke is a silhouette",
+            "slow drift of fog through a space, the forms horizontal rather than rising"
+          ]
+        },
+        {
+          "id": "light_rays",
+          "label_ko": "빛줄기",
+          "label_en": "Light Rays",
+          "base_prompt": "Dramatic volumetric light rays cutting through atmosphere — the kind of crepuscular rays that appear when a strong light source is partially obscured and the light scatter in dust, water vapor, or particles makes the beams visible as solid-seeming columns of illumination. The rays fan out from their source with geometric precision, but soften and scatter at their edges where they interact with the atmosphere. The contrast between the bright rays and the darker atmosphere between them creates a composition of extraordinary drama and beauty.",
+          "mood_modifiers": {
+            "peaceful": "gentle rays of morning sun through mist, warm and welcoming, not dramatic",
+            "melancholic": "the rays of afternoon fading, the last light making its final statement",
+            "energetic": "intense and dramatic rays, the contrast high, the beams almost physical",
+            "dreamy": "soft and diffuse rays, the light scattered gently through thick atmosphere",
+            "mysterious": "rays from an unseen source, the origin hidden, the light arriving from nowhere"
+          },
+          "time_modifiers": {
+            "dawn": "the first rays of dawn piercing the horizon and striking upward through the atmosphere",
+            "morning": "morning rays through a forest canopy or window, the angle steep and the effect warm",
+            "afternoon": "rays from a high sun through breaks in clouds, the angles near-vertical",
+            "sunset": "the most dramatic rays — low angle through cloud breaks, the atmosphere colored gold",
+            "night": "theatrical light beams at night — stage lighting, searchlights, or moonlight through clouds"
+          },
+          "weather_modifiers": {
+            "clear": "rays through clear atmosphere where only dust particles make them visible",
+            "rain": "rays through rain, the drops making them sparkle and scatter",
+            "snow": "rays through falling snow, the snowflakes glinting in the beams",
+            "fog": "rays through fog — the most classic volumetric light scenario, beams most visible",
+            "cloudy": "rays breaking through gaps in clouds, the classic crepuscular ray scenario"
+          },
+          "color_modifiers": {
+            "warm": "warm golden rays, the light source warm, the beams amber-gold",
+            "cool": "cool silver-blue rays, the light source cold, the beams icy and precise",
+            "neutral": "natural white light rays, the color of the light source unmodified",
+            "vibrant": "colored theatrical rays — deep magenta, cyan, or golden rays in strong color",
+            "muted": "very soft rays, almost subliminal, the light barely distinguished from the surroundings"
+          },
+          "variation_suffixes": [
+            "fan of rays spreading from a single bright point source at the top of the frame",
+            "parallel rays from a distant source, the beams running in the same direction",
+            "interior rays through a small window into a dark dusty space",
+            "underwater light rays from the surface above, bending and scattering in the water",
+            "rays through a forest canopy, the trees creating the partial obstruction of the light"
+          ]
+        },
+        {
+          "id": "particle",
+          "label_ko": "파티클",
+          "label_en": "Particle",
+          "base_prompt": "An abstract composition of thousands of small individual particles — points, dots, or small geometric units — arranged in patterns that suggest larger forms or flows, the particles in motion creating trails and density gradients that make the composition readable as landscape, figure, or pure abstraction. The individual particles are simple but their collective behavior is complex, and the light catching them individually while the overall form reads at a distance creates a composition that rewards both close and distant viewing. Some areas are dense with particles and others sparse, and this variation in density is the primary structural element of the image.",
+          "mood_modifiers": {
+            "peaceful": "the particles drifting slowly, the flow gentle and the distribution even and calm",
+            "melancholic": "the particles dispersing from a dense center outward, the form dissolving",
+            "energetic": "the particles at high velocity, their trails long and the forms dynamic",
+            "dreamy": "the particles luminous and slow, like fireflies or pollen in still summer air",
+            "mysterious": "the particles arranging themselves in patterns just at the edge of meaning"
+          },
+          "time_modifiers": {
+            "dawn": "particles in pale cool morning colors, the composition just forming",
+            "morning": "bright particles against a light background, the forms clean and clear",
+            "afternoon": "particles in direct light, their shadows adding dimension",
+            "sunset": "warm-colored particles, the overall composition in amber and gold",
+            "night": "glowing particles against a dark background, luminous and floating"
+          },
+          "weather_modifiers": {
+            "clear": "particles in clear air, maximally defined and sharp",
+            "rain": "raindrops as particles, each one a lens and a point of light",
+            "snow": "snowflakes as particles, the white against dark background iconic",
+            "fog": "particles in fog, their individual definition softened by the atmosphere",
+            "cloudy": "particles in diffused light, the shadows soft and the forms gentle"
+          },
+          "color_modifiers": {
+            "warm": "particles in warm amber, gold, and orange tones against a dark background",
+            "cool": "particles in cool blue, cyan, and white tones against a deep dark background",
+            "neutral": "particles in white and grey, the composition monochromatic and structural",
+            "vibrant": "multi-colored particles, each one a different vivid hue, the total composition explosive",
+            "muted": "particles in soft muted tones, the composition quiet and refined"
+          },
+          "variation_suffixes": [
+            "particles forming a clear recognizable shape — a wave, a figure, a landscape",
+            "pure random particle field with no discernible figure, maximum abstraction",
+            "particles with long motion trails suggesting high velocity and direction",
+            "particles clustered in galaxy-like formations, dense cores and sparse halos",
+            "particles in a grid or lattice structure, the arrangement structured and precise"
+          ]
+        }
+      ]
+    }
+  ]
+}
