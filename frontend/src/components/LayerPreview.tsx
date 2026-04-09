@@ -27,7 +27,7 @@ const FONTS = [
 const DEFAULT_WF: WaveformLayerConfig = {
   enabled: true, style: 'bar', color: '#FFFFFF', opacity: 0.8,
   position_x: 0.5, position_y: 0.7, width_ratio: 0.8,
-  bar_count: 60, bar_width: 4, bar_height: 0.25,
+  bar_count: 60, bar_width: 4, bar_height: 0.25, bar_min: 0.1,
   bar_align: 'bottom', circle_radius: 0.12,
 }
 
@@ -86,8 +86,9 @@ export default function LayerPreview({ project, onRefresh }: Props) {
     for (let i = 0; i < count; i++)
       barsRef.current[i] += (targRef.current[i] - barsRef.current[i]) * 0.08
     tickRef.current++
+    const bmin = wf.bar_min ?? 0.1
     if (tickRef.current % 6 === 0)
-      for (let i = 0; i < count; i++) targRef.current[i] = Math.random() * 0.8 + 0.1
+      for (let i = 0; i < count; i++) targRef.current[i] = Math.random() * (1 - bmin) + bmin
 
     if (wf.style === 'circle') {
       const r = CH * (wf.circle_radius || 0.12)
@@ -289,8 +290,11 @@ export default function LayerPreview({ project, onRefresh }: Props) {
                 fmt={v => `${v}`} onChange={v => { setWf(w => ({ ...w, bar_count: v })); barsRef.current = []; targRef.current = [] }} />
               <Sl label="막대 너비" value={wf.bar_width} min={1} max={20} step={1}
                 fmt={v => `${v}px`} onChange={v => setWf(w => ({ ...w, bar_width: v }))} />
-              <Sl label="막대 높이" value={wf.bar_height} min={0.05} max={0.5} step={0.02}
+              <Sl label="막대 높이 (최대)" value={wf.bar_height} min={0.05} max={0.5} step={0.02}
                 fmt={v => `${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, bar_height: v }))} />
+              <Sl label="높이 편차 (최소)" value={wf.bar_min ?? 0.1} min={0} max={0.95} step={0.05}
+                fmt={v => v === 0 ? '0% (큰 차이)' : v >= 0.9 ? `${Math.round(v*100)}% (거의 균일)` : `${Math.round(v*100)}%`}
+                onChange={v => setWf(w => ({ ...w, bar_min: v }))} />
               <Sl label="불투명도" value={wf.opacity} min={0} max={1} step={0.05}
                 fmt={v => `${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, opacity: v }))} />
               {wf.style === 'circle' && (

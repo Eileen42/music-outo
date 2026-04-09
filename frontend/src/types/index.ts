@@ -38,6 +38,7 @@ export interface WaveformLayerConfig {
   bar_width: number       // 개별 막대 너비 (px, 1~20)
   bar_height: number      // 막대 최대 높이 비율 (0.05~0.5, 캔버스 대비)
   bar_align: 'center' | 'bottom' | 'top'
+  bar_min: number         // 최소 높이 비율 (0~1, bar_height 대비)
   circle_radius: number   // 원형 반지름 비율 (캔버스 대비)
 }
 
