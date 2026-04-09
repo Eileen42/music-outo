@@ -136,7 +136,7 @@ class CapcutBuilder:
 
         # draft_content.json 생성
         draft_content = self._build_draft_content(
-            state, tracks, images, layers, subtitle_entries, total_us, project_name
+            state, tracks, images, layers, subtitle_entries, total_us, project_name, project_dir
         )
         (project_dir / "draft_content.json").write_text(
             json.dumps(draft_content, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -188,11 +188,26 @@ class CapcutBuilder:
             encoding="utf-8",
         )
 
-        # 배경 이미지를 커버로 복사
+        # 에셋을 프로젝트 폴더 내 Resources/에 복사 (미디어 연결 불필요하게)
+        res_dir = project_dir / "Resources"
+        res_dir.mkdir(exist_ok=True)
+
+        # 음원 복사
+        for track in tracks:
+            src = Path(track.get("stored_path", ""))
+            if src.exists():
+                dst = res_dir / src.name
+                try:
+                    shutil.copy(src, dst)
+                except Exception:
+                    pass
+
+        # 배경 이미지를 커버 + Resources에 복사
         bg = images.get("background") or images.get("thumbnail")
         if bg and Path(bg).exists():
             try:
                 shutil.copy(bg, project_dir / "draft_cover.jpg")
+                shutil.copy(bg, res_dir / Path(bg).name)
             except Exception:
                 pass
 
@@ -221,24 +236,19 @@ class CapcutBuilder:
     def _build_draft_content(
         self, state: dict, tracks: list, images: dict, layers: dict,
         subtitle_entries: list, total_us: int, project_name: str,
+        project_dir: Path = None,
     ) -> dict:
-        """draft_content.json — 샘플 스켈레톤 기반."""
-        # 스켈레톤 로드
+        """draft_content.json — 실제 작동하는 샘플 템플릿 기반."""
         assets_dir = Path(__file__).parent.parent / "assets"
-        skeleton_path = assets_dir / "capcut_skeleton.json"
-        if skeleton_path.exists():
-            skel = json.loads(skeleton_path.read_text(encoding="utf-8"))
-            base = dict(skel.get("content_skeleton", {}))
-            mat_keys = skel.get("materials_keys", [])
-        else:
-            base = {}
-            mat_keys = []
 
-        # materials: 모든 키를 빈 배열로 초기화
-        materials: dict = {k: [] for k in mat_keys}
-        # 우리가 사용하는 키도 보장
-        for k in ["audios", "videos", "texts", "video_effects", "material_animations", "speeds", "canvases", "sound_channel_mappings"]:
-            materials.setdefault(k, [])
+        # 샘플에서 추출한 전체 템플릿 로드 (구조가 CapCut과 100% 동일)
+        tpl_path = assets_dir / "capcut_draft_template.json"
+        if tpl_path.exists():
+            base = json.loads(tpl_path.read_text(encoding="utf-8"))
+        else:
+            base = {"tracks": [], "materials": {}}
+
+        materials = base.get("materials", {})
         track_list: list = []
 
         # ── 1. 배경 이미지 트랙 ──
@@ -247,7 +257,7 @@ class CapcutBuilder:
             vid_id = _uuid()
             materials["videos"].append({
                 "id": vid_id,
-                "path": str(bg_path),
+                "path": str(project_dir / "Resources" / Path(bg_path).name) if project_dir else str(bg_path),
                 "type": "photo",
                 "width": 1920,
                 "height": 1080,
@@ -405,9 +415,11 @@ class CapcutBuilder:
             aud_id = _uuid()
             dur = track.get("duration", 0)
             dur_us = _us(dur)
+            # Resources/ 내 복사된 경로 사용
+            res_path = str(project_dir / "Resources" / Path(audio_path).name) if project_dir else str(audio_path)
             materials["audios"].append({
                 "id": aud_id,
-                "path": str(audio_path),
+                "path": res_path,
                 "duration": dur_us,
                 "type": "extract_music",
                 "name": track.get("title", ""),
@@ -424,21 +436,14 @@ class CapcutBuilder:
                 "segments": audio_segments,
             })
 
-        # 스켈레톤 + 우리 데이터 병합
-        result = dict(base)
-        result.update({
-            "canvas_config": {"height": 1080, "ratio": "original", "width": 1920},
-            "create_time": int(time.time()),
-            "duration": total_us,
-            "fps": 30.0,
-            "id": state.get("id", _uuid()),
-            "materials": materials,
-            "name": project_name,
-            "tracks": track_list,
-            "new_version": "163.0.0",
-            "version": 360000,
-        })
-        return result
+        # 템플릿 유지 + 우리 데이터만 교체
+        base["tracks"] = track_list
+        base["materials"] = materials
+        base["duration"] = total_us
+        base["id"] = state.get("id", _uuid())
+        base["name"] = project_name
+        base["create_time"] = int(time.time())
+        return base
 
 
 capcut_builder = CapcutBuilder()
