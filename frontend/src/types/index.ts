@@ -43,15 +43,41 @@ export interface WaveformLayerConfig {
   circle_radius: number
 }
 
+export interface TextShadow {
+  enabled: boolean
+  color: string        // hex
+  alpha: number        // 0~1
+  angle: number        // degrees
+  distance: number     // px
+  blur: number         // px (smoothing)
+}
+
+export interface TextAnimation {
+  type: 'fade_in' | 'fade_out' | 'slide_up' | 'slide_down' | 'typewriter' | 'none'
+  duration: number     // seconds
+}
+
 export interface TextLayerConfig {
   id: string
   text: string
   font_size: number
   font_family: string
   color: string
+  alpha: number         // 텍스트 불투명도 0~1
   position_x: number
   position_y: number
+  scale_x: number       // 가로 스케일 0~2
+  scale_y: number       // 세로 스케일 0~2
   bold: boolean
+  italic: boolean
+  letter_spacing: number // px
+  line_spacing: number   // 비율
+  alignment: 'left' | 'center' | 'right'
+  shadow: TextShadow
+  animation_in: TextAnimation
+  animation_out: TextAnimation
+  // 역할 구분
+  role: 'title' | 'subtitle' | 'description' | 'custom'
 }
 
 export interface EffectLayerConfig {
@@ -73,6 +99,7 @@ export interface LayerTemplate {
   waveform_layer: WaveformLayerConfig | null
   text_layers: Omit<TextLayerConfig, 'id'>[]
   effect_layers: EffectLayerConfig[]
+  subtitle_style?: Omit<TextLayerConfig, 'id' | 'text' | 'position_x' | 'position_y'>  // 자막 기본 스타일
 }
 
 export interface BuildStatus {

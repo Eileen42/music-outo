@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { Project, WaveformLayerConfig, TextLayerConfig, EffectLayerConfig, LayerTemplate } from '../types'
+import type { Project, WaveformLayerConfig, TextLayerConfig, TextShadow, TextAnimation, EffectLayerConfig, LayerTemplate } from '../types'
 import { api } from '../api/client'
 
 interface Props { project: Project; onRefresh: () => void }
@@ -10,16 +10,56 @@ function storageUrl(p: string): string {
 }
 
 const FONTS = [
+  { value: 'SeoulHangangB', label: '서울한강체B' },
+  { value: '"Palatino Linotype"', label: 'Palatino Linotype Bold Italic' },
   { value: 'Pretendard, sans-serif', label: 'Pretendard' },
-  { value: 'Arial, sans-serif', label: 'Arial' },
   { value: '"Noto Sans KR", sans-serif', label: 'Noto Sans KR' },
   { value: '"Noto Serif KR", serif', label: 'Noto Serif (명조)' },
+  { value: 'Arial, sans-serif', label: 'Arial' },
   { value: 'Georgia, serif', label: 'Georgia' },
   { value: '"Courier New", monospace', label: 'Courier New' },
   { value: 'Impact, sans-serif', label: 'Impact' },
   { value: '"Segoe UI", sans-serif', label: 'Segoe UI' },
   { value: '"Malgun Gothic", sans-serif', label: '맑은 고딕' },
+  { value: '"Times New Roman", serif', label: 'Times New Roman' },
 ]
+
+const ANIM_TYPES = [
+  { value: 'none', label: '없음' },
+  { value: 'fade_in', label: '페이드 인' },
+  { value: 'fade_out', label: '페이드 아웃' },
+  { value: 'slide_up', label: '슬라이드 업' },
+  { value: 'slide_down', label: '슬라이드 다운' },
+  { value: 'typewriter', label: '타이핑' },
+]
+
+const DEF_SHADOW: TextShadow = { enabled: false, color: '#000000', alpha: 0.36, angle: -45, distance: 5, blur: 1.75 }
+const DEF_ANIM: TextAnimation = { type: 'none', duration: 0 }
+
+function defaultText(): Omit<TextLayerConfig, 'id'> {
+  return {
+    text: '', font_size: 36, font_family: FONTS[0].value, color: '#FFFFFF', alpha: 1,
+    position_x: 0.5, position_y: 0.1, scale_x: 1, scale_y: 1,
+    bold: false, italic: false, letter_spacing: 0, line_spacing: 0,
+    alignment: 'center', shadow: { ...DEF_SHADOW }, animation_in: { ...DEF_ANIM }, animation_out: { ...DEF_ANIM },
+    role: 'custom',
+  }
+}
+
+function migrateText(t: Partial<TextLayerConfig> & { id: string; text: string }): TextLayerConfig {
+  return {
+    ...defaultText(),
+    ...t,
+    font_family: t.font_family || FONTS[0].value,
+    shadow: { ...DEF_SHADOW, ...(t.shadow || {}) },
+    animation_in: { ...DEF_ANIM, ...(t.animation_in || {}) },
+    animation_out: { ...DEF_ANIM, ...(t.animation_out || {}) },
+    alpha: t.alpha ?? 1, scale_x: t.scale_x ?? 1, scale_y: t.scale_y ?? 1,
+    italic: t.italic ?? false, letter_spacing: t.letter_spacing ?? 0,
+    line_spacing: t.line_spacing ?? 0, alignment: t.alignment ?? 'center',
+    role: t.role ?? 'custom',
+  }
+}
 
 const DEF: WaveformLayerConfig = {
   enabled: true, style: 'bar', color: '#FFFFFF', opacity: 0.8,
@@ -52,7 +92,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const layers = project.layers || { background_video: null, waveform_layer: null, text_layers: [], effect_layers: [] }
   const [wf, setWf] = useState<WaveformLayerConfig>(mg(layers.waveform_layer))
   const [texts, setTexts] = useState<TextLayerConfig[]>(
-    (layers.text_layers || []).map(t => ({ ...t, font_family: t.font_family || FONTS[0].value }))
+    (layers.text_layers || []).map(t => migrateText(t as TextLayerConfig))
   )
   const [effects, setEffects] = useState<EffectLayerConfig[]>(layers.effect_layers || [])
   const [newText, setNewText] = useState('')
@@ -214,7 +254,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const addTxt = async () => {
     if (!newText.trim()) return; setAddingText(true)
     try {
-      await api.layers.addText(project.id, { text: newText.trim(), font_size: 36, font_family: FONTS[0].value, color: '#FFFFFF', position_x: 0.5, position_y: 0.1, bold: true })
+      await api.layers.addText(project.id, { ...defaultText(), text: newText.trim() })
       setNewText(''); await onRefresh()
       const u = await api.layers.get(project.id)
       setTexts((u.text_layers || []).map((t: TextLayerConfig) => ({ ...t, font_family: t.font_family || FONTS[0].value })))
@@ -276,11 +316,13 @@ export default function LayerPreview({ project, onRefresh }: Props) {
         {/* 텍스트 레이어 + 리사이즈 핸들 */}
         {texts.map(l => (
           <div key={l.id} className={`absolute group ${dragId===l.id?'ring-2 ring-purple-400':'hover:ring-1 hover:ring-white/30'}`}
-            style={{left:`${l.position_x*100}%`,top:`${l.position_y*100}%`,transform:'translate(-50%,-50%)',
+            style={{left:`${l.position_x*100}%`,top:`${l.position_y*100}%`,transform:`translate(-50%,-50%) scaleX(${l.scale_x??1}) scaleY(${l.scale_y??1})`,
               fontSize:`${l.font_size*S}px`,fontFamily:l.font_family||FONTS[0].value,
-              color:l.color,fontWeight:l.bold?'bold':'normal',
-              textShadow:'2px 2px 4px rgba(0,0,0,0.8)',whiteSpace:'nowrap',userSelect:'none'}}>
-            {/* 이동 핸들 */}
+              color:l.color,opacity:l.alpha??1,fontWeight:l.bold?'bold':'normal',fontStyle:l.italic?'italic':'normal',
+              letterSpacing:`${(l.letter_spacing||0)*S}px`,lineHeight:l.line_spacing?`${1+l.line_spacing}`:undefined,
+              textAlign:l.alignment||'center',
+              textShadow:l.shadow?.enabled?`${Math.cos((l.shadow.angle||0)*Math.PI/180)*(l.shadow.distance||5)*S}px ${-Math.sin((l.shadow.angle||0)*Math.PI/180)*(l.shadow.distance||5)*S}px ${(l.shadow.blur||2)*S}px rgba(0,0,0,${l.shadow.alpha||0.5})`:'2px 2px 4px rgba(0,0,0,0.5)',
+              whiteSpace:'pre-wrap',userSelect:'none',textAlignLast:l.alignment||'center'}}>
             <div className="cursor-move" onMouseDown={startDrag('move-text',l.id)} onDoubleClick={()=>setEditId(editId===l.id?null:l.id)}>{l.text}</div>
             {/* 리사이즈 핸들 (우하단) */}
             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-purple-500/60 hover:bg-purple-400 rounded-sm cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
@@ -349,18 +391,89 @@ export default function LayerPreview({ project, onRefresh }: Props) {
                 {editId===l.id&&(
                   <div className="space-y-1.5 pt-1 border-t border-gray-700">
                     <input value={l.text} onChange={e=>updTxt(l.id,{text:e.target.value})} className="w-full bg-gray-900 text-white rounded px-2 py-1 text-xs border border-gray-700" />
-                    <select value={l.font_family||FONTS[0].value} onChange={e=>updTxt(l.id,{font_family:e.target.value})}
-                      className="w-full bg-gray-900 text-white rounded px-2 py-1 text-[10px] border border-gray-700">
-                      {FONTS.map(f=><option key={f.value} value={f.value}>{f.label}</option>)}</select>
-                    <div className="flex gap-1.5 items-center flex-wrap">
+                    {/* 폰트 + 역할 */}
+                    <div className="flex gap-1">
+                      <select value={l.font_family||FONTS[0].value} onChange={e=>updTxt(l.id,{font_family:e.target.value})}
+                        className="flex-1 bg-gray-900 text-white rounded px-1.5 py-0.5 text-[10px] border border-gray-700">
+                        {FONTS.map(f=><option key={f.value} value={f.value}>{f.label}</option>)}</select>
+                      <select value={l.role||'custom'} onChange={e=>updTxt(l.id,{role:e.target.value as TextLayerConfig['role']})}
+                        className="w-16 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700">
+                        <option value="title">제목</option><option value="subtitle">자막</option>
+                        <option value="description">설명</option><option value="custom">커스텀</option></select>
+                    </div>
+                    {/* 색상 + 크기 + B/I */}
+                    <div className="flex gap-1 items-center flex-wrap">
                       <input type="color" value={l.color} onChange={e=>updTxt(l.id,{color:e.target.value})} className="w-5 h-5 rounded cursor-pointer bg-gray-900 border border-gray-700" />
-                      <div className="flex items-center gap-0.5">
-                        <input type="number" value={l.font_size} onChange={e=>updTxt(l.id,{font_size:parseInt(e.target.value)||24})}
-                          className="w-12 bg-gray-900 text-white rounded px-1.5 py-0.5 text-[10px] border border-gray-700" min={12} max={200} />
-                        <span className="text-[9px] text-gray-600">px</span>
-                      </div>
+                      <input type="number" value={l.font_size} onChange={e=>updTxt(l.id,{font_size:parseInt(e.target.value)||24})}
+                        className="w-11 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" min={8} max={200} />
+                      <span className="text-[9px] text-gray-600">px</span>
                       <button onClick={()=>updTxt(l.id,{bold:!l.bold})}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${l.bold?'bg-purple-600 text-white':'bg-gray-900 text-gray-500 border border-gray-700'}`}>B</button>
+                      <button onClick={()=>updTxt(l.id,{italic:!l.italic})}
+                        className={`px-1.5 py-0.5 rounded text-[10px] italic ${l.italic?'bg-purple-600 text-white':'bg-gray-900 text-gray-500 border border-gray-700'}`}>I</button>
+                      <div className="flex items-center gap-0.5">
+                        <span className="text-[9px] text-gray-600">투명</span>
+                        <input type="range" min={0} max={1} step={0.05} value={l.alpha??1}
+                          onChange={e=>updTxt(l.id,{alpha:parseFloat(e.target.value)})} className="w-12 accent-purple-600 h-1" />
+                      </div>
+                    </div>
+                    {/* 간격 + 정렬 */}
+                    <div className="flex gap-1 items-center">
+                      <span className="text-[9px] text-gray-600 w-8">자간</span>
+                      <input type="number" value={l.letter_spacing??0} step={0.5}
+                        onChange={e=>updTxt(l.id,{letter_spacing:parseFloat(e.target.value)})}
+                        className="w-12 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" />
+                      <span className="text-[9px] text-gray-600 w-8 ml-1">행간</span>
+                      <input type="number" value={l.line_spacing??0} step={0.1}
+                        onChange={e=>updTxt(l.id,{line_spacing:parseFloat(e.target.value)})}
+                        className="w-12 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" />
+                      <div className="flex gap-0.5 ml-auto">
+                        {(['left','center','right'] as const).map(a=>(
+                          <button key={a} onClick={()=>updTxt(l.id,{alignment:a})}
+                            className={`px-1 py-0.5 rounded text-[9px] ${(l.alignment||'center')===a?'bg-indigo-600 text-white':'bg-gray-900 text-gray-500 border border-gray-700'}`}>
+                            {a==='left'?'◀':a==='center'?'◆':'▶'}</button>))}
+                      </div>
+                    </div>
+                    {/* 그림자 */}
+                    <div className="bg-gray-900/50 rounded p-1.5">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <input type="checkbox" checked={l.shadow?.enabled??false}
+                          onChange={e=>updTxt(l.id,{shadow:{...(l.shadow||DEF_SHADOW),enabled:e.target.checked}})}
+                          className="w-3 h-3 accent-purple-600" />
+                        <span className="text-[9px] text-gray-500">그림자</span>
+                        {l.shadow?.enabled && <>
+                          <input type="color" value={l.shadow?.color||'#000000'}
+                            onChange={e=>updTxt(l.id,{shadow:{...l.shadow!,color:e.target.value}})}
+                            className="w-4 h-4 rounded cursor-pointer" />
+                        </>}
+                      </div>
+                      {l.shadow?.enabled && (
+                        <div className="grid grid-cols-2 gap-1 text-[9px]">
+                          <div className="flex items-center gap-1"><span className="text-gray-600 w-6">투명</span>
+                            <input type="range" min={0} max={1} step={0.05} value={l.shadow.alpha}
+                              onChange={e=>updTxt(l.id,{shadow:{...l.shadow!,alpha:parseFloat(e.target.value)}})} className="flex-1 accent-purple-600 h-1" /></div>
+                          <div className="flex items-center gap-1"><span className="text-gray-600 w-6">거리</span>
+                            <input type="range" min={0} max={20} step={1} value={l.shadow.distance}
+                              onChange={e=>updTxt(l.id,{shadow:{...l.shadow!,distance:parseFloat(e.target.value)}})} className="flex-1 accent-purple-600 h-1" /></div>
+                          <div className="flex items-center gap-1"><span className="text-gray-600 w-6">각도</span>
+                            <input type="range" min={-180} max={180} step={5} value={l.shadow.angle}
+                              onChange={e=>updTxt(l.id,{shadow:{...l.shadow!,angle:parseFloat(e.target.value)}})} className="flex-1 accent-purple-600 h-1" /></div>
+                          <div className="flex items-center gap-1"><span className="text-gray-600 w-6">흐림</span>
+                            <input type="range" min={0} max={10} step={0.25} value={l.shadow.blur}
+                              onChange={e=>updTxt(l.id,{shadow:{...l.shadow!,blur:parseFloat(e.target.value)}})} className="flex-1 accent-purple-600 h-1" /></div>
+                        </div>
+                      )}
+                    </div>
+                    {/* 애니메이션 */}
+                    <div className="flex gap-1 items-center">
+                      <span className="text-[9px] text-gray-600">등장</span>
+                      <select value={l.animation_in?.type||'none'} onChange={e=>updTxt(l.id,{animation_in:{type:e.target.value as TextAnimation['type'],duration:l.animation_in?.duration||3}})}
+                        className="flex-1 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700">
+                        {ANIM_TYPES.map(a=><option key={a.value} value={a.value}>{a.label}</option>)}</select>
+                      {l.animation_in?.type!=='none'&&<input type="number" value={l.animation_in?.duration||3} step={0.5} min={0.5} max={10}
+                        onChange={e=>updTxt(l.id,{animation_in:{...l.animation_in!,duration:parseFloat(e.target.value)}})}
+                        className="w-10 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" />}
+                      {l.animation_in?.type!=='none'&&<span className="text-[9px] text-gray-600">초</span>}
                     </div>
                   </div>
                 )}

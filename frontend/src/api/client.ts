@@ -82,12 +82,17 @@ export const api = {
       http.get<ProjectLayers>(`/api/projects/${projectId}/layers`).then(r => r.data),
     update: (projectId: string, layers: ProjectLayers) =>
       http.put(`/api/projects/${projectId}/layers`, { layers }).then(r => r.data),
-    addText: (projectId: string, layer: Omit<import('../types').TextLayerConfig, 'id'>) =>
+    addText: (projectId: string, layer: Record<string, unknown>) =>
       http.post(`/api/projects/${projectId}/layers/text`, layer).then(r => r.data),
     updateText: (projectId: string, layerId: string, data: Partial<import('../types').TextLayerConfig>) =>
       http.put(`/api/projects/${projectId}/layers/text/${layerId}`, data).then(r => r.data),
     deleteText: (projectId: string, layerId: string) =>
       http.delete(`/api/projects/${projectId}/layers/text/${layerId}`).then(r => r.data),
+    uploadSrt: (projectId: string, file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return http.post<{ filename: string; entries_count: number }>(`/api/projects/${projectId}/layers/srt`, form).then(r => r.data)
+    },
   },
 
   build: {
