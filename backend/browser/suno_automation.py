@@ -239,7 +239,7 @@ class SunoAutomation:
                     clips = result["clips"]
 
                     async def _dl_one(clip: dict, slot: int) -> dict:
-                        safe_title = re.sub(r'[\\/:*?"<>|]', "_", song.get("title", "unknown"))
+                        safe_title = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", song.get("title", "unknown"))
                         prefix = f"{song.get('index', idx+1):02d}_{safe_title}_v{slot}"
                         file_path = await self._download(
                             clip_id=clip["id"],
@@ -895,7 +895,7 @@ class SunoAutomation:
 
             parent_id = known_in_group[0]["id"]
             for unk in unknown_in_group:
-                safe_title = re.sub(r'[\\/:*?"<>|]', "_", title)
+                safe_title = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", title)
                 prefix = f"v2_{safe_title}"
                 file_path = await self._download(
                     clip_id=unk["id"],
