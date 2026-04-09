@@ -33,13 +33,14 @@ export interface WaveformLayerConfig {
   opacity: number
   position_x: number      // 중심 X (0~1)
   position_y: number      // 중심 Y (0~1)
-  width_ratio: number     // 파형 영역 가로 비율 (0.1~1.0, 캔버스 대비)
-  bar_count: number       // 막대 개수 (10~200)
-  bar_width: number       // 개별 막대 너비 (px, 1~20)
-  bar_height: number      // 막대 최대 높이 비율 (0.05~0.5, 캔버스 대비)
+  bar_count: number       // 막대 개수
+  bar_width: number       // 개별 막대 너비 (px)
+  bar_gap: number          // 막대 간격 (px)
+  bar_height: number      // 막대 최대 높이 (px 기준 1920)
+  bar_min: number          // 최소 높이 비율 (0~1)
   bar_align: 'center' | 'bottom' | 'top'
-  bar_min: number         // 최소 높이 비율 (0~1, bar_height 대비)
-  circle_radius: number   // 원형 반지름 비율 (캔버스 대비)
+  scale: number            // 전체 스케일 (1.0 = 100%)
+  circle_radius: number
 }
 
 export interface TextLayerConfig {
