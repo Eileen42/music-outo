@@ -44,6 +44,7 @@ class CapcutBuilder:
 
     def _build_project_folder(self, state: dict, output_dir: Path) -> Path:
         """CapCut 프로젝트 폴더 구조 생성."""
+        import re
         tracks = state.get("tracks", [])
         metadata = state.get("metadata", {})
         layers = state.get("layers", {})
@@ -51,8 +52,16 @@ class CapcutBuilder:
         subtitle_entries = state.get("subtitle_entries", [])
         project_name = metadata.get("title") or state.get("name", "Untitled")
 
-        # 프로젝트 폴더 생성
-        project_dir = output_dir / "capcut_project"
+        # 안전한 폴더명
+        safe_name = re.sub(r'[\\/:*?"<>|]', '_', project_name)[:60].strip() or "project"
+
+        # CapCut 프로젝트 폴더 (실제 CapCut이 인식하는 위치)
+        capcut_root = Path.home() / "AppData" / "Local" / "CapCut" / "User Data" / "Projects" / "com.lveditor.draft"
+        if capcut_root.exists():
+            project_dir = capcut_root / safe_name
+        else:
+            project_dir = output_dir / safe_name
+
         if project_dir.exists():
             shutil.rmtree(project_dir)
         project_dir.mkdir(parents=True)
@@ -82,12 +91,12 @@ class CapcutBuilder:
         now = datetime.now(timezone.utc).isoformat()
         meta_info = {
             "draft_cover": "draft_cover.jpg",
-            "draft_fold_path": str(project_dir),
+            "draft_fold_path": str(project_dir).replace("\\", "/"),
             "draft_id": draft_id,
-            "draft_name": project_name,
+            "draft_name": safe_name,
             "draft_new_version": "",
             "draft_removable_storage_device": "",
-            "draft_root_path": str(output_dir),
+            "draft_root_path": str(project_dir.parent).replace("\\", "/"),
             "draft_segment_extra_info": [],
             "draft_timeline_materials_size_": 0,
             "tm_draft_create": now,
@@ -129,15 +138,15 @@ class CapcutBuilder:
             except Exception:
                 pass
 
-        # ZIP으로 압축 (파일명 안전하게)
-        import re
-        safe_name = re.sub(r'[\\/:*?"<>|]', '_', project_name)[:80].strip()
-        if not safe_name:
-            safe_name = "capcut_project"
+        # CapCut 폴더에 직접 생성된 경우 ZIP도 별도로 만들어 다운로드용
         zip_path = output_dir / f"{safe_name}.zip"
         shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
 
-        logger.info(f"CapCut project: {zip_path}")
+        logger.info(f"CapCut project folder: {project_dir}")
+        logger.info(f"CapCut ZIP: {zip_path}")
+
+        # CapCut 프로젝트 폴더 경로 반환 (CapCut에서 바로 열 수 있음)
+        # 다운로드용으로는 ZIP 경로 반환
         return zip_path
 
     def _build_draft_content(
