@@ -45,6 +45,7 @@ class CapcutBuilder:
     def _build_project_folder(self, state: dict, output_dir: Path) -> Path:
         """CapCut 프로젝트 폴더 구조 생성."""
         import re
+        assets_dir = Path(__file__).parent.parent / "assets"
         tracks = state.get("tracks", [])
         metadata = state.get("metadata", {})
         layers = state.get("layers", {})
@@ -86,23 +87,25 @@ class CapcutBuilder:
             json.dumps(draft_content, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-        # draft_meta_info.json
+        # draft_meta_info.json (스켈레톤 기반)
         draft_id = _uuid()
-        now = datetime.now(timezone.utc).isoformat()
-        meta_info = {
+        ts_us = int(time.time() * 1_000_000)
+        meta_skeleton_path = assets_dir / "capcut_meta_skeleton.json"
+        if meta_skeleton_path.exists():
+            meta_info = json.loads(meta_skeleton_path.read_text(encoding="utf-8"))
+        else:
+            meta_info = {}
+        meta_info.update({
             "draft_cover": "draft_cover.jpg",
             "draft_fold_path": str(project_dir).replace("\\", "/"),
             "draft_id": draft_id,
             "draft_name": safe_name,
-            "draft_new_version": "",
-            "draft_removable_storage_device": "",
+            "draft_new_version": "163.0.0",
             "draft_root_path": str(project_dir.parent).replace("\\", "/"),
-            "draft_segment_extra_info": [],
-            "draft_timeline_materials_size_": 0,
-            "tm_draft_create": now,
-            "tm_draft_modified": now,
+            "tm_draft_create": ts_us,
+            "tm_draft_modified": ts_us,
             "tm_duration": total_us,
-        }
+        })
         (project_dir / "draft_meta_info.json").write_text(
             json.dumps(meta_info, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -138,6 +141,17 @@ class CapcutBuilder:
             except Exception:
                 pass
 
+        # 샘플에서 복사한 필수 파일들
+        assets_dir = Path(__file__).parent.parent / "assets"
+        for src_name, dst_name in [
+            ("capcut_key_value.json", "key_value.json"),
+            ("capcut_attachment_editing.json", "attachment_editing.json"),
+            ("capcut_attachment_pc_common.json", "attachment_pc_common.json"),
+        ]:
+            src = assets_dir / src_name
+            if src.exists():
+                shutil.copy(src, project_dir / dst_name)
+
         # CapCut 폴더에 직접 생성된 경우 ZIP도 별도로 만들어 다운로드용
         zip_path = output_dir / f"{safe_name}.zip"
         shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
@@ -153,12 +167,23 @@ class CapcutBuilder:
         self, state: dict, tracks: list, images: dict, layers: dict,
         subtitle_entries: list, total_us: int, project_name: str,
     ) -> dict:
-        """draft_content.json 핵심 구조."""
-        materials: dict = {
-            "audios": [], "videos": [], "texts": [], "effects": [],
-            "video_effects": [], "material_animations": [], "speeds": [],
-            "canvases": [], "sound_channel_mappings": [], "vocal_separations": [],
-        }
+        """draft_content.json — 샘플 스켈레톤 기반."""
+        # 스켈레톤 로드
+        assets_dir = Path(__file__).parent.parent / "assets"
+        skeleton_path = assets_dir / "capcut_skeleton.json"
+        if skeleton_path.exists():
+            skel = json.loads(skeleton_path.read_text(encoding="utf-8"))
+            base = dict(skel.get("content_skeleton", {}))
+            mat_keys = skel.get("materials_keys", [])
+        else:
+            base = {}
+            mat_keys = []
+
+        # materials: 모든 키를 빈 배열로 초기화
+        materials: dict = {k: [] for k in mat_keys}
+        # 우리가 사용하는 키도 보장
+        for k in ["audios", "videos", "texts", "video_effects", "material_animations", "speeds", "canvases", "sound_channel_mappings"]:
+            materials.setdefault(k, [])
         track_list: list = []
 
         # ── 1. 배경 이미지 트랙 ──
@@ -353,21 +378,21 @@ class CapcutBuilder:
         if audio_segments:
             track_list.append({"type": "audio", "segments": audio_segments})
 
-        return {
+        # 스켈레톤 + 우리 데이터 병합
+        result = dict(base)
+        result.update({
             "canvas_config": {"height": 1080, "ratio": "original", "width": 1920},
-            "color_space": 0,
-            "config": {"adjust_max_index": 1, "attachment_info": []},
             "create_time": int(time.time()),
             "duration": total_us,
             "fps": 30.0,
             "id": state.get("id", _uuid()),
-            "keyframes": {"audios": [], "effects": [], "videos": []},
             "materials": materials,
-            "mutable_config": None,
             "name": project_name,
             "tracks": track_list,
+            "new_version": "163.0.0",
             "version": 360000,
-        }
+        })
+        return result
 
 
 capcut_builder = CapcutBuilder()
