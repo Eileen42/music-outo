@@ -37,6 +37,32 @@ PYTHONIOENCODING=utf-8 python qa/test_workflow.py --base-url http://localhost:80
 
 ---
 
+## QA 규칙 (필수)
+
+모든 프론트엔드 변경 후 아래 QA를 **반드시** 수행한 뒤 사용자에게 보고:
+
+1. **TypeScript 빌드**: `npx tsc --noEmit` 에러 0개
+2. **서버 확인**: Backend(8000) + Frontend(3000) 응답 OK
+3. **Playwright 브라우저 테스트**: 실제 브라우저에서 변경된 UI 확인
+   - 페이지 이동, 버튼 클릭, 데이터 표시 확인
+   - 에러 발생 시 콘솔 로그 캡처
+   - 스크린샷 저장 (`storage/debug/`)
+4. **API 테스트**: 변경된 엔드포인트 curl로 확인
+5. **에러 잔존 확인**: 모든 프로젝트의 stale 에러 초기화
+
+```python
+# Playwright QA 예시
+from playwright.async_api import async_playwright
+async with async_playwright() as p:
+    browser = await p.chromium.launch(headless=False)
+    page = await browser.new_page()
+    await page.goto('http://localhost:3000')
+    # UI 확인 + 스크린샷
+    await page.screenshot(path='storage/debug/qa.png')
+```
+
+---
+
 ## [요청]
 
 <!-- 새 개발 요청을 여기에 추가하세요 -->
