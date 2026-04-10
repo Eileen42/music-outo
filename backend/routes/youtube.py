@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from core.state_manager import state_manager
@@ -23,10 +23,14 @@ async def start_auth():
 
 
 @router.get("/callback", summary="OAuth 콜백 (자동 호출)")
-async def oauth_callback(code: str):
+async def oauth_callback(request: Request, code: str):
     try:
         youtube_uploader.handle_callback(code)
-        return RedirectResponse(url="http://localhost:3000/?youtube_auth=success")
+        # 요청의 Referer 또는 Origin으로 리다이렉트 (Vercel/로컬 모두 지원)
+        origin = request.headers.get("referer", "").split("?")[0].rstrip("/")
+        if not origin:
+            origin = "http://localhost:3000"
+        return RedirectResponse(url=f"{origin}/?youtube_auth=success")
     except Exception as e:
         raise HTTPException(500, f"OAuth 실패: {e}")
 

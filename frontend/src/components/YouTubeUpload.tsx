@@ -129,24 +129,27 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
             {!authUrl ? (
               <button
                 onClick={handleGetAuthUrl}
-                className="self-start bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                className="self-start bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
               >
-                🔑 인증 URL 생성
+                🔑 Google 계정 로그인
               </button>
             ) : (
               <div>
                 <p className="text-xs text-gray-400 mb-2">
-                  아래 링크를 클릭해 Google 계정으로 로그인하고 권한을 허용하세요:
+                  아래 버튼으로 Google 로그인 페이지를 열고, 권한을 허용하세요.
+                  완료되면 자동으로 돌아옵니다.
                 </p>
-                <a
-                  href={authUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-gray-800 border border-gray-700 text-blue-400 hover:text-blue-300 px-4 py-2.5 rounded-xl text-xs font-mono break-all transition-colors"
+                <button
+                  onClick={() => window.open(authUrl, '_blank', 'width=600,height=700')}
+                  className="bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                 >
-                  {authUrl}
-                </a>
-                <p className="text-xs text-gray-600 mt-2">인증 완료 후 페이지를 새로고침하세요.</p>
+                  🌐 Google 로그인 창 열기
+                </button>
+                <p className="text-xs text-gray-600 mt-2">
+                  로그인 후 자동으로 인증됩니다. 안 되면{' '}
+                  <button onClick={() => window.location.reload()} className="text-blue-400 hover:underline">새로고침</button>
+                  하세요.
+                </p>
               </div>
             )}
           </div>
