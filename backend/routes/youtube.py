@@ -228,6 +228,28 @@ async def _fill_metadata_browser(project_id: str):
 
             await page.wait_for_timeout(1000)
 
+            # 썸네일 업로드
+            images = state.get("images", {})
+            thumb = images.get("thumbnail", "")
+            if thumb and Path(thumb).exists():
+                try:
+                    thumb_input = await page.query_selector("#still-picker input[type='file'], input[accept='image/jpeg,image/png']")
+                    if not thumb_input:
+                        # 썸네일 업로드 버튼 클릭으로 input 노출
+                        thumb_btn = await page.query_selector("#still-picker button, button:has-text('썸네일 업로드'), button:has-text('Upload thumbnail')")
+                        if thumb_btn:
+                            async with page.expect_file_chooser() as fc:
+                                await thumb_btn.click()
+                            file_chooser = await fc.value
+                            await file_chooser.set_files(thumb)
+                            await page.wait_for_timeout(2000)
+                    elif thumb_input:
+                        await thumb_input.set_input_files(thumb)
+                        await page.wait_for_timeout(2000)
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"썸네일 업로드 실패: {e}")
+
             # 아동용 아님 선택
             not_for_kids = await page.query_selector("#audience [name='VIDEO_MADE_FOR_KIDS_NOT_MFK']")
             if not not_for_kids:
