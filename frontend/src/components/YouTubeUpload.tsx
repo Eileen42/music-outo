@@ -39,14 +39,18 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   useEffect(() => {
     if (project.status !== 'uploading') return
     const interval = setInterval(async () => {
-      const s = await api.youtube.uploadStatus(project.id)
-      if (s.upload_progress) setUploadProgress(s.upload_progress)
-      if (s.status !== 'uploading') {
-        setUploadProgress(100)
-        await onRefresh()
-        clearInterval(interval)
+      try {
+        const s = await api.youtube.uploadStatus(project.id)
+        if (s.upload_progress) setUploadProgress(s.upload_progress)
+        if (s.status !== 'uploading') {
+          setUploadProgress(100)
+          await onRefresh()
+          clearInterval(interval)
+        }
+      } catch {
+        // 서버 일시 끊김 무시 — 다음 폴링에서 재시도
       }
-    }, 3000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [project.status, project.id, onRefresh])
 
