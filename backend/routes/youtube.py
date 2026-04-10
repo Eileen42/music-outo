@@ -136,6 +136,48 @@ async def fill_metadata(project_id: str, background_tasks: BackgroundTasks):
     return {"status": "filling"}
 
 
+async def _post_comment_when_ready(project_id: str, comment: str):
+    """YouTube에 영상이 처리 완료되면 댓글 자동 작성 (최대 10분 대기)."""
+    import asyncio
+    state = state_manager.get(project_id)
+    channel_id = state.get("channel_id", "_default")
+
+    try:
+        creds = youtube_uploader._load_credentials(channel_id)
+        from googleapiclient.discovery import build as yt_build
+        yt = yt_build("youtube", "v3", credentials=creds)
+
+        # 최신 업로드 영상 찾기 (최대 10분 폴링)
+        for attempt in range(60):
+            resp = yt.search().list(forMine=True, type="video", part="snippet", maxResults=1, order="date").execute()
+            items = resp.get("items", [])
+            if items:
+                vid = items[0]["id"]["videoId"]
+                # 댓글 작성 시도
+                try:
+                    yt.commentThreads().insert(
+                        part="snippet",
+                        body={"snippet": {"videoId": vid, "topLevelComment": {"snippet": {"textOriginal": comment}}}},
+                    ).execute()
+                    import logging
+                    logging.getLogger(__name__).info(f"댓글 작성 완료: {vid}")
+                    state_manager.update(project_id, {"browser_comment_posted": True, "youtube": {"video_id": vid, "url": f"https://www.youtube.com/watch?v={vid}"}})
+                    return
+                except Exception as e:
+                    if "processingFailure" in str(e) or "forbidden" in str(e).lower():
+                        # 영상 아직 처리 중 — 대기
+                        await asyncio.sleep(10)
+                        continue
+                    raise
+            await asyncio.sleep(10)
+
+        import logging
+        logging.getLogger(__name__).warning(f"댓글 작성 타임아웃: {project_id}")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"댓글 작성 실패: {e}")
+
+
 async def _fill_metadata_browser(project_id: str):
     """CDP로 YouTube Studio 메타데이터 입력."""
     import asyncio
@@ -216,36 +258,12 @@ async def _fill_metadata_browser(project_id: str):
                 await save_btn.click()
                 await page.wait_for_timeout(3000)
 
-            # 업로드 완료 대기 (진행 바가 사라질 때까지)
-            for _ in range(60):  # 최대 5분
-                progress = await page.query_selector(".progress-bar.uploading, [class*='uploading']")
-                if not progress:
-                    break
-                await page.wait_for_timeout(5000)
-
-            # 댓글 작성 (영상 페이지로 이동)
-            # 게시 후 나오는 영상 링크에서 video ID 추출
-            video_link = await page.query_selector("a.style-scope.ytcp-video-info[href*='youtu']")
-            if video_link:
-                href = await video_link.get_attribute("href") or ""
-                if "watch?v=" in href:
-                    vid = href.split("watch?v=")[-1].split("&")[0]
-                    # API로 댓글 작성
-                    if comment and vid:
-                        try:
-                            channel_id = state.get("channel_id", "_default")
-                            creds = youtube_uploader._load_credentials(channel_id)
-                            from googleapiclient.discovery import build as yt_build
-                            yt = yt_build("youtube", "v3", credentials=creds)
-                            yt.commentThreads().insert(
-                                part="snippet",
-                                body={"snippet": {"videoId": vid, "topLevelComment": {"snippet": {"textOriginal": comment}}}},
-                            ).execute()
-                        except Exception:
-                            pass
-
-            state_manager.update(project_id, {"browser_upload_done": True})
+            state_manager.update(project_id, {"browser_metadata_filled": True})
             await browser.close()
+
+            # 브라우저와 무관하게 — API로 최신 업로드 영상 찾아서 댓글 작성
+            if comment:
+                await _post_comment_when_ready(project_id, comment)
 
     except Exception as e:
         import logging
