@@ -90,6 +90,57 @@ class YouTubeUploader:
             "youtube_channel_title": data.get("youtube_channel_title", ""),
         }
 
+    async def fetch_recent_videos(self, channel_id: str = "_default", max_results: int = 5) -> list[dict]:
+        """채널의 최근 영상 메타데이터(제목, 설명, 태그) 가져오기."""
+        import asyncio
+
+        try:
+            creds = self._load_credentials(channel_id)
+        except RuntimeError:
+            return []
+
+        def _fetch():
+            from googleapiclient.discovery import build as yt_build
+
+            yt = yt_build("youtube", "v3", credentials=creds)
+
+            # 1) 내 채널의 uploads playlist ID 가져오기
+            ch_resp = yt.channels().list(mine=True, part="contentDetails").execute()
+            items = ch_resp.get("items", [])
+            if not items:
+                return []
+            uploads_id = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+            # 2) 최근 영상 ID 목록
+            pl_resp = yt.playlistItems().list(
+                playlistId=uploads_id,
+                part="contentDetails",
+                maxResults=max_results,
+            ).execute()
+            video_ids = [item["contentDetails"]["videoId"] for item in pl_resp.get("items", [])]
+            if not video_ids:
+                return []
+
+            # 3) 영상 상세 메타데이터
+            v_resp = yt.videos().list(
+                id=",".join(video_ids),
+                part="snippet,statistics",
+            ).execute()
+
+            results = []
+            for v in v_resp.get("items", []):
+                snip = v.get("snippet", {})
+                stats = v.get("statistics", {})
+                results.append({
+                    "title": snip.get("title", ""),
+                    "description": snip.get("description", "")[:500],
+                    "tags": snip.get("tags", [])[:15],
+                    "view_count": stats.get("viewCount", "0"),
+                })
+            return results
+
+        return await asyncio.to_thread(_fetch)
+
     def revoke(self, channel_id: str = "_default") -> None:
         tp = _token_path(channel_id)
         if tp.exists():

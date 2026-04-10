@@ -77,6 +77,7 @@ export default function ImageSelector({ project, onRefresh }: Props) {
   const [newToolName, setNewToolName] = useState('')
   const [newToolUrl, setNewToolUrl] = useState('')
   const [showingAdd, setShowingAdd] = useState(false)
+  const [generatedPrompt, setGeneratedPrompt] = useState('')
 
   // 채널에 저장된 편집툴 링크 로드
   useEffect(() => {
@@ -562,78 +563,18 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                   />
                 </div>
 
-                <div className="space-y-4">
-                  {/* 타겟 선택 */}
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-2">생성할 이미지 종류</label>
-                    <div className="flex gap-2">
-                      {([
-                        { id: 'background', label: '🖼 배경 (16:9)' },
-                        { id: 'thumbnail',  label: '🎯 썸네일 (1:1)' },
-                        { id: 'both',       label: '✨ 둘 다' },
-                      ] as const).map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => setGenTarget(t.id)}
-                          className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                            genTarget === t.id
-                              ? 'bg-purple-700 border-purple-500 text-white'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
-                  {/* 생성 수 */}
-                  <div className="flex items-center gap-3">
-                    <label className="text-xs text-gray-500 w-24 shrink-0">장 수 (무료 한도)</label>
-                    <div className="flex gap-2">
-                      {[1, 2].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setGenCount(n)}
-                          className={`w-10 h-10 rounded-xl text-sm font-bold border transition-colors ${
-                            genCount === n
-                              ? 'bg-purple-700 border-purple-500 text-white'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
+                {/* 생성된 프롬프트 (📝 프롬프트 생성 후 표시) */}
+                {generatedPrompt && (
+                  <div className="bg-gray-800 rounded-xl p-3 mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-green-400">✓ 프롬프트 생성 완료 (클립보드 복사됨)</span>
+                      <button onClick={() => navigator.clipboard.writeText(generatedPrompt)}
+                        className="text-[10px] text-indigo-400 hover:text-indigo-300">다시 복사</button>
                     </div>
-                    <span className="text-xs text-gray-600">Imagen 3 · 1일 소량 무료</span>
+                    <p className="text-[11px] text-gray-400 leading-relaxed max-h-24 overflow-y-auto">{generatedPrompt}</p>
                   </div>
-                </div>
-
-                {/* 프롬프트 미리보기 (항상 표시) */}
-                {(() => {
-                  const m = activeMood
-                  const autoPrompt = m ? [
-                    `Create a YouTube music video background image.`,
-                    `Mood: ${m.mood}. Atmosphere: ${m.atmosphere}.`,
-                    `Color palette: ${m.colors?.dominant?.join(', ') || 'warm tones'}. Color tone: ${m.colors?.tone || 'soft'}. Warmth: ${m.colors?.warmth || 'warm'}.`,
-                    `Style: ${m.style}. Lighting: ${m.lighting}.`,
-                    `Time of day: ${m.time_of_day}. Season: ${m.season}.`,
-                    `Emotion: ${m.emotion}. Music genre fit: ${m.music_genre_fit}.`,
-                    `Key elements: ${m.elements?.join(', ') || 'nature, calm'}.`,
-                    `16:9 aspect ratio, cinematic, high quality, no text, no watermark.`,
-                  ].join(' ') : ''
-                  const finalPrompt = customPrompt.trim() || autoPrompt
-                  return finalPrompt ? (
-                    <div className="bg-gray-800 rounded-xl p-3 mb-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-gray-500">생성 프롬프트 {customPrompt ? '(직접 입력)' : '(분석 기반 자동)'}</span>
-                        <button onClick={() => navigator.clipboard.writeText(finalPrompt)}
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
-                      </div>
-                      <p className="text-[11px] text-gray-400 leading-relaxed">{finalPrompt}</p>
-                    </div>
-                  ) : null
-                })()}
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -645,7 +586,6 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                   </button>
                   <button
                     onClick={() => {
-                      // 분석 분위기 + 커스텀 설명 결합 프롬프트 생성
                       const m = activeMood
                       const desc = customPrompt.trim()
                       const parts: string[] = []
@@ -662,7 +602,8 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                       }
                       parts.push(`16:9, cinematic, ultra high quality, no text, no watermark.`)
                       const prompt = parts.join(' ')
-                      setCustomPrompt(prompt)
+                      // customPrompt는 건드리지 않음 — 별도 generatedPrompt로 표시
+                      setGeneratedPrompt(prompt)
                       navigator.clipboard.writeText(prompt)
                     }}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-sm transition-colors"

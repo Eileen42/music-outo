@@ -19,6 +19,7 @@ interface Props {
 export default function MetadataPreview({ project, onRefresh }: Props) {
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [instruction, setInstruction] = useState('')
   const meta = project.metadata || { title: null, description: null, tags: [], comment: null }
 
   // 타임스탬프 자동 계산
@@ -43,7 +44,7 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const handleGenerate = async (regenerate = false) => {
     setGenerating(true)
     try {
-      const result = await api.metadata.generate(project.id, regenerate)
+      const result = await api.metadata.generate(project.id, regenerate, instruction)
       setTitle(result.title || '')
       setDescription(result.description || '')
       setTags((result.tags || []).join(', '))
@@ -90,6 +91,26 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
             재생성
           </button>
         </div>
+      </div>
+
+      {/* AI 생성 지시사항 */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <label className="text-sm text-gray-400">AI 지시사항</label>
+          <span className="text-[10px] text-gray-600">(선택) 벤치마크 제목, 채널 링크, 또는 자유롭게 작성</span>
+        </div>
+        <textarea
+          value={instruction}
+          onChange={e => setInstruction(e.target.value)}
+          placeholder={"예시:\n- \"이 영상 스타일로 만들어줘: Best Relaxing Piano Music 2024\"\n- \"제목은 영어로, 설명은 한영 혼합으로\"\n- \"수면/명상 키워드 위주로 태그 작성\""}
+          rows={3}
+          className="w-full bg-gray-900/50 border border-gray-800 text-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-500/50 resize-y placeholder:text-gray-700"
+        />
+        {project.channel_id && (
+          <p className="text-[10px] text-gray-600 mt-1">
+            채널 연결됨 — YouTube 인증 시 기존 영상 스타일을 자동 참조합니다
+          </p>
+        )}
       </div>
 
       {project.tracks.length === 0 && (

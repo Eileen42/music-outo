@@ -71,8 +71,8 @@ export const api = {
   metadata: {
     get: (projectId: string) =>
       http.get<ProjectMetadata>(`/api/projects/${projectId}/metadata`).then(r => r.data),
-    generate: (projectId: string, regenerate = false) =>
-      http.post<ProjectMetadata>(`/api/projects/${projectId}/metadata/generate`, { regenerate }).then(r => r.data),
+    generate: (projectId: string, regenerate = false, instruction = '') =>
+      http.post<ProjectMetadata>(`/api/projects/${projectId}/metadata/generate`, { regenerate, instruction }).then(r => r.data),
     update: (projectId: string, data: Partial<ProjectMetadata>) =>
       http.put<ProjectMetadata>(`/api/projects/${projectId}/metadata`, data).then(r => r.data),
   },
