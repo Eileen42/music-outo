@@ -241,16 +241,22 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
                                                   '🚀 API 업로드'}
               </button>
               <button onClick={async () => {
-                const res = await api.youtube.openStudio(project.id)
-                // 메타데이터 클립보드 복사
-                const meta = `${res.title}\n\n${res.description}\n\n${res.tags?.join(', ')}`
-                navigator.clipboard.writeText(meta)
-                alert('YouTube Studio + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 제목/설명은 클립보드에 복사됨 (Ctrl+V)\n3. 업로드 완료 후 여기로 돌아오세요')
+                await api.youtube.openStudio(project.id)
+                alert('YouTube Studio + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 업로드 시작되면 아래 "메타데이터 자동 입력" 클릭')
               }}
                 disabled={!project.metadata?.title}
                 className="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
-                🌐 브라우저로 직접 업로드
+                🌐 브라우저 업로드 열기
               </button>
+            </div>
+            {/* 메타데이터 자동 입력 (브라우저 업로드 후) */}
+            <button onClick={async () => {
+              await api.youtube.fillMetadata(project.id)
+              alert('YouTube Studio에 제목/설명/태그를 입력 중입니다.\n브라우저를 확인하세요.')
+            }}
+              className="w-full bg-indigo-700 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
+              ✍️ 메타데이터 자동 입력 (브라우저에 파일 올린 후 클릭)
+            </button>
             </div>
             <p className="text-[10px] text-gray-600 text-center mt-1">API: 자동 업로드 (느림) | 브라우저: 수동 업로드 (빠름, 메타데이터 자동 복사)</p>
 

@@ -94,35 +94,94 @@ async def upload_video(
     return {"status": "업로드 시작됨"}
 
 
-@router.post("/open-studio/{project_id}", summary="YouTube Studio 업로드 페이지 열기")
+@router.post("/open-studio/{project_id}", summary="YouTube Studio 브라우저 열기")
 async def open_studio(project_id: str):
-    """브라우저에서 YouTube Studio 업로드 페이지를 열고 메타데이터 반환."""
-    import os
+    """Edge를 CDP 모드로 열어 YouTube Studio 업로드 페이지 + outputs 폴더."""
+    import subprocess, os
     state = state_manager.require(project_id)
     metadata = state.get("metadata", {})
-    build = state.get("build", {})
-
-    # outputs 폴더에서 MP4 찾기
     project_dir = state_manager.project_dir(project_id)
     outputs_dir = project_dir / "outputs"
-    mp4s = sorted(outputs_dir.glob("*.mp4"), key=lambda f: f.stat().st_mtime, reverse=True) if outputs_dir.exists() else []
 
-    # YouTube Studio 업로드 페이지 열기
-    os.startfile("https://studio.youtube.com/channel/UC/videos/upload?d=ud")
+    # 기존 Edge 종료 후 CDP 포트로 재시작
+    os.system('taskkill /F /IM msedge.exe >nul 2>&1')
+    import time; time.sleep(2)
 
-    # outputs 폴더도 열기 (파일 드래그용)
+    subprocess.Popen([
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        "--remote-debugging-port=9224",
+        "--restore-last-session",
+        "https://studio.youtube.com/channel/UC/videos/upload?d=ud",
+    ])
+
+    # outputs 폴더 열기
     if outputs_dir.exists():
         os.startfile(str(outputs_dir))
 
-    return {
-        "status": "opened",
-        "title": metadata.get("title", ""),
-        "description": metadata.get("description", ""),
-        "tags": metadata.get("tags", []),
-        "comment": metadata.get("comment", ""),
-        "video_file": str(mp4s[0]) if mp4s else None,
-        "outputs_folder": str(outputs_dir),
-    }
+    return {"status": "opened", "cdp_port": 9224}
+
+
+@router.post("/fill-metadata/{project_id}", summary="YouTube Studio에 메타데이터 자동 입력")
+async def fill_metadata(project_id: str, background_tasks: BackgroundTasks):
+    """CDP로 열려있는 YouTube Studio에 제목/설명 자동 입력."""
+    state = state_manager.require(project_id)
+    background_tasks.add_task(_fill_metadata_browser, project_id)
+    return {"status": "filling"}
+
+
+async def _fill_metadata_browser(project_id: str):
+    """CDP로 YouTube Studio 메타데이터 입력."""
+    import asyncio
+    state = state_manager.get(project_id)
+    meta = state.get("metadata", {})
+    title = meta.get("title", "")
+    desc = meta.get("description", "")
+    tags = meta.get("tags", [])
+    comment = meta.get("comment", "")
+
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp("http://localhost:9224")
+            context = browser.contexts[0]
+            page = context.pages[0]
+
+            await page.wait_for_timeout(3000)
+
+            # 제목 입력
+            title_el = await page.query_selector("#title-textarea [contenteditable]")
+            if title_el:
+                await title_el.click()
+                await page.keyboard.press("Control+a")
+                await page.keyboard.type(title[:100], delay=10)
+
+            await page.wait_for_timeout(1000)
+
+            # 설명 입력
+            desc_el = await page.query_selector("#description-textarea [contenteditable]")
+            if desc_el:
+                await desc_el.click()
+                await page.keyboard.type(desc[:5000], delay=3)
+
+            await page.wait_for_timeout(1000)
+
+            # 태그 입력 (더보기 → 태그)
+            more_btn = await page.query_selector("button:has-text('더보기')")
+            if more_btn:
+                await more_btn.click()
+                await page.wait_for_timeout(1000)
+
+            tag_input = await page.query_selector("input[aria-label*='태그'], #tags-container input")
+            if tag_input and tags:
+                await tag_input.click()
+                await tag_input.type(", ".join(tags), delay=5)
+
+            state_manager.update(project_id, {"browser_metadata_filled": True})
+            await browser.close()
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"메타데이터 입력 실패: {e}")
 
 
 @router.get("/upload/{project_id}/status", summary="업로드 상태 확인")
