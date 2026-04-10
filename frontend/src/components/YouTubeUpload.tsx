@@ -257,8 +257,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
               className="w-full bg-indigo-700 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
               ✍️ 메타데이터 자동 입력 (브라우저에 파일 올린 후 클릭)
             </button>
-            </div>
-            <p className="text-[10px] text-gray-600 text-center mt-1">API: 자동 업로드 (느림) | 브라우저: 수동 업로드 (빠름, 메타데이터 자동 복사)</p>
+            <p className="text-[10px] text-gray-600 text-center mt-1">API: 자동 업로드 (느림) | 브라우저: 수동 업로드 (빠름, 메타데이터 자동 입력)</p>
 
             {project.status === 'uploading' && (
               <div className="space-y-2">
