@@ -109,7 +109,7 @@ class YouTubeUploader:
             str(video_path),
             mimetype="video/*",
             resumable=True,
-            chunksize=1024 * 1024 * 10,  # 10MB chunks
+            chunksize=1024 * 1024 * 100,  # 100MB chunks (업로드 속도 개선)
         )
 
         request = youtube.videos().insert(
