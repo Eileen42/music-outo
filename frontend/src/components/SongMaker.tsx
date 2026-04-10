@@ -846,38 +846,62 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   )}
 
                   {/* 반복 설정 */}
-                  {activeSet && (
-                    <div className="mt-4 pt-3 border-t border-gray-800">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-xs text-gray-500">반복</span>
-                        <select value={project.repeat?.mode || 'count'}
-                          onChange={e => api.projects.updateRepeat(project.id, { ...project.repeat, mode: e.target.value as 'count' | 'duration' }).then(onRefresh)}
-                          className="bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700">
-                          <option value="count">횟수</option>
-                          <option value="duration">목표 시간</option>
-                        </select>
-                        {(project.repeat?.mode || 'count') === 'count' ? (
-                          <div className="flex items-center gap-1">
-                            <input type="number" value={project.repeat?.count || 1} min={1} max={10}
-                              onChange={e => api.projects.updateRepeat(project.id, { ...project.repeat, count: parseInt(e.target.value) || 1 }).then(onRefresh)}
-                              className="w-12 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+                  {activeSet && (() => {
+                    const repeat = project.repeat || { mode: 'count' as const, count: 1, target_minutes: 60 }
+                    const totalDur = project.tracks.reduce((s, t) => s + (t.duration || 0), 0)
+                    const finalCount = repeat.mode === 'count' ? repeat.count : (totalDur > 0 ? Math.max(1, Math.ceil((repeat.target_minutes * 60) / totalDur)) : 1)
+                    const finalMin = Math.round((totalDur * finalCount) / 60)
+                    const hours = Math.floor(finalMin / 60)
+                    const mins = finalMin % 60
+                    const durLabel = hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`
+                    const fmtDur = (s: number) => { const m = Math.floor(s/60); const ss = Math.floor(s%60); return `${m}:${String(ss).padStart(2,'0')}` }
+
+                    return (
+                      <div className="mt-4 pt-3 border-t border-gray-800">
+                        <h4 className="text-xs font-semibold text-gray-400 mb-3">반복 설정</h4>
+                        <div className="flex gap-2 mb-3">
+                          {([
+                            { value: 'count' as const, label: '🔁 반복 횟수' },
+                            { value: 'duration' as const, label: '⏱ 목표 시간' },
+                          ]).map(opt => (
+                            <button key={opt.value}
+                              onClick={() => api.projects.updateRepeat(project.id, { ...repeat, mode: opt.value }).then(onRefresh)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                repeat.mode === opt.value ? 'bg-purple-700 border-purple-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400'
+                              }`}>{opt.label}</button>
+                          ))}
+                        </div>
+
+                        {repeat.mode === 'count' ? (
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs text-gray-500 w-16">반복 횟수</span>
+                            <button onClick={() => api.projects.updateRepeat(project.id, { ...repeat, count: Math.max(1, repeat.count - 1) }).then(onRefresh)}
+                              className="w-7 h-7 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-bold flex items-center justify-center">−</button>
+                            <span className="w-8 text-center text-white font-mono font-bold">{repeat.count}</span>
+                            <button onClick={() => api.projects.updateRepeat(project.id, { ...repeat, count: repeat.count + 1 }).then(onRefresh)}
+                              className="w-7 h-7 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-bold flex items-center justify-center">+</button>
                             <span className="text-xs text-gray-600">회</span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            <input type="number" value={project.repeat?.target_minutes || 60} min={10} max={600} step={10}
-                              onChange={e => api.projects.updateRepeat(project.id, { ...project.repeat, target_minutes: parseInt(e.target.value) || 60 }).then(onRefresh)}
-                              className="w-16 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs text-gray-500 w-16">목표 시간</span>
+                            <input type="number" min={1} value={repeat.target_minutes}
+                              onChange={e => api.projects.updateRepeat(project.id, { ...repeat, target_minutes: Math.max(1, parseInt(e.target.value) || 1) }).then(onRefresh)}
+                              className="w-16 bg-gray-800 text-white text-center rounded-lg px-2 py-1 text-sm border border-gray-700 font-mono" />
                             <span className="text-xs text-gray-600">분</span>
                           </div>
                         )}
+
+                        <div className="bg-gray-800 rounded-xl px-3 py-2 flex items-center gap-3 text-xs">
+                          <div><span className="text-gray-500">반복</span> <span className="text-white font-bold">{finalCount}회</span></div>
+                          <span className="text-gray-700">×</span>
+                          <div><span className="text-gray-500">1회</span> <span className="text-white font-mono">{fmtDur(totalDur)}</span></div>
+                          <span className="text-gray-700">=</span>
+                          <div><span className="text-gray-500">총</span> <span className="text-purple-300 font-bold">{durLabel}</span></div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-600">
-                        세트 {activeSet} · {project.tracks.length}곡 ·
-                        예상 {((project.tracks.reduce((s, t) => s + (t.duration || 0), 0) * (project.repeat?.count || 1)) / 60).toFixed(0)}분
-                      </div>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
               )}
 
