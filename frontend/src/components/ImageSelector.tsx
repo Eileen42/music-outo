@@ -568,9 +568,9 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                 {generatedPrompt && (
                   <div className="bg-gray-800 rounded-xl p-3 mb-4">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-green-400">✓ 프롬프트 생성 완료 (클립보드 복사됨)</span>
+                      <span className="text-[10px] text-green-400">✓ 프롬프트 생성 완료 · 클립보드 복사됨</span>
                       <button onClick={() => navigator.clipboard.writeText(generatedPrompt)}
-                        className="text-[10px] text-indigo-400 hover:text-indigo-300">다시 복사</button>
+                        className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
                     </div>
                     <p className="text-[11px] text-gray-400 leading-relaxed max-h-24 overflow-y-auto">{generatedPrompt}</p>
                   </div>
