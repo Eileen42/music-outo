@@ -641,16 +641,43 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                     disabled={generating}
                     className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white py-3 rounded-xl font-bold text-sm transition-colors"
                   >
-                    {generating ? '⏳ 생성 중...' : '✨ AI 이미지 생성'}
+                    {generating ? '⏳ 생성 중...' : '✨ 이미지 생성'}
                   </button>
-                  <a href="https://labs.google/fx/tools/image-fx" target="_blank" rel="noopener noreferrer"
-                    className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-bold text-sm transition-colors text-center flex items-center justify-center gap-1">
-                    🌐 Flow에서 생성
-                  </a>
+                  <button
+                    onClick={() => {
+                      // 분석 분위기 + 커스텀 설명 결합 프롬프트 생성
+                      const m = activeMood
+                      const desc = customPrompt.trim()
+                      const parts: string[] = []
+                      if (m) {
+                        parts.push(`Recreate the exact same photographic style, color grading, and atmosphere as the reference image.`)
+                        parts.push(`Mood: ${m.mood}. Atmosphere: ${m.atmosphere}. Emotion: ${m.emotion || 'calm'}.`)
+                        parts.push(`Color palette: ${m.colors?.dominant?.join(', ') || 'natural'}. Tone: ${m.colors?.tone || 'soft'}. Warmth: ${m.colors?.warmth || 'warm'}.`)
+                        parts.push(`Style: ${m.style}. Lighting: ${m.lighting}. Time: ${m.time_of_day}. Season: ${m.season}.`)
+                        if (m.elements?.length) parts.push(`Elements: ${m.elements.join(', ')}.`)
+                      }
+                      if (desc) {
+                        parts.push(`Scene: ${desc}.`)
+                        parts.push(`Make it look like the same photographer took this photo in the same session, same camera, same editing style.`)
+                      }
+                      parts.push(`16:9, cinematic, ultra high quality, no text, no watermark.`)
+                      const prompt = parts.join(' ')
+                      setCustomPrompt(prompt)
+                      navigator.clipboard.writeText(prompt)
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-sm transition-colors"
+                  >
+                    📝 프롬프트 생성
+                  </button>
                 </div>
-                <p className="text-[10px] text-gray-600 text-center mt-1">
-                  API 할당량 초과 시 프롬프트를 복사해서 Flow에서 직접 생성하세요
-                </p>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <a href="https://labs.google/fx/tools/image-fx" target="_blank" rel="noopener noreferrer"
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                    🌐 Flow에서 만들기 ↗
+                  </a>
+                  <span className="text-[10px] text-gray-700">·</span>
+                  <span className="text-[10px] text-gray-600">프롬프트 생성 → 복사됨 → Flow에 붙여넣기</span>
+                </div>
 
                 {generating && (
                   <p className="text-xs text-gray-500 text-center mt-2">
