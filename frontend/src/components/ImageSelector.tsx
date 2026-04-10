@@ -590,17 +590,12 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                       const desc = customPrompt.trim()
                       const parts: string[] = []
                       if (m) {
-                        parts.push(`Recreate the exact same photographic style, color grading, and atmosphere as the reference image.`)
-                        parts.push(`Mood: ${m.mood}. Atmosphere: ${m.atmosphere}. Emotion: ${m.emotion || 'calm'}.`)
-                        parts.push(`Color palette: ${m.colors?.dominant?.join(', ') || 'natural'}. Tone: ${m.colors?.tone || 'soft'}. Warmth: ${m.colors?.warmth || 'warm'}.`)
-                        parts.push(`Style: ${m.style}. Lighting: ${m.lighting}. Time: ${m.time_of_day}. Season: ${m.season}.`)
-                        if (m.elements?.length) parts.push(`Elements: ${m.elements.join(', ')}.`)
+                        parts.push(`${m.mood}, ${m.atmosphere}.`)
+                        if (m.colors?.dominant?.length) parts.push(`Colors: ${m.colors.dominant.join(', ')}, ${m.colors?.tone || ''} tone.`)
+                        parts.push(`${m.style}, ${m.lighting} lighting, ${m.time_of_day}, ${m.season}.`)
                       }
-                      if (desc) {
-                        parts.push(`Scene: ${desc}.`)
-                        parts.push(`Make it look like the same photographer took this photo in the same session, same camera, same editing style.`)
-                      }
-                      parts.push(`16:9, cinematic, ultra high quality, no text, no watermark.`)
+                      if (desc) parts.push(desc + '.')
+                      parts.push(`Soft focus, gentle grain, natural photograph, no people, no text, no watermark, 16:9.`)
                       const prompt = parts.join(' ')
                       // customPrompt는 건드리지 않음 — 별도 generatedPrompt로 표시
                       setGeneratedPrompt(prompt)
