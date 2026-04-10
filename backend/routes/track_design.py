@@ -314,8 +314,10 @@ async def get_suno_tracks(project_id: str):
         if fp:
             try:
                 rel = Path(fp).relative_to(storage_root)
-                audio_url = "/storage/" + rel.as_posix()
-            except ValueError:
+                # 캐시 버스팅: 파일 수정시간을 쿼리 파라미터로
+                mtime = int(Path(fp).stat().st_mtime) if Path(fp).exists() else 0
+                audio_url = f"/storage/{rel.as_posix()}?t={mtime}"
+            except (ValueError, OSError):
                 audio_url = fp
         entries.append({**t, "audio_url": audio_url, "slot": t.get("slot", 0)})
 
