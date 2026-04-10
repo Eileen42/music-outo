@@ -204,21 +204,37 @@ export default function ImageSelector({ project, onRefresh }: Props) {
             </a>
           )}
 
-          {/* 드래그앤드롭 */}
+          {/* 드래그앤드롭 + 붙여넣기 */}
           <div
+            tabIndex={0}
             onDragOver={e => { e.preventDefault(); setDraggingUpload(true) }}
             onDragLeave={() => setDraggingUpload(false)}
             onDrop={handleUploadDrop}
+            onPaste={async (e) => {
+              const items = e.clipboardData?.items
+              if (!items) return
+              for (const item of Array.from(items)) {
+                if (item.type.startsWith('image/')) {
+                  const file = item.getAsFile()
+                  if (file) {
+                    const ext = file.type.split('/')[1] || 'png'
+                    const named = new File([file], `paste_${Date.now()}.${ext}`, { type: file.type })
+                    await handleUploadFile(named)
+                  }
+                  break
+                }
+              }
+            }}
             onClick={() => uploadRef.current?.click()}
-            className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl py-10 cursor-pointer transition-all ${
+            className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl py-10 cursor-pointer transition-all focus:border-purple-500 focus:outline-none ${
               draggingUpload ? 'border-purple-500 bg-purple-900/20' : 'border-gray-700 bg-gray-900/50 hover:border-gray-600'
             }`}
           >
             <span className="text-3xl">{uploading ? '⏳' : '🖼️'}</span>
             <p className="text-sm text-gray-300 font-medium">
-              {uploading ? '업로드 중...' : '이미지를 드래그하거나 클릭해서 선택'}
+              {uploading ? '업로드 중...' : '이미지를 드래그, 클릭 또는 Ctrl+V로 붙여넣기'}
             </p>
-            <p className="text-xs text-gray-600">JPG, PNG, WEBP 지원</p>
+            <p className="text-xs text-gray-600">JPG, PNG, WEBP 지원 · 캡처 이미지 붙여넣기 가능</p>
             <input
               ref={uploadRef}
               type="file"
