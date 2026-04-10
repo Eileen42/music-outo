@@ -79,9 +79,13 @@ async def download_capcut(project_id: str):
 
 
 @router.post("/open-folder", summary="outputs 폴더 열기")
-async def open_outputs_folder(project_id: str):
-    """탐색기에서 outputs 폴더를 엽니다."""
+async def open_outputs_folder(project_id: str, body: dict = None):
+    """탐색기에서 폴더를 엽니다. body.path가 있으면 해당 경로, 없으면 outputs."""
     import os
+    custom_path = (body or {}).get("path", "")
+    if custom_path and Path(custom_path).exists():
+        os.startfile(str(custom_path))
+        return {"opened": custom_path}
     project_dir = state_manager.project_dir(project_id)
     outputs_dir = project_dir / "outputs"
     outputs_dir.mkdir(parents=True, exist_ok=True)
