@@ -27,6 +27,18 @@ export default function ImageSelector({ project, onRefresh }: Props) {
   const [uploadCat, setUploadCat] = useState<'thumbnail' | 'background' | 'additional'>('background')
   const [uploading, setUploading] = useState(false)
   const [draggingUpload, setDraggingUpload] = useState(false)
+  const [editToolLinks, setEditToolLinks] = useState<{name: string; url: string}[]>([])
+  const [newToolName, setNewToolName] = useState('')
+  const [newToolUrl, setNewToolUrl] = useState('')
+
+  // 채널에 저장된 편집툴 링크 로드
+  useEffect(() => {
+    if (project.channel_id) {
+      api.channels.get(project.channel_id).then(ch => {
+        setEditToolLinks((ch as unknown as {image_tool_links?: {name:string;url:string}[]}).image_tool_links || [])
+      }).catch(() => {})
+    }
+  }, [project.channel_id])
   const uploadRef = useRef<HTMLInputElement>(null)
 
   // 분석 탭 상태
@@ -191,18 +203,43 @@ export default function ImageSelector({ project, onRefresh }: Props) {
             ))}
           </div>
 
-          {/* 미리캔버스 링크 (썸네일 선택 시) */}
-          {uploadCat === 'thumbnail' && (
-            <a href="https://www.miricanvas.com/design" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-indigo-900/30 border border-indigo-800 rounded-xl px-4 py-2.5 hover:bg-indigo-900/50 transition-colors">
-              <span className="text-lg">🎨</span>
-              <div>
-                <div className="text-xs font-semibold text-indigo-300">미리캔버스에서 썸네일 만들기</div>
-                <div className="text-[10px] text-gray-500">1280×720 템플릿으로 YouTube 썸네일 디자인</div>
+          {/* 이미지 편집툴 바로가기 */}
+          <div className="space-y-1.5">
+            {editToolLinks.map((link, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <a href={link.url} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 flex items-center gap-2 bg-indigo-900/30 border border-indigo-800 rounded-xl px-3 py-2 hover:bg-indigo-900/50 transition-colors">
+                  <span className="text-sm">🎨</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-indigo-300 truncate">{link.name}</div>
+                    <div className="text-[10px] text-gray-500 truncate">{link.url}</div>
+                  </div>
+                  <span className="text-gray-600 shrink-0 text-xs">↗</span>
+                </a>
+                <button onClick={async () => {
+                  const updated = editToolLinks.filter((_, j) => j !== i)
+                  setEditToolLinks(updated)
+                  if (project.channel_id) await api.channels.update(project.channel_id, { image_tool_links: updated } as Partial<import('../types').Channel>)
+                }} className="text-gray-700 hover:text-red-400 text-xs shrink-0">✕</button>
               </div>
-              <span className="text-gray-600 ml-auto">↗</span>
-            </a>
-          )}
+            ))}
+            <div className="flex gap-1.5">
+              <input value={newToolName} onChange={e => setNewToolName(e.target.value)}
+                placeholder="이름 (예: 미리캔버스)"
+                className="w-28 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-xs border border-gray-700" />
+              <input value={newToolUrl} onChange={e => setNewToolUrl(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-xs border border-gray-700" />
+              <button onClick={async () => {
+                if (!newToolName.trim() || !newToolUrl.trim()) return
+                const updated = [...editToolLinks, { name: newToolName.trim(), url: newToolUrl.trim() }]
+                setEditToolLinks(updated)
+                if (project.channel_id) await api.channels.update(project.channel_id, { image_tool_links: updated } as Partial<import('../types').Channel>)
+                setNewToolName(''); setNewToolUrl('')
+              }} disabled={!newToolName.trim() || !newToolUrl.trim()}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold">+</button>
+            </div>
+          </div>
 
           {/* 드래그앤드롭 + 붙여넣기 */}
           <div
