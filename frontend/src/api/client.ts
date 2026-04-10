@@ -117,7 +117,9 @@ export const api = {
     uploadStatus: (projectId: string) =>
       http.get<{ status: string; youtube: { video_id: string | null }; upload_progress: number }>(`/api/youtube/upload/${projectId}/status`).then(r => r.data),
     openStudio: (projectId: string) =>
-      http.post<{ status: string; title: string; description: string; tags: string[]; comment: string }>(`/api/youtube/open-studio/${projectId}`).then(r => r.data),
+      http.post<{ status: string }>(`/api/youtube/open-studio/${projectId}`).then(r => r.data),
+    fillMetadata: (projectId: string) =>
+      http.post<{ status: string }>(`/api/youtube/fill-metadata/${projectId}`).then(r => r.data),
   },
 
   suno: {
