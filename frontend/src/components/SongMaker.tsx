@@ -844,6 +844,40 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       {registerMsg}
                     </p>
                   )}
+
+                  {/* 반복 설정 */}
+                  {activeSet && (
+                    <div className="mt-4 pt-3 border-t border-gray-800">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs text-gray-500">반복</span>
+                        <select value={project.repeat?.mode || 'count'}
+                          onChange={e => api.projects.updateRepeat(project.id, { ...project.repeat, mode: e.target.value as 'count' | 'duration' }).then(onRefresh)}
+                          className="bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700">
+                          <option value="count">횟수</option>
+                          <option value="duration">목표 시간</option>
+                        </select>
+                        {(project.repeat?.mode || 'count') === 'count' ? (
+                          <div className="flex items-center gap-1">
+                            <input type="number" value={project.repeat?.count || 1} min={1} max={10}
+                              onChange={e => api.projects.updateRepeat(project.id, { ...project.repeat, count: parseInt(e.target.value) || 1 }).then(onRefresh)}
+                              className="w-12 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+                            <span className="text-xs text-gray-600">회</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <input type="number" value={project.repeat?.target_minutes || 60} min={10} max={600} step={10}
+                              onChange={e => api.projects.updateRepeat(project.id, { ...project.repeat, target_minutes: parseInt(e.target.value) || 60 }).then(onRefresh)}
+                              className="w-16 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+                            <span className="text-xs text-gray-600">분</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-600">
+                        세트 {activeSet} · {project.tracks.length}곡 ·
+                        예상 {((project.tracks.reduce((s, t) => s + (t.duration || 0), 0) * (project.repeat?.count || 1)) / 60).toFixed(0)}분
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
