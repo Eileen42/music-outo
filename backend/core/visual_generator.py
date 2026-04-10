@@ -141,6 +141,64 @@ class VisualGenerator:
 
     # ──────────────────── 핵심: AI 이미지 생성 ────────────────────
 
+    def _build_detailed_prompt(self, mood: dict | None, target: str) -> str:
+        """분석 결과에서 최대한 디테일한 프롬프트 생성."""
+        if not mood:
+            return "YouTube music video background, cinematic, peaceful"
+
+        m = mood
+        parts = []
+
+        # 기본 컨텍스트
+        if target == "thumbnail":
+            parts.append("YouTube music video thumbnail image, eye-catching")
+        else:
+            parts.append("YouTube music video background image, loopable, cinematic")
+
+        # 분위기 + 감정
+        if m.get("mood"):
+            parts.append(f"Mood: {m['mood']}")
+        if m.get("atmosphere"):
+            parts.append(f"Atmosphere: {m['atmosphere']}")
+        if m.get("emotion"):
+            parts.append(f"Emotion: {m['emotion']}")
+
+        # 색채
+        colors = m.get("colors", {})
+        if colors.get("dominant"):
+            parts.append(f"Color palette: {', '.join(colors['dominant'])}")
+        if colors.get("tone"):
+            parts.append(f"Color tone: {colors['tone']}")
+        if colors.get("warmth"):
+            parts.append(f"Color warmth: {colors['warmth']}")
+
+        # 스타일 + 조명
+        if m.get("style"):
+            parts.append(f"Art style: {m['style']}")
+        if m.get("lighting"):
+            parts.append(f"Lighting: {m['lighting']}")
+
+        # 시간 + 계절
+        if m.get("time_of_day"):
+            parts.append(f"Time of day: {m['time_of_day']}")
+        if m.get("season"):
+            parts.append(f"Season: {m['season']}")
+
+        # 요소
+        if m.get("elements"):
+            parts.append(f"Visual elements: {', '.join(m['elements'])}")
+
+        # 장르
+        if m.get("music_genre_fit"):
+            parts.append(f"Music genre: {m['music_genre_fit']}")
+
+        # 기존 프롬프트 (있으면 추가)
+        existing = m.get("background_prompt" if target == "background" else "thumbnail_prompt", "")
+        if existing:
+            parts.append(existing)
+
+        return ". ".join(parts)
+
     async def generate_from_mood(
         self,
         mood: dict | None,
@@ -162,17 +220,16 @@ class VisualGenerator:
             if custom_prompt:
                 prompt = custom_prompt
             else:
-                prompt = (mood or {}).get("thumbnail_prompt") or (mood or {}).get("image_prompt", "")
+                prompt = self._build_detailed_prompt(mood, "thumbnail")
             tasks.append(("thumbnail", prompt, "1:1"))
         if target in ("background", "both"):
             if custom_prompt:
                 prompt = custom_prompt
             else:
-                prompt = (mood or {}).get("background_prompt") or (mood or {}).get("image_prompt", "")
+                prompt = self._build_detailed_prompt(mood, "background")
             tasks.append(("background", prompt, "16:9"))
 
         for tgt, prompt, ratio in tasks:
-            # 품질 향상 접미어 추가
             full_prompt = (
                 f"{prompt}, "
                 f"high quality, ultra detailed, professional photography, "
