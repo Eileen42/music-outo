@@ -208,58 +208,76 @@ export default function ImageSelector({ project, onRefresh }: Props) {
             ))}
           </div>
 
-          {/* 편집툴 바로가기 — 현재 카테고리에 해당하는 것만 */}
+          {/* 바로가기 — 선택한 카테고리 전용 */}
           {(() => {
             const catLinks = editToolLinks.filter(l => l.category === uploadCat)
             const isFolder = uploadCat === 'additional'
+            const catLabel = uploadCat === 'background' ? '배경' : uploadCat === 'thumbnail' ? '썸네일' : '참고 폴더'
             return (
-              <div className="space-y-1.5">
-                {catLinks.map((link, i) => {
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 space-y-2">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest">{catLabel} 바로가기</div>
+                {catLinks.length === 0 && (
+                  <p className="text-[10px] text-gray-700">등록된 링크가 없습니다. 아래에서 추가하세요.</p>
+                )}
+                {catLinks.map((link) => {
                   const realIdx = editToolLinks.indexOf(link)
+                  const [editing, setEditing] = useState(false)
+                  const [eName, setEName] = useState(link.name)
+                  const [eUrl, setEUrl] = useState(link.url)
                   return (
-                    <div key={realIdx} className="flex items-center gap-2">
-                      {isFolder ? (
-                        <button onClick={() => {
-                          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/projects/${project.id}/build/open-folder`, {
-                            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: link.url})
-                          }).catch(() => {})
-                        }}
-                          className="flex-1 flex items-center gap-2 bg-amber-900/30 border border-amber-800 rounded-xl px-3 py-2 hover:bg-amber-900/50 transition-colors text-left">
-                          <span className="text-sm">📂</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-amber-300 truncate">{link.name}</div>
-                            <div className="text-[10px] text-gray-500 truncate">{link.url}</div>
-                          </div>
-                        </button>
+                    <div key={realIdx} className="flex items-center gap-1.5">
+                      {editing ? (
+                        <>
+                          <input value={eName} onChange={e => setEName(e.target.value)}
+                            className="w-24 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+                          <input value={eUrl} onChange={e => setEUrl(e.target.value)}
+                            className="flex-1 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+                          <button onClick={() => {
+                            const updated = [...editToolLinks]; updated[realIdx] = { ...link, name: eName, url: eUrl }
+                            saveLinks(updated); setEditing(false)
+                          }} className="text-xs text-green-400 px-1">✓</button>
+                          <button onClick={() => setEditing(false)} className="text-xs text-gray-600 px-1">✕</button>
+                        </>
                       ) : (
-                        <a href={link.url} target="_blank" rel="noopener noreferrer"
-                          className="flex-1 flex items-center gap-2 bg-indigo-900/30 border border-indigo-800 rounded-xl px-3 py-2 hover:bg-indigo-900/50 transition-colors">
-                          <span className="text-sm">🎨</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-indigo-300 truncate">{link.name}</div>
-                            <div className="text-[10px] text-gray-500 truncate">{link.url}</div>
-                          </div>
-                          <span className="text-gray-600 shrink-0 text-xs">↗</span>
-                        </a>
+                        <>
+                          {isFolder ? (
+                            <button onClick={() => {
+                              fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/projects/${project.id}/build/open-folder`, {
+                                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: link.url})
+                              }).catch(() => {})
+                            }} className="flex-1 bg-amber-900/30 border border-amber-800 rounded-lg px-3 py-2 hover:bg-amber-900/50 transition-colors text-left flex items-center gap-2">
+                              <span>📂</span>
+                              <span className="text-xs text-amber-300 font-semibold truncate">{link.name}</span>
+                            </button>
+                          ) : (
+                            <a href={link.url} target="_blank" rel="noopener noreferrer"
+                              className="flex-1 bg-indigo-900/30 border border-indigo-800 rounded-lg px-3 py-2 hover:bg-indigo-900/50 transition-colors flex items-center gap-2">
+                              <span>🎨</span>
+                              <span className="text-xs text-indigo-300 font-semibold truncate">{link.name}</span>
+                              <span className="text-gray-600 text-[10px] ml-auto">↗</span>
+                            </a>
+                          )}
+                          <button onClick={() => setEditing(true)} className="text-gray-700 hover:text-gray-400 text-[10px]">✏️</button>
+                          <button onClick={() => saveLinks(editToolLinks.filter((_, j) => j !== realIdx))}
+                            className="text-gray-700 hover:text-red-400 text-[10px]">✕</button>
+                        </>
                       )}
-                      <button onClick={() => saveLinks(editToolLinks.filter((_, j) => j !== realIdx))}
-                        className="text-gray-700 hover:text-red-400 text-xs shrink-0">✕</button>
                     </div>
                   )
                 })}
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 pt-1 border-t border-gray-800">
                   <input value={newToolName} onChange={e => setNewToolName(e.target.value)}
-                    placeholder={isFolder ? '폴더 이름' : '편집툴 이름'}
-                    className="w-28 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-xs border border-gray-700" />
+                    placeholder={isFolder ? '폴더 이름' : `${catLabel} 편집툴 이름`}
+                    className="w-24 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-[10px] border border-gray-700" />
                   <input value={newToolUrl} onChange={e => setNewToolUrl(e.target.value)}
                     placeholder={isFolder ? 'D:\\폴더\\경로' : 'https://...'}
-                    className="flex-1 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-xs border border-gray-700" />
+                    className="flex-1 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-[10px] border border-gray-700" />
                   <button onClick={() => {
                     if (!newToolName.trim() || !newToolUrl.trim()) return
                     saveLinks([...editToolLinks, { name: newToolName.trim(), url: newToolUrl.trim(), category: uploadCat }])
                     setNewToolName(''); setNewToolUrl('')
                   }} disabled={!newToolName.trim() || !newToolUrl.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold">+</button>
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-semibold">+ 추가</button>
                 </div>
               </div>
             )
