@@ -71,6 +71,37 @@ async def upload_video(
     return {"status": "업로드 시작됨"}
 
 
+@router.post("/open-studio/{project_id}", summary="YouTube Studio 업로드 페이지 열기")
+async def open_studio(project_id: str):
+    """브라우저에서 YouTube Studio 업로드 페이지를 열고 메타데이터 반환."""
+    import os
+    state = state_manager.require(project_id)
+    metadata = state.get("metadata", {})
+    build = state.get("build", {})
+
+    # outputs 폴더에서 MP4 찾기
+    project_dir = state_manager.project_dir(project_id)
+    outputs_dir = project_dir / "outputs"
+    mp4s = sorted(outputs_dir.glob("*.mp4"), key=lambda f: f.stat().st_mtime, reverse=True) if outputs_dir.exists() else []
+
+    # YouTube Studio 업로드 페이지 열기
+    os.startfile("https://studio.youtube.com/channel/UC/videos/upload?d=ud")
+
+    # outputs 폴더도 열기 (파일 드래그용)
+    if outputs_dir.exists():
+        os.startfile(str(outputs_dir))
+
+    return {
+        "status": "opened",
+        "title": metadata.get("title", ""),
+        "description": metadata.get("description", ""),
+        "tags": metadata.get("tags", []),
+        "comment": metadata.get("comment", ""),
+        "video_file": str(mp4s[0]) if mp4s else None,
+        "outputs_folder": str(outputs_dir),
+    }
+
+
 @router.get("/upload/{project_id}/status", summary="업로드 상태 확인")
 async def get_upload_status(project_id: str):
     state = state_manager.require(project_id)

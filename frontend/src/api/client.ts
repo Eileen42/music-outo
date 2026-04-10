@@ -115,7 +115,9 @@ export const api = {
     upload: (projectId: string, privacy_status: string) =>
       http.post(`/api/youtube/upload/${projectId}`, { privacy_status }).then(r => r.data),
     uploadStatus: (projectId: string) =>
-      http.get(`/api/youtube/upload/${projectId}/status`).then(r => r.data),
+      http.get<{ status: string; youtube: { video_id: string | null }; upload_progress: number }>(`/api/youtube/upload/${projectId}/status`).then(r => r.data),
+    openStudio: (projectId: string) =>
+      http.post<{ status: string; title: string; description: string; tags: string[]; comment: string }>(`/api/youtube/open-studio/${projectId}`).then(r => r.data),
   },
 
   suno: {

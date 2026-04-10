@@ -265,13 +265,27 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
             )}
 
             {/* 업로드 버튼 */}
-            <button onClick={handleUpload}
-              disabled={uploading || project.status === 'uploading' || !project.metadata?.title}
-              className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-2xl font-bold text-base transition-colors">
-              {project.status === 'uploading' ? '⏳ 업로드 중...' :
-               yt.video_id                    ? '🔄 재업로드' :
-                                                '🚀 YouTube에 업로드'}
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={handleUpload}
+                disabled={uploading || project.status === 'uploading' || !project.metadata?.title}
+                className="bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+                {project.status === 'uploading' ? '⏳ API 업로드 중...' :
+                 yt.video_id                    ? '🔄 재업로드' :
+                                                  '🚀 API 업로드'}
+              </button>
+              <button onClick={async () => {
+                const res = await api.youtube.openStudio(project.id)
+                // 메타데이터 클립보드 복사
+                const meta = `${res.title}\n\n${res.description}\n\n${res.tags?.join(', ')}`
+                navigator.clipboard.writeText(meta)
+                alert('YouTube Studio + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 제목/설명은 클립보드에 복사됨 (Ctrl+V)\n3. 업로드 완료 후 여기로 돌아오세요')
+              }}
+                disabled={!project.metadata?.title}
+                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+                🌐 브라우저로 직접 업로드
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-600 text-center mt-1">API: 자동 업로드 (느림) | 브라우저: 수동 업로드 (빠름, 메타데이터 자동 복사)</p>
 
             {project.status === 'uploading' && (
               <div className="space-y-2">
