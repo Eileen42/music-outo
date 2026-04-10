@@ -115,13 +115,21 @@ export default function App() {
     setProjects(prev => prev.map(p => p.id === id ? updated : p))
   }, [])
 
-  // 상태 변경 시 localStorage에 저장
+  // 상태 변경 시 localStorage에 저장 (초기 null은 무시)
   useEffect(() => {
     if (activeProject) localStorage.setItem('projectId', activeProject.id)
-    else localStorage.removeItem('projectId')
+    // null일 때 삭제하지 않음 — 초기 로드 시 복원 방해됨
+    // 삭제는 handleBackToList에서만 수행
   }, [activeProject])
 
   useEffect(() => { localStorage.setItem('step', step) }, [step])
+
+  const handleBackToList = () => {
+    setShowProjectList(true)
+    setActiveProject(null)
+    localStorage.removeItem('projectId')
+    localStorage.setItem('step', 'setup')
+  }
 
   useEffect(() => { loadProjects() }, [loadProjects])
 
@@ -150,8 +158,7 @@ export default function App() {
     await api.projects.delete(id)
     await loadProjects()
     if (activeProject?.id === id) {
-      setActiveProject(null)
-      setShowProjectList(true)
+      handleBackToList()
     }
   }
 
@@ -164,7 +171,7 @@ export default function App() {
       {/* ── 헤더 ── */}
       <header className="bg-gray-900 border-b border-gray-800 px-5 py-3 flex items-center gap-4 shrink-0">
         <button
-          onClick={() => { setShowProjectList(true); setActiveProject(null) }}
+          onClick={() => handleBackToList()}
           className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors font-bold text-sm"
         >
           🎬 <span className="hidden sm:inline">YouTube 플레이리스트 자동화</span>
@@ -241,7 +248,7 @@ export default function App() {
 
             <div className="p-3 border-t border-gray-800 mt-2">
               <button
-                onClick={() => { setShowProjectList(true); setActiveProject(null) }}
+                onClick={() => handleBackToList()}
                 className="w-full text-xs text-gray-600 hover:text-gray-300 py-1.5 flex items-center justify-center gap-1 transition-colors"
               >
                 ← 채널 목록으로
