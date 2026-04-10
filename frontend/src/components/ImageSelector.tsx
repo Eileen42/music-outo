@@ -609,17 +609,52 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="mt-5 w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white py-3.5 rounded-xl font-bold text-sm transition-colors"
-                >
-                  {generating ? '✨ Imagen 3으로 이미지 생성 중...' : '✨ AI 이미지 생성'}
-                </button>
+                {/* 프롬프트 미리보기 (항상 표시) */}
+                {(() => {
+                  const m = activeMood
+                  const autoPrompt = m ? [
+                    `Create a YouTube music video background image.`,
+                    `Mood: ${m.mood}. Atmosphere: ${m.atmosphere}.`,
+                    `Color palette: ${m.colors?.dominant?.join(', ') || 'warm tones'}. Color tone: ${m.colors?.tone || 'soft'}. Warmth: ${m.colors?.warmth || 'warm'}.`,
+                    `Style: ${m.style}. Lighting: ${m.lighting}.`,
+                    `Time of day: ${m.time_of_day}. Season: ${m.season}.`,
+                    `Emotion: ${m.emotion}. Music genre fit: ${m.music_genre_fit}.`,
+                    `Key elements: ${m.elements?.join(', ') || 'nature, calm'}.`,
+                    `16:9 aspect ratio, cinematic, high quality, no text, no watermark.`,
+                  ].join(' ') : ''
+                  const finalPrompt = customPrompt.trim() || autoPrompt
+                  return finalPrompt ? (
+                    <div className="bg-gray-800 rounded-xl p-3 mb-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] text-gray-500">생성 프롬프트 {customPrompt ? '(직접 입력)' : '(분석 기반 자동)'}</span>
+                        <button onClick={() => navigator.clipboard.writeText(finalPrompt)}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">{finalPrompt}</p>
+                    </div>
+                  ) : null
+                })()}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white py-3 rounded-xl font-bold text-sm transition-colors"
+                  >
+                    {generating ? '⏳ 생성 중...' : '✨ AI 이미지 생성'}
+                  </button>
+                  <a href="https://aistudio.google.com/prompts/new_chat" target="_blank" rel="noopener noreferrer"
+                    className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-bold text-sm transition-colors text-center flex items-center justify-center gap-1">
+                    🌐 AI Studio에서 생성
+                  </a>
+                </div>
+                <p className="text-[10px] text-gray-600 text-center mt-1">
+                  API 할당량 초과 시 프롬프트를 복사해서 AI Studio/나노바나나에서 직접 생성하세요
+                </p>
 
                 {generating && (
                   <p className="text-xs text-gray-500 text-center mt-2">
-                    분위기를 정확히 반영한 이미지를 생성 중입니다. 10~30초 소요됩니다.
+                    이미지 생성 중... 10~30초 소요
                   </p>
                 )}
               </div>
