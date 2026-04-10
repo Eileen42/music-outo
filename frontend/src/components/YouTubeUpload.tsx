@@ -252,11 +252,31 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
             {/* 메타데이터 자동 입력 (브라우저 업로드 후) */}
             <button onClick={async () => {
               await api.youtube.fillMetadata(project.id)
-              alert('YouTube Studio에 제목/설명/태그를 입력 중입니다.\n브라우저를 확인하세요.')
+              // 댓글 완료까지 폴링
+              const poll = setInterval(async () => {
+                try { await onRefresh() } catch {}
+              }, 15000)
+              setTimeout(() => clearInterval(poll), 600000) // 10분 후 중단
             }}
               className="w-full bg-indigo-700 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
               ✍️ 메타데이터 자동 입력 (브라우저에 파일 올린 후 클릭)
             </button>
+            {/* 브라우저 업로드 후 댓글 대기 안내 */}
+            {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled &&
+             !(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
+              <div className="bg-yellow-950/40 border border-yellow-800 rounded-xl p-3 flex items-center gap-3">
+                <span className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin shrink-0" />
+                <div>
+                  <p className="text-xs text-yellow-300 font-semibold">영상 업로드 완료 대기 중...</p>
+                  <p className="text-[10px] text-gray-500">YouTube에서 영상 처리가 끝나면 댓글이 자동으로 작성됩니다. 브라우저를 닫아도 됩니다.</p>
+                </div>
+              </div>
+            )}
+            {(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
+              <div className="bg-green-950/40 border border-green-800 rounded-xl p-3">
+                <p className="text-xs text-green-400 font-semibold">✅ 댓글 작성 완료!</p>
+              </div>
+            )}
             <p className="text-[10px] text-gray-600 text-center mt-1">API: 자동 업로드 (느림) | 브라우저: 수동 업로드 (빠름, 메타데이터 자동 입력)</p>
 
             {project.status === 'uploading' && (
