@@ -915,6 +915,102 @@ class SunoAutomation:
         logger.info(f"형제 스캔 완료: {len(results)}개")
         return results
 
+    async def find_siblings_by_search(
+        self,
+        titles: list[str],
+        known_ids: set[str],
+        output_dir: str,
+    ) -> list[dict]:
+        """
+        Suno 검색(suno.com/search?q=제목)으로 각 제목의 곡을 찾아 최신 2곡 다운로드.
+        기존에 다운받은 곡(known_ids)은 건너뜀.
+
+        Returns: [{"suno_id", "title", "file_path", "status", "slot"}, ...]
+        """
+        out_dir = Path(output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        results: list[dict] = []
+
+        for title in titles:
+            if not title:
+                continue
+
+            page = await self._context.new_page()
+            found_clips: list[dict] = []
+
+            try:
+                async def on_response(resp):
+                    if "suno" not in resp.url:
+                        return
+                    ct = resp.headers.get("content-type", "")
+                    if "json" not in ct:
+                        return
+                    try:
+                        data = await resp.json()
+                        clips = data.get("clips") or data.get("data") or []
+                        if not isinstance(clips, list):
+                            return
+                        for c in clips:
+                            if not isinstance(c, dict):
+                                continue
+                            cid = c.get("id", "")
+                            ctitle = c.get("title", "")
+                            if cid and ctitle.strip().lower() == title.strip().lower():
+                                found_clips.append({
+                                    "id": cid,
+                                    "title": ctitle,
+                                    "audio_url": c.get("audio_url", ""),
+                                })
+                    except Exception:
+                        pass
+
+                page.on("response", on_response)
+                from urllib.parse import quote
+                await page.goto(
+                    f"https://suno.com/search?q={quote(title)}",
+                    wait_until="domcontentloaded",
+                    timeout=20_000,
+                )
+                await page.wait_for_timeout(4_000)
+                page.remove_listener("response", on_response)
+
+                # known 제외, 최신 2곡
+                new_clips = [c for c in found_clips if c["id"] not in known_ids]
+                to_dl = new_clips[:2]
+
+                if not to_dl:
+                    logger.info(f"'{title}': 새 곡 없음 ({len(found_clips)}곡 중 {len(new_clips)}곡 신규)")
+                    await page.close()
+                    continue
+
+                logger.info(f"'{title}': {len(to_dl)}곡 다운로드")
+
+                for slot, clip in enumerate(to_dl, 1):
+                    safe_title = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", title)
+                    prefix = f"{safe_title}_v{slot}"
+                    file_path = await self._download(
+                        clip_id=clip["id"],
+                        audio_url=clip.get("audio_url", ""),
+                        out_dir=out_dir,
+                        prefix=prefix,
+                    )
+                    results.append({
+                        "suno_id": clip["id"],
+                        "title": title,
+                        "file_path": file_path,
+                        "status": "completed" if file_path else "download_failed",
+                        "slot": slot,
+                    })
+                    known_ids.add(clip["id"])
+
+            except Exception as e:
+                logger.warning(f"'{title}' 검색 실패: {e}")
+            finally:
+                await page.close()
+
+        logger.info(f"검색 완료: {len(results)}곡 다운로드")
+        return results
+
     async def get_credits(self) -> int:
         """남은 크레딧 수 반환. 실패 시 -1."""
         page = await self._context.new_page()
