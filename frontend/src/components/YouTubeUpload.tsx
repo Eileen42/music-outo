@@ -14,7 +14,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   const [authUrl, setAuthUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [privacyStatus, setPrivacyStatus] = useState('private')
+  const [privacyStatus, setPrivacyStatus] = useState('unlisted')
   const [loading, setLoading] = useState(true)
   const [showGuide, setShowGuide] = useState(false)
 
@@ -191,8 +191,8 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
               <label className="block text-xs text-gray-500 mb-2">공개 범위</label>
               <div className="flex gap-2">
                 {([
-                  { value: 'private',  icon: '🔒', label: '비공개', desc: '나만 볼 수 있음' },
-                  { value: 'unlisted', icon: '🔗', label: '미등록', desc: '링크로만 접근' },
+                  { value: 'private',  icon: '🔒', label: '비공개', desc: '나만 볼 수 있음 (댓글 불가)' },
+                  { value: 'unlisted', icon: '🔗', label: '일부공개', desc: '링크로만 접근 (댓글 가능)' },
                   { value: 'public',   icon: '🌍', label: '공개',   desc: '누구나 검색 가능' },
                 ] as const).map(v => (
                   <button key={v.value} onClick={() => setPrivacyStatus(v.value)}

@@ -1,0 +1,14 @@
+{
+  "token": "ya29.a0Aa7MYioSA0sxaOYVzHEKSqXrwb1jqjpmz0RKgD9XA8yB9VztYoB3OugvbMNhr8UkBeF19K15wxcweILe-AI9IRT1k9O4fXhIiu7YHwi_7uAnBIKG9fMgF1W-KiLp5xnvR291zuNBzKjNuvyKEbRh2ZiAbvsNv1vuDVFPplwMj-CQ_xMLPgXrD1vJMrtxagRbP87i7i4aCgYKAUgSARcSFQHGX2MiGcBswwuuSbGmbMHAr0Vlcg0206",
+  "refresh_token": "1//0eQF_tolVzDZWCgYIARAAGA4SNwF-L9Ireh7ubYsR4XZZdgx1wHaERGNzsP7y8dtqOkTH5cAhQbvptKdAPe9XEJGNAUE1tkX0zxM",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "client_id": "1084076822905-so0s50kd4ckkmfnjebf6s04sm0rl2bjq.apps.googleusercontent.com",
+  "client_secret": "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",
+  "scopes": [
+    "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl"
+  ],
+  "youtube_channel_id": "UCVdcXqhW_e4uB7LDvQaMObg",
+  "youtube_channel_title": "Serenity Mind"
+}
