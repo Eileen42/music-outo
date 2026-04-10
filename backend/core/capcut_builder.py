@@ -171,9 +171,19 @@ class CapcutBuilder:
         else:
             project_dir = output_dir / safe_name
 
-        if project_dir.exists():
-            shutil.rmtree(project_dir)
-        project_dir.mkdir(parents=True)
+        # 기존 폴더가 CapCut에 의해 잠겨있을 수 있으므로 삭제 대신 덮어쓰기
+        try:
+            if project_dir.exists():
+                shutil.rmtree(project_dir)
+        except PermissionError:
+            # CapCut이 파일을 잠그고 있음 → 새 이름으로 생성
+            import datetime as _dt
+            suffix = _dt.datetime.now().strftime("%H%M")
+            project_dir = project_dir.parent / f"{safe_name}_{suffix}"
+            if project_dir.exists():
+                shutil.rmtree(project_dir, ignore_errors=True)
+            logger.warning(f"CapCut 잠금 → 새 폴더: {project_dir.name}")
+        project_dir.mkdir(parents=True, exist_ok=True)
 
         # 빈 폴더들
         for d in ["adjust_mask", "matting", "qr_upload", "smart_crop", "subdraft", "Resources", "common_attachment"]:
