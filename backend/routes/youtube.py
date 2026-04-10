@@ -154,6 +154,7 @@ async def _run_upload(project_id: str, privacy_status: str):
             },
         )
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"YouTube 업로드 실패: {e}")
-        state_manager.update(project_id, {"status": "ready"})
+        import logging, traceback
+        err = f"{type(e).__name__}: {e}"
+        logging.getLogger(__name__).error(f"YouTube 업로드 실패: {err}\n{traceback.format_exc()[-300:]}")
+        state_manager.update(project_id, {"status": "ready", "upload_error": err})
