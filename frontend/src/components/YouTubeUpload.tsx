@@ -175,8 +175,12 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
             <div className="bg-gray-800 rounded-xl p-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-400">영상 파일 경로</span>
-                <button onClick={() => navigator.clipboard.writeText(uploadFolder)}
-                  className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
+                <div className="flex gap-2">
+                  <button onClick={() => api.build.openFolder(project.id)}
+                    className="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-0.5 rounded">📂 폴더 열기</button>
+                  <button onClick={() => navigator.clipboard.writeText(uploadFolder)}
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
+                </div>
               </div>
               <div className="text-xs text-gray-300 font-mono break-all select-all bg-gray-900 rounded-lg px-3 py-2">
                 {uploadFolder}

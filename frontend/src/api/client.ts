@@ -104,6 +104,8 @@ export const api = {
       http.post(`/api/projects/${projectId}/build/reset`).then(r => r.data),
     downloadUrl: (projectId: string) => `${BASE}/api/projects/${projectId}/build/download`,
     downloadCapcutUrl: (projectId: string) => `${BASE}/api/projects/${projectId}/build/download-capcut`,
+    openFolder: (projectId: string) =>
+      http.post(`/api/projects/${projectId}/build/open-folder`).then(r => r.data),
   },
 
   youtube: {
