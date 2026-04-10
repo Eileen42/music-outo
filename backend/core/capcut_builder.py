@@ -1,6 +1,13 @@
 """
 CapCut(剪映) 프로젝트 폴더 생성.
 CapCut이 인식하는 폴더 구조 + draft_content.json 생성.
+
+⚠️ 크래시 방지 규칙 (반드시 준수):
+  - text segment: extra_material_refs = [] (speed/animation ref 금지)
+  - audio segment: clip = None, enable_adjust = False
+  - font path: 빈 문자열 금지 → _resolve_font() 사용
+  - segment 생성: _make_segment(track_type=...) 필수
+  - 상세: memory/project_capcut_solved.md
 """
 from __future__ import annotations
 

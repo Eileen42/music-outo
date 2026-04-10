@@ -49,6 +49,12 @@ PYTHONIOENCODING=utf-8 python qa/test_workflow.py --base-url http://localhost:80
    - 스크린샷 저장 (`storage/debug/`)
 4. **API 테스트**: 변경된 엔드포인트 curl로 확인
 5. **에러 잔존 확인**: 모든 프로젝트의 stale 에러 초기화
+6. **CapCut 빌드 QA** (capcut_builder.py 수정 시 필수):
+   - text segment `extra_material_refs` = `[]` (speed/animation ref 금지)
+   - audio segment `clip` = `None`
+   - font path 빈 문자열 금지 → `_resolve_font()` 사용
+   - CapCut 실행 → 프로젝트 열기 → 10초 이상 안정 확인
+   - 상세: `memory/project_capcut_solved.md` 참조
 
 ```python
 # Playwright QA 예시
