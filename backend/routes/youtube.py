@@ -77,6 +77,7 @@ async def get_upload_status(project_id: str):
     return {
         "status": state.get("status"),
         "youtube": state.get("youtube", {}),
+        "upload_progress": state.get("upload_progress", 0),
     }
 
 
@@ -94,6 +95,9 @@ async def _run_upload(project_id: str, privacy_status: str):
     video_path = Path(build["output_file"])
     thumbnail_path = images.get("thumbnail")
 
+    def on_progress(pct: int):
+        state_manager.update(project_id, {"upload_progress": pct})
+
     try:
         result = await youtube_uploader.upload(
             video_path=video_path,
@@ -103,6 +107,7 @@ async def _run_upload(project_id: str, privacy_status: str):
             privacy_status=privacy_status,
             thumbnail_path=Path(thumbnail_path) if thumbnail_path else None,
             pinned_comment=metadata.get("comment"),
+            progress_cb=on_progress,
         )
 
         from datetime import datetime

@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from config import settings
 
@@ -68,8 +68,10 @@ class YouTubeUploader:
         privacy_status: str = "private",
         thumbnail_path: Optional[Path] = None,
         pinned_comment: Optional[str] = None,
+        progress_cb: Optional[Callable] = None,
     ) -> dict:
         """영상 업로드 후 video_id와 URL 반환."""
+        self._progress_cb = progress_cb
         import asyncio
         return await asyncio.to_thread(
             self._upload_sync,
@@ -118,7 +120,9 @@ class YouTubeUploader:
 
         response = None
         while response is None:
-            _, response = request.next_chunk()
+            status, response = request.next_chunk()
+            if status and self._progress_cb:
+                self._progress_cb(int(status.progress() * 100))
 
         video_id = response["id"]
         url = f"https://www.youtube.com/watch?v={video_id}"

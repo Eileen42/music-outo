@@ -13,6 +13,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   const [authorized, setAuthorized] = useState(false)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [privacyStatus, setPrivacyStatus] = useState('private')
   const [loading, setLoading] = useState(true)
   const [showGuide, setShowGuide] = useState(false)
@@ -39,7 +40,9 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
     if (project.status !== 'uploading') return
     const interval = setInterval(async () => {
       const s = await api.youtube.uploadStatus(project.id)
+      if (s.upload_progress) setUploadProgress(s.upload_progress)
       if (s.status !== 'uploading') {
+        setUploadProgress(100)
         await onRefresh()
         clearInterval(interval)
       }
@@ -262,9 +265,18 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
             </button>
 
             {project.status === 'uploading' && (
-              <div className="flex items-center gap-2 justify-center">
-                <span className="w-3 h-3 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                <span className="text-xs text-red-300">업로드 진행 중...</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span className="text-xs text-red-300">YouTube 업로드 중...</span>
+                  </div>
+                  <span className="text-sm font-mono text-red-300">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-800 rounded-full h-2.5">
+                  <div className="bg-red-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
+                </div>
+                <p className="text-[10px] text-gray-600 text-center">대용량 파일은 수 분~수십 분 소요될 수 있습니다</p>
               </div>
             )}
           </div>
