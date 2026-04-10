@@ -2,6 +2,52 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import type { Project, ImageMood } from '../types'
 import { api } from '../api/client'
 
+// 링크 아이템 컴포넌트 (Hook 규칙 준수)
+function LinkItem({ link, isFolder, projectId, onSave, onDelete }: {
+  link: { name: string; url: string; category: string }
+  isFolder: boolean; projectId: string
+  onSave: (name: string, url: string) => void; onDelete: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [eName, setEName] = useState(link.name)
+  const [eUrl, setEUrl] = useState(link.url)
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <input value={eName} onChange={e => setEName(e.target.value)}
+          className="w-24 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+        <input value={eUrl} onChange={e => setEUrl(e.target.value)}
+          className="flex-1 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
+        <button onClick={() => { onSave(eName, eUrl); setEditing(false) }} className="text-xs text-green-400 px-1">✓</button>
+        <button onClick={() => setEditing(false)} className="text-xs text-gray-600 px-1">✕</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {isFolder ? (
+        <button onClick={() => {
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/projects/${projectId}/build/open-folder`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: link.url })
+          }).catch(() => {})
+        }} className="flex-1 bg-amber-900/30 border border-amber-800 rounded-lg px-3 py-2 hover:bg-amber-900/50 transition-colors text-left flex items-center gap-2">
+          <span>📂</span><span className="text-xs text-amber-300 font-semibold truncate">{link.name}</span>
+        </button>
+      ) : (
+        <a href={link.url} target="_blank" rel="noopener noreferrer"
+          className="flex-1 bg-indigo-900/30 border border-indigo-800 rounded-lg px-3 py-2 hover:bg-indigo-900/50 transition-colors flex items-center gap-2">
+          <span>🎨</span><span className="text-xs text-indigo-300 font-semibold truncate">{link.name}</span>
+          <span className="text-gray-600 text-[10px] ml-auto">↗</span>
+        </a>
+      )}
+      <button onClick={() => setEditing(true)} className="text-gray-700 hover:text-gray-400 text-[10px]">✏️</button>
+      <button onClick={onDelete} className="text-gray-700 hover:text-red-400 text-[10px]">✕</button>
+    </div>
+  )
+}
+
 interface Props {
   project: Project
   onRefresh: () => void
@@ -221,48 +267,14 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                 )}
                 {catLinks.map((link) => {
                   const realIdx = editToolLinks.indexOf(link)
-                  const [editing, setEditing] = useState(false)
-                  const [eName, setEName] = useState(link.name)
-                  const [eUrl, setEUrl] = useState(link.url)
                   return (
-                    <div key={realIdx} className="flex items-center gap-1.5">
-                      {editing ? (
-                        <>
-                          <input value={eName} onChange={e => setEName(e.target.value)}
-                            className="w-24 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
-                          <input value={eUrl} onChange={e => setEUrl(e.target.value)}
-                            className="flex-1 bg-gray-800 text-white rounded px-2 py-1 text-xs border border-gray-700" />
-                          <button onClick={() => {
-                            const updated = [...editToolLinks]; updated[realIdx] = { ...link, name: eName, url: eUrl }
-                            saveLinks(updated); setEditing(false)
-                          }} className="text-xs text-green-400 px-1">✓</button>
-                          <button onClick={() => setEditing(false)} className="text-xs text-gray-600 px-1">✕</button>
-                        </>
-                      ) : (
-                        <>
-                          {isFolder ? (
-                            <button onClick={() => {
-                              fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/projects/${project.id}/build/open-folder`, {
-                                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: link.url})
-                              }).catch(() => {})
-                            }} className="flex-1 bg-amber-900/30 border border-amber-800 rounded-lg px-3 py-2 hover:bg-amber-900/50 transition-colors text-left flex items-center gap-2">
-                              <span>📂</span>
-                              <span className="text-xs text-amber-300 font-semibold truncate">{link.name}</span>
-                            </button>
-                          ) : (
-                            <a href={link.url} target="_blank" rel="noopener noreferrer"
-                              className="flex-1 bg-indigo-900/30 border border-indigo-800 rounded-lg px-3 py-2 hover:bg-indigo-900/50 transition-colors flex items-center gap-2">
-                              <span>🎨</span>
-                              <span className="text-xs text-indigo-300 font-semibold truncate">{link.name}</span>
-                              <span className="text-gray-600 text-[10px] ml-auto">↗</span>
-                            </a>
-                          )}
-                          <button onClick={() => setEditing(true)} className="text-gray-700 hover:text-gray-400 text-[10px]">✏️</button>
-                          <button onClick={() => saveLinks(editToolLinks.filter((_, j) => j !== realIdx))}
-                            className="text-gray-700 hover:text-red-400 text-[10px]">✕</button>
-                        </>
-                      )}
-                    </div>
+                    <LinkItem key={realIdx} link={link} isFolder={isFolder} projectId={project.id}
+                      onSave={(name, url) => {
+                        const updated = [...editToolLinks]; updated[realIdx] = { ...link, name, url }
+                        saveLinks(updated)
+                      }}
+                      onDelete={() => saveLinks(editToolLinks.filter((_, j) => j !== realIdx))}
+                    />
                   )
                 })}
                 <div className="flex gap-1.5 pt-1 border-t border-gray-800">
