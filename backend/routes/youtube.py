@@ -184,7 +184,67 @@ async def _fill_metadata_browser(project_id: str):
                 await page.evaluate(f"navigator.clipboard.writeText({json.dumps(', '.join(tags))})")
                 await page.keyboard.press("Control+v")
 
-            state_manager.update(project_id, {"browser_metadata_filled": True})
+            await page.wait_for_timeout(1000)
+
+            # 아동용 아님 선택
+            not_for_kids = await page.query_selector("#audience [name='VIDEO_MADE_FOR_KIDS_NOT_MFK']")
+            if not not_for_kids:
+                not_for_kids = await page.query_selector("tp-yt-paper-radio-button[name='NOT_MADE_FOR_KIDS']")
+            if not_for_kids:
+                await not_for_kids.click()
+                await page.wait_for_timeout(500)
+
+            # 다음 버튼 3번 클릭 (세부정보 → 동영상 요소 → 확인 → 공개 설정)
+            for step in range(3):
+                next_btn = await page.query_selector("#next-button") or await page.query_selector("ytcp-button#next-button")
+                if next_btn:
+                    await next_btn.click()
+                    await page.wait_for_timeout(2000)
+
+            # 일부공개 선택
+            unlisted = await page.query_selector("tp-yt-paper-radio-button[name='UNLISTED']")
+            if not unlisted:
+                # 라디오 버튼 텍스트로 찾기
+                unlisted = await page.query_selector("tp-yt-paper-radio-button:has-text('일부공개')")
+            if unlisted:
+                await unlisted.click()
+                await page.wait_for_timeout(1000)
+
+            # 저장/게시 버튼
+            save_btn = await page.query_selector("#done-button") or await page.query_selector("ytcp-button#done-button")
+            if save_btn:
+                await save_btn.click()
+                await page.wait_for_timeout(3000)
+
+            # 업로드 완료 대기 (진행 바가 사라질 때까지)
+            for _ in range(60):  # 최대 5분
+                progress = await page.query_selector(".progress-bar.uploading, [class*='uploading']")
+                if not progress:
+                    break
+                await page.wait_for_timeout(5000)
+
+            # 댓글 작성 (영상 페이지로 이동)
+            # 게시 후 나오는 영상 링크에서 video ID 추출
+            video_link = await page.query_selector("a.style-scope.ytcp-video-info[href*='youtu']")
+            if video_link:
+                href = await video_link.get_attribute("href") or ""
+                if "watch?v=" in href:
+                    vid = href.split("watch?v=")[-1].split("&")[0]
+                    # API로 댓글 작성
+                    if comment and vid:
+                        try:
+                            channel_id = state.get("channel_id", "_default")
+                            creds = youtube_uploader._load_credentials(channel_id)
+                            from googleapiclient.discovery import build as yt_build
+                            yt = yt_build("youtube", "v3", credentials=creds)
+                            yt.commentThreads().insert(
+                                part="snippet",
+                                body={"snippet": {"videoId": vid, "topLevelComment": {"snippet": {"textOriginal": comment}}}},
+                            ).execute()
+                        except Exception:
+                            pass
+
+            state_manager.update(project_id, {"browser_upload_done": True})
             await browser.close()
 
     except Exception as e:
