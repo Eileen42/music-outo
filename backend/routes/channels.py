@@ -78,12 +78,9 @@ async def create_channel(body: ChannelCreate):
 
 
 @router.put("/{channel_id}", summary="채널 수정")
-async def update_channel(channel_id: str, body: ChannelUpdate):
+async def update_channel(channel_id: str, body: dict):
     try:
-        updates = body.model_dump(exclude_none=True)
-        # upload_settings Pydantic 객체 → dict 변환
-        if "upload_settings" in updates and hasattr(updates["upload_settings"], "model_dump"):
-            updates["upload_settings"] = updates["upload_settings"].model_dump()
+        updates = {k: v for k, v in body.items() if v is not None}
         return channel_profile.update(channel_id, updates)
     except FileNotFoundError:
         raise HTTPException(404, f"채널을 찾을 수 없습니다: {channel_id}")
