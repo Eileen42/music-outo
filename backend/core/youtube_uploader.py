@@ -170,24 +170,25 @@ class YouTubeUploader:
                 media_body=MediaFileUpload(str(thumbnail_path)),
             ).execute()
 
-        # 댓글 고정
-        if pinned_comment:
-            comment_resp = youtube.commentThreads().insert(
-                part="snippet",
-                body={
-                    "snippet": {
-                        "videoId": video_id,
-                        "topLevelComment": {
-                            "snippet": {"textOriginal": pinned_comment}
-                        },
-                    }
-                },
-            ).execute()
-            comment_id = comment_resp["id"]
-            youtube.comments().setModerationStatus(
-                id=comment_id,
-                moderationStatus="published",
-            ).execute()
+        # 댓글 작성 (일부공개/공개일 때만 가능)
+        if pinned_comment and privacy_status != "private":
+            try:
+                comment_resp = youtube.commentThreads().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "videoId": video_id,
+                            "topLevelComment": {
+                                "snippet": {"textOriginal": pinned_comment}
+                            },
+                        }
+                    },
+                ).execute()
+                # 댓글 고정은 YouTube Studio에서 수동으로 해야 함
+                # API로는 고정 불가 (YouTube Data API 제한)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"댓글 작성 실패 (영상 처리 중일 수 있음): {e}")
 
         return {"video_id": video_id, "url": url}
 
