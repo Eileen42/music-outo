@@ -79,7 +79,12 @@ async def upload_srt(project_id: str, file: UploadFile = File(...)):
     state_manager.require(project_id)
     project_dir = state_manager.project_dir(project_id)
 
-    content = (await file.read()).decode("utf-8", errors="replace")
+    raw = await file.read()
+    # 다양한 줄바꿈 정규화: \r\r\n, \r\n, \r → \n
+    import re as _re
+    content = raw.decode("utf-8-sig", errors="replace")
+    content = _re.sub(r"\r+\n", "\n", content)
+    content = content.replace("\r", "\n")
 
     # SRT 파싱
     entries = []
