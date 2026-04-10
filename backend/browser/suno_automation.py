@@ -965,13 +965,22 @@ class SunoAutomation:
                         pass
 
                 page.on("response", on_response)
-                from urllib.parse import quote
-                await page.goto(
-                    f"https://suno.com/search?q={quote(title)}",
-                    wait_until="domcontentloaded",
-                    timeout=20_000,
-                )
-                await page.wait_for_timeout(4_000)
+
+                # /create 페이지의 "Search clips" 검색 사용
+                await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
+                await page.wait_for_timeout(3_000)
+
+                search_input = await page.query_selector('input[aria-label="Search clips"]')
+                if search_input:
+                    await search_input.click()
+                    await search_input.fill(title)
+                    await page.wait_for_timeout(3_000)
+                else:
+                    logger.warning(f"Search clips 입력창 못 찾음, 건너뜀: {title}")
+                    page.remove_listener("response", on_response)
+                    await page.close()
+                    continue
+
                 page.remove_listener("response", on_response)
 
                 # known 제외, 최신 2곡
