@@ -41,7 +41,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
     const interval = setInterval(async () => {
       try {
         const s = await api.youtube.uploadStatus(project.id)
-        if (s.upload_progress) setUploadProgress(s.upload_progress)
+        setUploadProgress(s.upload_progress || 0)
         if (s.status !== 'uploading') {
           setUploadProgress(100)
           await onRefresh()
@@ -69,6 +69,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
     const privacyLabel = privacyStatus === 'private' ? '비공개' : privacyStatus === 'unlisted' ? '미등록' : '공개'
     if (!confirm(`YouTube에 [${privacyLabel}] 상태로 업로드하시겠습니까?`)) return
     setUploading(true)
+    setUploadProgress(0)
     try {
       await api.youtube.upload(project.id, privacyStatus)
       await onRefresh()
