@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -103,6 +104,12 @@ async def open_studio(project_id: str):
     project_dir = state_manager.project_dir(project_id)
     outputs_dir = project_dir / "outputs"
 
+    # 연결된 YouTube 채널 ID로 Studio URL 생성
+    channel_id = state.get("channel_id", "_default")
+    yt_info = youtube_uploader.get_channel_info(channel_id)
+    yt_channel_id = yt_info.get("youtube_channel_id", "")
+    studio_url = f"https://studio.youtube.com/channel/{yt_channel_id}/videos/upload?d=ud" if yt_channel_id else "https://studio.youtube.com"
+
     # 기존 Edge 종료 후 CDP 포트로 재시작
     os.system('taskkill /F /IM msedge.exe >nul 2>&1')
     import time; time.sleep(2)
@@ -111,7 +118,7 @@ async def open_studio(project_id: str):
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         "--remote-debugging-port=9224",
         "--restore-last-session",
-        "https://studio.youtube.com/channel/UC/videos/upload?d=ud",
+        studio_url,
     ])
 
     # outputs 폴더 열기
@@ -148,24 +155,24 @@ async def _fill_metadata_browser(project_id: str):
 
             await page.wait_for_timeout(3000)
 
-            # 제목 입력
-            title_el = await page.query_selector("#title-textarea [contenteditable]")
-            if title_el:
-                await title_el.click()
-                await page.keyboard.press("Control+a")
-                await page.keyboard.type(title[:100], delay=10)
+            # 클립보드 붙여넣기로 입력 (빠름)
+            async def paste_text(selector, text):
+                el = await page.query_selector(selector)
+                if el:
+                    await el.click()
+                    await page.keyboard.press("Control+a")
+                    await page.evaluate(f"navigator.clipboard.writeText({json.dumps(text)})")
+                    await page.keyboard.press("Control+v")
+                    await page.wait_for_timeout(500)
+                    return True
+                return False
 
-            await page.wait_for_timeout(1000)
+            # 제목
+            await paste_text("#title-textarea [contenteditable]", title[:100])
+            # 설명
+            await paste_text("#description-textarea [contenteditable]", desc[:5000])
 
-            # 설명 입력
-            desc_el = await page.query_selector("#description-textarea [contenteditable]")
-            if desc_el:
-                await desc_el.click()
-                await page.keyboard.type(desc[:5000], delay=3)
-
-            await page.wait_for_timeout(1000)
-
-            # 태그 입력 (더보기 → 태그)
+            # 태그 (더보기 → 태그)
             more_btn = await page.query_selector("button:has-text('더보기')")
             if more_btn:
                 await more_btn.click()
@@ -174,7 +181,8 @@ async def _fill_metadata_browser(project_id: str):
             tag_input = await page.query_selector("input[aria-label*='태그'], #tags-container input")
             if tag_input and tags:
                 await tag_input.click()
-                await tag_input.type(", ".join(tags), delay=5)
+                await page.evaluate(f"navigator.clipboard.writeText({json.dumps(', '.join(tags))})")
+                await page.keyboard.press("Control+v")
 
             state_manager.update(project_id, {"browser_metadata_filled": True})
             await browser.close()
