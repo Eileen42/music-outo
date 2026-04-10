@@ -86,20 +86,28 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<Project | null>(null)
   const [step, setStep] = useState<StepId>(() => (localStorage.getItem('step') as StepId) || 'setup')
   const [showProjectList, setShowProjectList] = useState(() => !localStorage.getItem('projectId'))
+  const [restored, setRestored] = useState(false)
 
   const loadProjects = useCallback(async () => {
     const list = await api.projects.list()
     setProjects(list)
-    // 새로고침 시 이전 프로젝트 복원
-    const savedId = localStorage.getItem('projectId')
-    if (savedId && !activeProject) {
-      const saved = list.find(p => p.id === savedId)
-      if (saved) {
-        setActiveProject(saved)
-        setShowProjectList(false)
+    // 새로고침 시 이전 프로젝트+단계 복원 (1회만)
+    if (!restored) {
+      const savedId = localStorage.getItem('projectId')
+      const savedStep = localStorage.getItem('step') as StepId
+      if (savedId) {
+        const saved = list.find(p => p.id === savedId)
+        if (saved) {
+          setActiveProject(saved)
+          setShowProjectList(false)
+          if (savedStep) setStep(savedStep)
+          setRestored(true)
+          return
+        }
       }
+      setRestored(true)
     }
-  }, [])
+  }, [restored])
 
   const refreshProject = useCallback(async (id: string) => {
     const updated = await api.projects.get(id)
