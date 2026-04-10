@@ -73,8 +73,7 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold text-white">✍️ 메타데이터</h2>
+      <div className="flex items-center justify-end mb-5">
         <div className="flex gap-2">
           <button
             onClick={() => handleGenerate(false)}
