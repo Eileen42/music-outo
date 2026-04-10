@@ -57,27 +57,43 @@ def _make_speed(materials: dict) -> str:
 def _make_segment(
     material_id: str, start_us: int, duration_us: int,
     materials: dict,
+    track_type: str = "video",
     render_index: int = 0,
     clip: dict | None = None,
     extra_refs: list | None = None,
     source_start: int = 0,
 ) -> dict:
-    """CapCut segment 생성 (모든 필수 키 포함)."""
+    """CapCut segment 생성 — 트랙 타입별 스켈레톤 사용."""
     speed_id = _make_speed(materials)
-    seg = dict(_load_seg_skeleton())  # 스켈레톤 복사
-    seg.update({
+
+    # 타입별 스켈레톤 로드
+    p = Path(__file__).parent.parent / "assets" / "capcut_skeleton.json"
+    type_skels = {}
+    if p.exists():
+        skel = json.loads(p.read_text(encoding="utf-8"))
+        type_skels = skel.get("segment_by_type", {})
+
+    base = dict(type_skels.get(track_type, type_skels.get("video", {})))
+
+    base.update({
         "id": _uuid(),
         "material_id": material_id,
         "target_timerange": {"start": start_us, "duration": duration_us},
         "source_timerange": {"start": source_start, "duration": duration_us},
         "render_index": render_index,
         "speed": 1.0,
-        "extra_material_refs": extra_refs or [],
-        "clip": clip or {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 1.0, "y": 1.0}, "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False}},
-        "visible": True,
-        "volume": 1.0,
+        "extra_material_refs": [speed_id] + (extra_refs or []),
     })
-    return seg
+
+    # clip은 트랙 타입에 따라: audio/effect → None, video/text → dict
+    if clip is not None:
+        base["clip"] = clip
+    elif track_type in ("audio", "effect"):
+        base["clip"] = None
+    elif "clip" not in base or base.get("clip") is None:
+        base["clip"] = {"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 1.0, "y": 1.0}, "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False}}
+
+    return base
 
 
 class CapcutBuilder:
@@ -266,7 +282,7 @@ class CapcutBuilder:
             track_list.append({
                 "type": "video",
                 "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
-                "segments": [_make_segment(vid_id, 0, total_us, materials, render_index=0)],
+                "segments": [_make_segment(vid_id, 0, total_us, materials, track_type="video", render_index=0)],
             })
 
         # ── 2. 효과 트랙 (반딧불이 등) ──
@@ -289,7 +305,7 @@ class CapcutBuilder:
             track_list.append({
                 "type": "effect",
                 "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
-                "segments": [_make_segment(eff_id, 0, total_us, materials, render_index=11000)],
+                "segments": [_make_segment(eff_id, 0, total_us, materials, track_type="effect", render_index=11000)],
             })
 
         # ── 3. 자막 트랙 (SRT) ──
@@ -340,7 +356,7 @@ class CapcutBuilder:
                 start_us = _us(entry["start"])
                 dur_us = _us(entry["end"] - entry["start"])
                 sub_segments.append(_make_segment(
-                    txt_id, start_us, dur_us, materials, render_index=14000,
+                    txt_id, start_us, dur_us, materials, track_type="text", render_index=14000,
                     clip={"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 0.325, "y": 0.325}, "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False}},
                     extra_refs=[anim_id],
                 ))
@@ -395,7 +411,7 @@ class CapcutBuilder:
                 "type": "text",
                 "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
                 "segments": [_make_segment(
-                    txt_id, 0, total_us, materials, render_index=14000,
+                    txt_id, 0, total_us, materials, track_type="text", render_index=14000,
                     clip={
                         "transform": {"x": tl.get("position_x", 0.5) * 2 - 1, "y": tl.get("position_y", 0.5) * 2 - 1},
                         "scale": {"x": tl.get("scale_x", 0.25), "y": tl.get("scale_y", 0.25)},
@@ -425,7 +441,7 @@ class CapcutBuilder:
                 "name": track.get("title", ""),
             })
             audio_segments.append(_make_segment(
-                aud_id, _us(time_offset), dur_us, materials, render_index=0,
+                aud_id, _us(time_offset), dur_us, materials, track_type="audio", render_index=0,
             ))
             time_offset += dur
 
