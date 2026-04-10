@@ -54,8 +54,17 @@ async def upload_video(
     state = state_manager.require(project_id)
     build = state.get("build", {})
 
-    if not build.get("output_file"):
-        raise HTTPException(400, "빌드된 영상이 없습니다. 먼저 빌드를 실행하세요.")
+    # output_file이 없으면 outputs/ 폴더에서 MP4 자동 탐색
+    output_file = build.get("output_file")
+    if not output_file or not Path(output_file).exists():
+        project_dir = state_manager.project_dir(project_id)
+        outputs_dir = project_dir / "outputs"
+        mp4s = sorted(outputs_dir.glob("*.mp4"), key=lambda f: f.stat().st_mtime, reverse=True) if outputs_dir.exists() else []
+        if mp4s:
+            output_file = str(mp4s[0])
+            state_manager.update(project_id, {"build": {**build, "output_file": output_file}})
+        else:
+            raise HTTPException(400, f"영상 파일이 없습니다. outputs 폴더에 MP4를 넣어주세요: {outputs_dir}")
 
     state_manager.update(project_id, {"status": "uploading"})
     background_tasks.add_task(_run_upload, project_id, body.privacy_status)
