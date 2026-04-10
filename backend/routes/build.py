@@ -81,11 +81,11 @@ async def download_capcut(project_id: str):
 @router.post("/open-folder", summary="outputs 폴더 열기")
 async def open_outputs_folder(project_id: str):
     """탐색기에서 outputs 폴더를 엽니다."""
-    import subprocess
+    import os
     project_dir = state_manager.project_dir(project_id)
     outputs_dir = project_dir / "outputs"
     outputs_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.Popen(["explorer", str(outputs_dir)])
+    os.startfile(str(outputs_dir))
     return {"opened": str(outputs_dir)}
 
 
