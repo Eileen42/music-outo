@@ -76,6 +76,7 @@ export default function ImageSelector({ project, onRefresh }: Props) {
   const [editToolLinks, setEditToolLinks] = useState<{name: string; url: string; category: string}[]>([])
   const [newToolName, setNewToolName] = useState('')
   const [newToolUrl, setNewToolUrl] = useState('')
+  const [showingAdd, setShowingAdd] = useState(false)
 
   // 채널에 저장된 편집툴 링크 로드
   useEffect(() => {
@@ -258,12 +259,13 @@ export default function ImageSelector({ project, onRefresh }: Props) {
           {(() => {
             const catLinks = editToolLinks.filter(l => l.category === uploadCat)
             const isFolder = uploadCat === 'additional'
-            const catLabel = uploadCat === 'background' ? '배경' : uploadCat === 'thumbnail' ? '썸네일' : '참고 폴더'
+            const catTitle = uploadCat === 'background' ? '배경 만들러 바로가기' : uploadCat === 'thumbnail' ? '썸네일 만들러 바로가기' : '참고용 이미지 보러가기'
+            const [showAdd, setShowAdd] = [showingAdd, setShowingAdd]
             return (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 space-y-2">
-                <div className="text-[10px] text-gray-500 uppercase tracking-widest">{catLabel} 바로가기</div>
-                {catLinks.length === 0 && (
-                  <p className="text-[10px] text-gray-700">등록된 링크가 없습니다. 아래에서 추가하세요.</p>
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest">{catTitle}</div>
+                {catLinks.length === 0 && !showAdd && (
+                  <p className="text-[10px] text-gray-700">등록된 링크가 없습니다.</p>
                 )}
                 {catLinks.map((link) => {
                   const realIdx = editToolLinks.indexOf(link)
@@ -277,20 +279,27 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                     />
                   )
                 })}
-                <div className="flex gap-1.5 pt-1 border-t border-gray-800">
-                  <input value={newToolName} onChange={e => setNewToolName(e.target.value)}
-                    placeholder={isFolder ? '폴더 이름' : `${catLabel} 편집툴 이름`}
-                    className="w-24 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-[10px] border border-gray-700" />
-                  <input value={newToolUrl} onChange={e => setNewToolUrl(e.target.value)}
-                    placeholder={isFolder ? 'D:\\폴더\\경로' : 'https://...'}
-                    className="flex-1 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-[10px] border border-gray-700" />
-                  <button onClick={() => {
-                    if (!newToolName.trim() || !newToolUrl.trim()) return
-                    saveLinks([...editToolLinks, { name: newToolName.trim(), url: newToolUrl.trim(), category: uploadCat }])
-                    setNewToolName(''); setNewToolUrl('')
-                  }} disabled={!newToolName.trim() || !newToolUrl.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-semibold">+ 추가</button>
-                </div>
+                {showAdd ? (
+                  <div className="flex gap-1.5 pt-1 border-t border-gray-800">
+                    <input value={newToolName} onChange={e => setNewToolName(e.target.value)}
+                      placeholder={isFolder ? '폴더 이름' : '편집툴 이름'}
+                      className="w-24 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-[10px] border border-gray-700" autoFocus />
+                    <input value={newToolUrl} onChange={e => setNewToolUrl(e.target.value)}
+                      placeholder={isFolder ? 'D:\\폴더\\경로' : 'https://...'}
+                      className="flex-1 bg-gray-800 text-white rounded-lg px-2 py-1.5 text-[10px] border border-gray-700" />
+                    <button onClick={() => {
+                      if (!newToolName.trim() || !newToolUrl.trim()) return
+                      saveLinks([...editToolLinks, { name: newToolName.trim(), url: newToolUrl.trim(), category: uploadCat }])
+                      setNewToolName(''); setNewToolUrl(''); setShowAdd(false)
+                    }} disabled={!newToolName.trim() || !newToolUrl.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2 py-1.5 rounded-lg text-[10px] font-semibold">저장</button>
+                    <button onClick={() => setShowAdd(false)}
+                      className="text-gray-600 hover:text-gray-400 text-[10px] px-1">취소</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowAdd(true)}
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300 pt-1">+ 추가</button>
+                )}
               </div>
             )
           })()}
