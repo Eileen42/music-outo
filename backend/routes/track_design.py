@@ -319,8 +319,9 @@ async def get_suno_tracks(project_id: str):
                 audio_url = fp
         entries.append({**t, "audio_url": audio_url, "slot": t.get("slot", 0)})
 
-    # 2차: 중복 감지 (MD5 해시 비교)
-    seen_hashes: dict[str, int] = {}  # md5 → first index
+    # 2차: 중복 감지 — 같은 index 내에서 slot 1,2가 같은 파일인지만 체크
+    from collections import defaultdict as _dd
+    idx_hashes: dict[int, list[str]] = _dd(list)
     for entry in entries:
         fp = entry.get("file_path", "")
         if entry.get("status") != "completed" or not fp or not Path(fp).exists():
@@ -329,14 +330,14 @@ async def get_suno_tracks(project_id: str):
             h = _hl.md5(Path(fp).read_bytes()).hexdigest()
         except Exception:
             continue
-        first_idx = seen_hashes.get(h)
-        if first_idx is not None and first_idx != entry.get("index"):
-            # 중복: 같은 파일이 다른 곡에 이미 할당됨
+        idx = entry.get("index", 0)
+        if h in idx_hashes[idx]:
+            # 같은 곡의 slot 1,2가 동일 파일
             entry["status"] = "duplicate"
-            entry["duplicate_of"] = first_idx
-            entry["audio_url"] = ""  # 재생 차단
+            entry["duplicate_of"] = idx
+            entry["audio_url"] = ""
         else:
-            seen_hashes[h] = entry.get("index", 0)
+            idx_hashes[idx].append(h)
 
     return {"tracks": entries, "total": len(entries)}
 
@@ -478,11 +479,17 @@ async def main():
     titles = {json.dumps(titles, ensure_ascii=False)}
     missing_indices = {json.dumps(missing_indices)}
 
+    # title → index 매핑
+    title_to_index = {{}}
+    for dt in designed:
+        title_to_index[dt.get('title', '')] = dt.get('index', 0)
+
     async with SunoAutomation(max_concurrent=1, headless=False) as suno:
         results = await suno.find_siblings_by_search(
             titles=titles,
-            known_ids=set(),  # 빈 세트 — 모든 곡 새로 다운
+            known_ids=set(),
             output_dir=r'{project_dir}',
+            title_to_index=title_to_index,
         )
 
     if not results:

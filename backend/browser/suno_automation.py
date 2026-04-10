@@ -920,6 +920,7 @@ class SunoAutomation:
         titles: list[str],
         known_ids: set[str],
         output_dir: str,
+        title_to_index: dict[str, int] | None = None,
     ) -> list[dict]:
         """
         Suno 검색(suno.com/search?q=제목)으로 각 제목의 곡을 찾아 최신 2곡 다운로드.
@@ -996,7 +997,8 @@ class SunoAutomation:
 
                 for slot, clip in enumerate(to_dl, 1):
                     safe_title = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", title)
-                    prefix = f"{safe_title}_v{slot}"
+                    idx = (title_to_index or {}).get(title, 0)
+                    prefix = f"{idx:02d}_{safe_title}_v{slot}" if idx else f"{safe_title}_v{slot}"
                     file_path = await self._download(
                         clip_id=clip["id"],
                         audio_url=clip.get("audio_url", ""),
