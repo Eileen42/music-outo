@@ -643,13 +643,13 @@ export default function ImageSelector({ project, onRefresh }: Props) {
                   >
                     {generating ? '⏳ 생성 중...' : '✨ AI 이미지 생성'}
                   </button>
-                  <a href="https://aistudio.google.com/prompts/new_chat" target="_blank" rel="noopener noreferrer"
+                  <a href="https://labs.google/fx/tools/image-fx" target="_blank" rel="noopener noreferrer"
                     className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-bold text-sm transition-colors text-center flex items-center justify-center gap-1">
-                    🌐 AI Studio에서 생성
+                    🌐 Flow에서 생성
                   </a>
                 </div>
                 <p className="text-[10px] text-gray-600 text-center mt-1">
-                  API 할당량 초과 시 프롬프트를 복사해서 AI Studio/나노바나나에서 직접 생성하세요
+                  API 할당량 초과 시 프롬프트를 복사해서 Flow에서 직접 생성하세요
                 </p>
 
                 {generating && (
