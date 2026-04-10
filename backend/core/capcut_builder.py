@@ -16,6 +16,30 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+# 폰트 이름 → 시스템 폰트 경로 매핑
+_FONT_PATHS = {
+    "": "C:/Windows/Fonts/malgun.ttf",
+    "SeoulHangangB": str(Path(__file__).parent.parent / "assets" / "fonts" / "seoul_hangang_b.ttf"),
+    "Palatino Linotype": "C:/Windows/Fonts/palabi.ttf",
+    '"Palatino Linotype"': "C:/Windows/Fonts/palabi.ttf",
+    "Pretendard, sans-serif": "C:/Windows/Fonts/malgun.ttf",
+    '"Noto Sans KR", sans-serif': "C:/Windows/Fonts/malgun.ttf",
+    '"Noto Serif KR", serif': "C:/Windows/Fonts/malgun.ttf",
+    "Arial, sans-serif": "C:/Windows/Fonts/arial.ttf",
+    "Georgia, serif": "C:/Windows/Fonts/georgia.ttf",
+    "Impact, sans-serif": "C:/Windows/Fonts/impact.ttf",
+    '"Malgun Gothic", sans-serif': "C:/Windows/Fonts/malgun.ttf",
+    '"Segoe UI", sans-serif': "C:/Windows/Fonts/segoeui.ttf",
+    '"Courier New", monospace': "C:/Windows/Fonts/cour.ttf",
+    '"Times New Roman", serif': "C:/Windows/Fonts/times.ttf",
+}
+
+
+def _resolve_font(family: str) -> str:
+    """폰트 이름을 실제 시스템 경로로 변환."""
+    return _FONT_PATHS.get(family, _FONT_PATHS.get("", "C:/Windows/Fonts/malgun.ttf"))
+
+
 def _uuid() -> str:
     return str(uuid.uuid4()).upper()
 
@@ -75,6 +99,12 @@ def _make_segment(
 
     base = dict(type_skels.get(track_type, type_skels.get("video", {})))
 
+    # text/effect는 speed ref 불필요, audio/video만 speed 사용
+    if track_type in ("audio", "video"):
+        refs = [speed_id] + (extra_refs or [])
+    else:
+        refs = extra_refs or []
+
     base.update({
         "id": _uuid(),
         "material_id": material_id,
@@ -82,7 +112,7 @@ def _make_segment(
         "source_timerange": {"start": source_start, "duration": duration_us},
         "render_index": render_index,
         "speed": 1.0,
-        "extra_material_refs": [speed_id] + (extra_refs or []),
+        "extra_material_refs": refs,
     })
 
     # clip은 트랙 타입에 따라: audio/effect → None, video/text → dict
@@ -327,7 +357,7 @@ class CapcutBuilder:
                     "type": "text",
                     "content": json.dumps({
                         "text": entry["text"],
-                        "styles": [{"font": {"path": font_family}, "size": font_size,
+                        "styles": [{"font": {"path": _resolve_font(font_family)}, "size": font_size,
                                     "fill": {"content": {"render_type": "solid", "solid": {"color": [1, 1, 1]}}},
                                     "range": [0, len(entry["text"])],
                                     "useLetterColor": True,
@@ -335,6 +365,7 @@ class CapcutBuilder:
                                     }],
                     }, ensure_ascii=False),
                     "font_size": float(font_size),
+                    "font_path": _resolve_font(font_family),
                     "text_color": color,
                     "has_shadow": shadow.get("enabled", False),
                     "shadow_alpha": shadow.get("alpha", 0.36),
@@ -384,7 +415,7 @@ class CapcutBuilder:
                 "type": "text",
                 "content": json.dumps({
                     "text": tl.get("text", ""),
-                    "styles": [{"font": {"path": tl.get("font_family", "")}, "size": tl.get("font_size", 15),
+                    "styles": [{"font": {"path": _resolve_font(tl.get("font_family", ""))}, "size": tl.get("font_size", 15),
                                 "fill": {"content": {"render_type": "solid", "solid": {"color": [1, 1, 1]}}},
                                 "range": [0, len(tl.get("text", ""))],
                                 "useLetterColor": True,
@@ -392,6 +423,7 @@ class CapcutBuilder:
                                 }],
                 }, ensure_ascii=False),
                 "font_size": float(tl.get("font_size", 15)),
+                "font_path": _resolve_font(tl.get("font_family", "")),
                 "text_color": tl.get("color", "#FFFFFF"),
                 "has_shadow": shadow.get("enabled", False),
                 "shadow_alpha": shadow.get("alpha", 0.86),
