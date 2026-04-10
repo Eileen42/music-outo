@@ -11,26 +11,27 @@ router = APIRouter(prefix="/api/youtube", tags=["YouTube"])
 
 
 @router.get("/status", summary="YouTube 인증 상태 확인")
-async def get_auth_status():
-    return {"authorized": youtube_uploader.is_authorized()}
+async def get_auth_status(request: Request):
+    channel_id = request.query_params.get("channel_id", "_default")
+    info = youtube_uploader.get_channel_info(channel_id)
+    return info
 
 
 @router.get("/auth", summary="YouTube OAuth 인증 시작")
-async def start_auth():
-    """반환된 auth_url을 브라우저에서 열어 Google 계정으로 로그인하세요."""
-    url = youtube_uploader.get_auth_url()
+async def start_auth(channel_id: str = "_default"):
+    """채널별 OAuth. channel_id는 우리 앱의 채널 ID."""
+    url = youtube_uploader.get_auth_url(channel_id=channel_id)
     return {"auth_url": url}
 
 
 @router.get("/callback", summary="OAuth 콜백 (자동 호출)")
-async def oauth_callback(request: Request, code: str):
+async def oauth_callback(request: Request, code: str, state: str = "_default"):
     try:
-        youtube_uploader.handle_callback(code)
-        # 요청의 Referer 또는 Origin으로 리다이렉트 (Vercel/로컬 모두 지원)
+        result = youtube_uploader.handle_callback(code, channel_id=state)
         origin = request.headers.get("referer", "").split("?")[0].rstrip("/")
         if not origin:
             origin = "http://localhost:3000"
-        return RedirectResponse(url=f"{origin}/?youtube_auth=success")
+        return RedirectResponse(url=f"{origin}/?youtube_auth=success&channel={state}")
     except Exception as e:
         raise HTTPException(500, f"OAuth 실패: {e}")
 
@@ -63,10 +64,12 @@ async def upload_video(
     background_tasks: BackgroundTasks,
 ):
     """빌드된 MP4를 YouTube에 업로드합니다. privacy_status: private / unlisted / public"""
-    if not youtube_uploader.is_authorized():
-        raise HTTPException(401, "YouTube 인증이 필요합니다. /api/youtube/auth 를 먼저 호출하세요.")
-
     state = state_manager.require(project_id)
+    channel_id = state.get("channel_id", "_default")
+    youtube_uploader.set_channel(channel_id)
+
+    if not youtube_uploader.is_authorized(channel_id):
+        raise HTTPException(401, "YouTube 채널이 연결되지 않았습니다. 채널 설정에서 먼저 연결하세요.")
     build = state.get("build", {})
 
     # output_file이 없으면 outputs/ 폴더에서 MP4 자동 탐색

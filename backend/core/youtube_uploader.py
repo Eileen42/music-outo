@@ -11,35 +11,50 @@ from typing import Callable, Optional
 
 from config import settings
 
-# OAuth 토큰 저장 경로
-TOKEN_FILE = settings.storage_dir / "youtube_token.json"
+# OAuth 토큰 저장 경로 (채널별)
+TOKEN_DIR = settings.storage_dir / "youtube_tokens"
 SCOPES = [
-    "https://www.googleapis.com/auth/youtube",           # 전체 YouTube 관리 (채널 선택 포함)
+    "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.force-ssl",
 ]
 
 
-class YouTubeUploader:
-    def get_auth_url(self) -> str:
-        """OAuth 인증 URL 반환."""
-        from google_auth_oauthlib.flow import Flow
+def _token_path(channel_id: str = "_default") -> Path:
+    return TOKEN_DIR / f"youtube_token_{channel_id}.json"
 
+
+class YouTubeUploader:
+    def __init__(self):
+        self._active_channel_id: str = "_default"
+
+    def set_channel(self, channel_id: str):
+        """업로드할 채널 설정."""
+        self._active_channel_id = channel_id or "_default"
+
+    def get_auth_url(self, channel_id: str = "_default") -> str:
+        """OAuth 인증 URL 반환. state에 channel_id 포함."""
+        self._active_channel_id = channel_id
         flow = self._create_flow()
         auth_url, _ = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
+            state=channel_id,  # 콜백에서 어느 채널인지 식별
         )
         return auth_url
 
-    def handle_callback(self, code: str) -> dict:
-        """OAuth 콜백 처리 + 토큰 저장."""
-        from google_auth_oauthlib.flow import Flow
-
+    def handle_callback(self, code: str, channel_id: str = "_default") -> dict:
+        """OAuth 콜백 처리 + 채널별 토큰 저장."""
         flow = self._create_flow()
         flow.fetch_token(code=code)
         creds = flow.credentials
+
+        # YouTube 채널 정보 조회
+        from googleapiclient.discovery import build as yt_build
+        yt = yt_build("youtube", "v3", credentials=creds)
+        ch_resp = yt.channels().list(mine=True, part="snippet").execute()
+        yt_channel = ch_resp["items"][0] if ch_resp.get("items") else {}
 
         token_data = {
             "token": creds.token,
@@ -48,17 +63,37 @@ class YouTubeUploader:
             "client_id": creds.client_id,
             "client_secret": creds.client_secret,
             "scopes": list(creds.scopes or []),
+            "youtube_channel_id": yt_channel.get("id", ""),
+            "youtube_channel_title": yt_channel.get("snippet", {}).get("title", ""),
         }
-        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        TOKEN_FILE.write_text(json.dumps(token_data, indent=2))
-        return {"status": "authorized"}
+        tp = _token_path(channel_id)
+        tp.parent.mkdir(parents=True, exist_ok=True)
+        tp.write_text(json.dumps(token_data, indent=2))
+        return {
+            "status": "authorized",
+            "youtube_channel": yt_channel.get("snippet", {}).get("title", ""),
+            "youtube_channel_id": yt_channel.get("id", ""),
+        }
 
-    def is_authorized(self) -> bool:
-        return TOKEN_FILE.exists()
+    def is_authorized(self, channel_id: str = "_default") -> bool:
+        return _token_path(channel_id).exists()
 
-    def revoke(self) -> None:
-        if TOKEN_FILE.exists():
-            TOKEN_FILE.unlink()
+    def get_channel_info(self, channel_id: str = "_default") -> dict:
+        """저장된 토큰에서 YouTube 채널 정보 반환."""
+        tp = _token_path(channel_id)
+        if not tp.exists():
+            return {"authorized": False}
+        data = json.loads(tp.read_text())
+        return {
+            "authorized": True,
+            "youtube_channel_id": data.get("youtube_channel_id", ""),
+            "youtube_channel_title": data.get("youtube_channel_title", ""),
+        }
+
+    def revoke(self, channel_id: str = "_default") -> None:
+        tp = _token_path(channel_id)
+        if tp.exists():
+            tp.unlink()
 
     async def upload(
         self,
@@ -174,14 +209,16 @@ class YouTubeUploader:
             redirect_uri=settings.google_redirect_uri,
         )
 
-    def _load_credentials(self):
+    def _load_credentials(self, channel_id: str = None):
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
 
-        if not TOKEN_FILE.exists():
-            raise RuntimeError("YouTube not authorized. Call /api/youtube/auth first.")
+        cid = channel_id or self._active_channel_id
+        tp = _token_path(cid)
+        if not tp.exists():
+            raise RuntimeError(f"YouTube 인증 필요 (채널: {cid})")
 
-        data = json.loads(TOKEN_FILE.read_text())
+        data = json.loads(tp.read_text())
         creds = Credentials(
             token=data.get("token"),
             refresh_token=data.get("refresh_token"),
@@ -194,7 +231,7 @@ class YouTubeUploader:
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             data["token"] = creds.token
-            TOKEN_FILE.write_text(json.dumps(data, indent=2))
+            tp.write_text(json.dumps(data, indent=2))
 
         return creds
 

@@ -24,8 +24,10 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   // 영상 파일 업로드 폴더 경로
   const uploadFolder = `D:\\coding\\music_outo\\backend\\storage\\projects\\${project.id}\\outputs`
 
+  const channelId = project.channel_id || '_default'
+
   useEffect(() => {
-    api.youtube.status().then((s: { authorized: boolean }) => {
+    api.youtube.status(channelId).then((s) => {
       setAuthorized(s.authorized)
       setLoading(false)
     })
@@ -34,7 +36,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
       setAuthorized(true)
       window.history.replaceState({}, '', window.location.pathname)
     }
-  }, [])
+  }, [channelId])
 
   useEffect(() => {
     if (project.status !== 'uploading') return
@@ -111,50 +113,12 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
 
         {authorized ? (
           <div className="ml-7 flex items-center gap-3">
-            <span className="text-green-400 text-sm font-medium">인증 완료</span>
-            <button onClick={handleRevoke} className="text-xs text-gray-600 hover:text-red-400 transition-colors">연결 해제</button>
+            <span className="text-green-400 text-sm font-medium">✅ YouTube 채널 연결됨</span>
           </div>
         ) : (
           <div className="ml-7">
-            {/* 가이드 토글 */}
-            <button onClick={() => setShowGuide(!showGuide)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 mb-3 flex items-center gap-1">
-              {showGuide ? '▼' : '▶'} 처음이신가요? 설정 가이드
-            </button>
-            {showGuide && (
-              <div className="bg-gray-800 rounded-xl p-4 mb-4 space-y-2 text-xs text-gray-400">
-                <p className="text-white font-semibold">Google Cloud 설정 가이드</p>
-                <ol className="list-decimal ml-4 space-y-1.5">
-                  <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google Cloud Console</a> 접속 (업로드할 Google 계정으로 로그인)</li>
-                  <li>프로젝트 생성 → 이름 자유</li>
-                  <li><strong>API 및 서비스 → 라이브러리</strong> → "YouTube Data API v3" 검색 → <strong>사용</strong></li>
-                  <li><strong>API 및 서비스 → OAuth 동의 화면</strong> → 외부 → 테스트 사용자에 본인 이메일 추가</li>
-                  <li><strong>사용자 인증 정보 → OAuth 클라이언트 ID 만들기</strong> → 유형: <strong>데스크톱 앱</strong></li>
-                  <li>Client ID와 Secret을 <code className="bg-gray-700 px-1 rounded">.env</code> 파일에 입력:
-                    <pre className="bg-gray-900 rounded p-2 mt-1 text-[10px] text-gray-300">GOOGLE_CLIENT_ID=여기에_입력{'\n'}GOOGLE_CLIENT_SECRET=여기에_입력</pre>
-                  </li>
-                  <li>서버 재시작 후 아래 버튼으로 로그인</li>
-                </ol>
-              </div>
-            )}
-
-            {!authUrl ? (
-              <button onClick={handleGetAuthUrl}
-                className="bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                🔑 Google 계정 로그인
-              </button>
-            ) : (
-              <div>
-                <button onClick={() => window.open(authUrl, '_blank', 'width=600,height=700')}
-                  className="bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                  🌐 Google 로그인 창 열기
-                </button>
-                <p className="text-xs text-gray-600 mt-2">
-                  로그인 후 자동 인증. 안 되면{' '}
-                  <button onClick={() => window.location.reload()} className="text-blue-400 hover:underline">새로고침</button>
-                </p>
-              </div>
-            )}
+            <p className="text-xs text-yellow-400 mb-2">⚠ YouTube 채널이 연결되지 않았습니다.</p>
+            <p className="text-xs text-gray-500">홈 화면의 <strong>채널 카드</strong>에서 "▶ YouTube 채널 연결"을 클릭하세요.</p>
           </div>
         )}
       </div>

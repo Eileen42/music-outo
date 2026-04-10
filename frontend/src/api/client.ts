@@ -109,8 +109,8 @@ export const api = {
   },
 
   youtube: {
-    status: () => http.get<{ authorized: boolean }>('/api/youtube/status').then(r => r.data),
-    getAuthUrl: () => http.get<{ auth_url: string }>('/api/youtube/auth').then(r => r.data),
+    status: (channelId?: string) => http.get<{ authorized: boolean; youtube_channel_id?: string; youtube_channel_title?: string }>(`/api/youtube/status${channelId ? `?channel_id=${channelId}` : ''}`).then(r => r.data),
+    getAuthUrl: (channelId?: string) => http.get<{ auth_url: string }>(`/api/youtube/auth${channelId ? `?channel_id=${channelId}` : ''}`).then(r => r.data),
     revoke: () => http.post('/api/youtube/revoke').then(r => r.data),
     upload: (projectId: string, privacy_status: string) =>
       http.post(`/api/youtube/upload/${projectId}`, { privacy_status }).then(r => r.data),
