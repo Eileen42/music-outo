@@ -14,6 +14,7 @@
 - 크레딧/플랜 시스템 없음
 - Celery 없음. 무거운 작업은 BackgroundTasks
 - 핵심 로직은 반드시 `core/` 모듈에 클래스로 분리
+- **새로고침 시 현재 프로젝트+단계 유지** — localStorage에 projectId, step 저장. 절대 sessionStorage 사용 금지
 
 ## Dev Start
 ```bash

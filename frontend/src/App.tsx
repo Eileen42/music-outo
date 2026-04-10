@@ -84,14 +84,14 @@ function getCompletedCount(p: Project) {
 export default function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProject, setActiveProject] = useState<Project | null>(null)
-  const [step, setStep] = useState<StepId>(() => (sessionStorage.getItem('step') as StepId) || 'setup')
-  const [showProjectList, setShowProjectList] = useState(() => !sessionStorage.getItem('projectId'))
+  const [step, setStep] = useState<StepId>(() => (localStorage.getItem('step') as StepId) || 'setup')
+  const [showProjectList, setShowProjectList] = useState(() => !localStorage.getItem('projectId'))
 
   const loadProjects = useCallback(async () => {
     const list = await api.projects.list()
     setProjects(list)
     // 새로고침 시 이전 프로젝트 복원
-    const savedId = sessionStorage.getItem('projectId')
+    const savedId = localStorage.getItem('projectId')
     if (savedId && !activeProject) {
       const saved = list.find(p => p.id === savedId)
       if (saved) {
@@ -107,13 +107,13 @@ export default function App() {
     setProjects(prev => prev.map(p => p.id === id ? updated : p))
   }, [])
 
-  // 상태 변경 시 sessionStorage에 저장
+  // 상태 변경 시 localStorage에 저장
   useEffect(() => {
-    if (activeProject) sessionStorage.setItem('projectId', activeProject.id)
-    else sessionStorage.removeItem('projectId')
+    if (activeProject) localStorage.setItem('projectId', activeProject.id)
+    else localStorage.removeItem('projectId')
   }, [activeProject])
 
-  useEffect(() => { sessionStorage.setItem('step', step) }, [step])
+  useEffect(() => { localStorage.setItem('step', step) }, [step])
 
   useEffect(() => { loadProjects() }, [loadProjects])
 
