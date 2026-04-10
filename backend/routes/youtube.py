@@ -35,6 +35,21 @@ async def oauth_callback(request: Request, code: str):
         raise HTTPException(500, f"OAuth 실패: {e}")
 
 
+@router.get("/channels", summary="관리 채널 목록")
+async def list_channels():
+    """인증된 계정의 채널 목록 반환."""
+    if not youtube_uploader.is_authorized():
+        raise HTTPException(401, "인증 필요")
+    creds = youtube_uploader._load_credentials()
+    from googleapiclient.discovery import build as yt_build
+    yt = yt_build("youtube", "v3", credentials=creds)
+    resp = yt.channels().list(mine=True, part="snippet", maxResults=50).execute()
+    return [
+        {"id": ch["id"], "title": ch["snippet"]["title"], "thumbnail": ch["snippet"]["thumbnails"]["default"]["url"]}
+        for ch in resp.get("items", [])
+    ]
+
+
 @router.post("/revoke", summary="YouTube 인증 해제")
 async def revoke_auth():
     youtube_uploader.revoke()

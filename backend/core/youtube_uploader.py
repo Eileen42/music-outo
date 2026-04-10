@@ -14,6 +14,7 @@ from config import settings
 # OAuth 토큰 저장 경로
 TOKEN_FILE = settings.storage_dir / "youtube_token.json"
 SCOPES = [
+    "https://www.googleapis.com/auth/youtube",           # 전체 YouTube 관리 (채널 선택 포함)
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.force-ssl",
 ]
