@@ -68,8 +68,11 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   }
 
   const handleUpload = async () => {
-    const privacyLabel = privacyStatus === 'private' ? '비공개' : privacyStatus === 'unlisted' ? '미등록' : '공개'
-    if (!confirm(`YouTube에 [${privacyLabel}] 상태로 업로드하시겠습니까?`)) return
+    const privacyLabel = privacyStatus === 'private' ? '비공개' : privacyStatus === 'unlisted' ? '일부공개' : '공개'
+    const msg = yt.video_id
+      ? `이미 업로드된 영상이 있습니다.\n다시 업로드하면 새 영상이 추가됩니다.\n\n[${privacyLabel}]로 업로드하시겠습니까?`
+      : `YouTube에 [${privacyLabel}] 상태로 업로드하시겠습니까?`
+    if (!confirm(msg)) return
     setUploading(true)
     setUploadProgress(0)
     try {

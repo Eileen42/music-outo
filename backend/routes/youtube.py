@@ -65,6 +65,11 @@ async def upload_video(
 ):
     """빌드된 MP4를 YouTube에 업로드합니다. privacy_status: private / unlisted / public"""
     state = state_manager.require(project_id)
+
+    # 중복 업로드 방지
+    if state.get("status") == "uploading":
+        raise HTTPException(409, "이미 업로드 진행 중입니다.")
+
     channel_id = state.get("channel_id", "_default")
     youtube_uploader.set_channel(channel_id)
 
