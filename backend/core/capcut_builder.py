@@ -344,8 +344,6 @@ class CapcutBuilder:
             sub_segments = []
             for entry in subtitle_entries:
                 txt_id = _uuid()
-                anim_id = _uuid()
-
                 font_size = sub_style.get("font_size", 15)
                 font_family = sub_style.get("font_family", "")
                 color = sub_style.get("color", "#FFFFFF")
@@ -377,23 +375,13 @@ class CapcutBuilder:
                     "italic_degree": 12 if italic else 0,
                 })
 
-                # 애니메이션
-                anim_in = sub_style.get("animation_in", {})
-                animations = []
-                if anim_in and anim_in.get("type") != "none":
-                    animations.append({
-                        "name": anim_in.get("type", "fade_in"),
-                        "duration": _us(anim_in.get("duration", 3)),
-                        "category_name": "인",
-                    })
-                materials["material_animations"].append({"id": anim_id, "animations": animations})
-
+                # 자막은 animation 없이 (CapCut에서 수동 추가 가능)
                 start_us = _us(entry["start"])
                 dur_us = _us(entry["end"] - entry["start"])
                 sub_segments.append(_make_segment(
                     txt_id, start_us, dur_us, materials, track_type="text", render_index=14000,
                     clip={"transform": {"x": 0.0, "y": 0.0}, "scale": {"x": 0.325, "y": 0.325}, "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False}},
-                    extra_refs=[anim_id],
+                    extra_refs=[],
                 ))
 
             track_list.append({
@@ -406,9 +394,7 @@ class CapcutBuilder:
         text_layers = layers.get("text_layers", [])
         for tl in text_layers:
             txt_id = _uuid()
-            anim_id = _uuid()
             shadow = tl.get("shadow", {})
-            anim_in = tl.get("animation_in", {})
 
             materials["texts"].append({
                 "id": txt_id,
@@ -438,15 +424,7 @@ class CapcutBuilder:
                 "line_spacing": tl.get("line_spacing", 0),
             })
 
-            animations = []
-            if anim_in and anim_in.get("type") != "none":
-                animations.append({
-                    "name": anim_in.get("type", "fade_in"),
-                    "duration": _us(anim_in.get("duration", 3)),
-                    "category_name": "인",
-                })
-            materials["material_animations"].append({"id": anim_id, "animations": animations})
-
+            # 텍스트 레이어도 animation 없이 (CapCut에서 수동 추가)
             track_list.append({
                 "type": "text",
                 "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
@@ -457,7 +435,7 @@ class CapcutBuilder:
                         "scale": {"x": tl.get("scale_x", 0.25), "y": tl.get("scale_y", 0.25)},
                         "rotation": 0.0, "alpha": 1.0, "flip": {"horizontal": False, "vertical": False},
                     },
-                    extra_refs=[anim_id],
+                    extra_refs=[],
                 )],
             })
 
