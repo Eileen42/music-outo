@@ -631,7 +631,7 @@ async def update_track(project_id: str, track_index: int, body: dict):
 
 @router.delete("/{project_id}/{track_index}", summary="곡 삭제")
 async def delete_track(project_id: str, track_index: int):
-    """인덱스 기반 곡 삭제."""
+    """인덱스 기반 곡 삭제 + suno_tracks 동기화."""
     state = state_manager.require(project_id)
     tracks: list = state.get("designed_tracks", [])
 
@@ -639,10 +639,25 @@ async def delete_track(project_id: str, track_index: int):
         raise HTTPException(404, f"트랙 인덱스 범위 초과: {track_index}")
 
     removed = tracks.pop(track_index)
+    removed_title = removed.get("title", "")
+
+    # index 재정렬
     for i, t in enumerate(tracks):
         t["index"] = i + 1
 
-    state_manager.update(project_id, {"designed_tracks": tracks})
+    # suno_tracks도 동기화: 삭제된 곡 제거 + index 재매핑 (title 기준)
+    suno_tracks: list = state.get("suno_tracks", [])
+    title_to_new_idx = {t["title"]: t["index"] for t in tracks}
+    new_suno = []
+    for st in suno_tracks:
+        new_idx = title_to_new_idx.get(st.get("title"))
+        if new_idx is None:
+            continue  # 삭제된 곡
+        st["index"] = new_idx
+        new_suno.append(st)
+    new_suno.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
+
+    state_manager.update(project_id, {"designed_tracks": tracks, "suno_tracks": new_suno})
     return {"deleted": removed}
 
 
