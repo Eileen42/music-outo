@@ -41,10 +41,11 @@ class SunoCollectorAgent:
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        # 검색 페이지 1번만 열기
-        self._page = await self._context.new_page()
-        await self._page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
-        await self._page.wait_for_timeout(3_000)
+        # 검색 페이지 재사용 (이미 열려있으면 그대로)
+        if not self._page or self._page.is_closed():
+            self._page = await self._context.new_page()
+            await self._page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
+            await self._page.wait_for_timeout(3_000)
 
         for i, song in enumerate(songs):
             title = song.get("title", "")
