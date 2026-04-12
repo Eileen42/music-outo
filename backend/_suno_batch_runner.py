@@ -154,16 +154,21 @@ async def main(project_id: str) -> None:
             ]
 
             def on_collect(info):
-                tracker["tracks_collected"] = len([r for r in collector.get_results() if r.get("status") == "completed"])
+                # 다운 완료할 때마다 즉시 state.json에 저장 → 프론트에서 바로 재생 가능
+                new_results = collector.get_results()
+                completed = len([r for r in new_results if r.get("status") == "completed"])
+                tracker["tracks_collected"] = completed
                 tracker["current_song"] = info.get("current_title", "")
+                tracker["completed_batches"] = info.get("completed", 0)
                 _write(project_id, tracker)
+                # 즉시 state.json 반영
+                save_results(new_results)
 
             collect_results = await collector.collect_all(
                 songs=songs_for_search,
                 output_dir=str(tracks_dir),
                 progress_callback=on_collect,
             )
-            save_results(collect_results)
             await collector.close()
 
             # ── Phase 3: QA 재스캔 — 아직 미완료인 곡만 Creator에 전달 ──
@@ -216,12 +221,19 @@ async def main(project_id: str) -> None:
             collector2 = SunoCollectorAgent(context)
             collector2.set_known_ids(collector._known_ids)
 
+            def on_collect2(info):
+                new_results = collector2.get_results()
+                completed = len([r for r in new_results if r.get("status") == "completed"])
+                tracker["tracks_collected"] = tracker.get("tracks_collected", 0) + completed
+                tracker["current_song"] = info.get("current_title", "")
+                _write(project_id, tracker)
+                save_results(new_results)
+
             collect2_results = await collector2.collect_all(
                 songs=songs_for_search,
                 output_dir=str(tracks_dir),
-                progress_callback=on_collect,
+                progress_callback=on_collect2,
             )
-            save_results(collect2_results)
             await collector2.close()
 
             # 브라우저 닫기
