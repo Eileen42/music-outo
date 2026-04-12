@@ -1,9 +1,15 @@
 """
-Suno 일괄생성 오케스트레이터 — QA 주도 재시도 루프.
+Suno 오케스트레이터 — 효율적 워크플로우.
 
-Creator: Create 클릭만 (clip 수집 안 함) → 빠르게 다음 곡으로
-Collector: Suno 검색으로 곡 찾아서 다운로드 (Creator와 병렬)
-QA: 검수 후 미완료 있으면 재시도
+1. QA 스캔 (로컬 파일 확인)
+2. Collector (탭 1개) — Suno에 이미 있는 곡 먼저 다운
+3. QA 재스캔
+4. Creator (탭 1개 재사용) — 미생성 곡만 Create
+5. 2분 대기 (Suno 처리 시간)
+6. Collector 다시 — 새로 생성된 곡 다운
+7. QA 최종 검수 → 미완료 있으면 4번으로 (최대 5라운드)
+
+핵심: 탭은 항상 1개만. 열고닫기 최소화. Collector 먼저.
 
     python _suno_batch_runner.py <project_id>
 """
@@ -27,40 +33,30 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("suno_orchestrator")
 
-COLLECTOR_START_AFTER = 3
-MAX_RETRY_ROUNDS = 5
+MAX_ROUNDS = 5
 
 
-def _progress_path(project_id: str) -> Path:
-    return _DIR / "storage" / "projects" / project_id / "_suno_progress.json"
+def _progress_path(pid: str) -> Path:
+    return _DIR / "storage" / "projects" / pid / "_suno_progress.json"
 
 
-def _write_progress(project_id: str, data: dict) -> None:
-    p = _progress_path(project_id)
+def _write(pid: str, data: dict) -> None:
+    p = _progress_path(pid)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
-def _get_incomplete_songs(project_id: str, all_tracks: list[dict], has_lyrics: bool, tracks_dir: Path) -> list[dict]:
-    """파일 기반으로 미완료 곡 추출 (v1+v2 모두 있는 곡만 완료)."""
-    existing = list(tracks_dir.glob("*.mp3")) if tracks_dir.exists() else []
-    songs = []
+def _scan_missing(all_tracks: list[dict], tracks_dir: Path) -> list[dict]:
+    """로컬 파일 기반으로 v1+v2 모두 없는 곡 추출."""
+    files = list(tracks_dir.glob("*.mp3")) if tracks_dir.exists() else []
+    missing = []
     for i, t in enumerate(all_tracks):
         idx = t.get("index", i + 1)
-        title = t.get("title", "")
-        safe = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", title)
-        v1 = any(f.name.startswith(f"{idx:02d}_") and "_v1.mp3" in f.name for f in existing)
-        v2 = any(f.name.startswith(f"{idx:02d}_") and "_v2.mp3" in f.name for f in existing)
-        if v1 and v2:
-            continue
-        songs.append({
-            "title": title,
-            "lyrics": t.get("lyrics", "") if has_lyrics else "",
-            "suno_prompt": t.get("suno_prompt", ""),
-            "is_instrumental": not has_lyrics,
-            "index": idx,
-        })
-    return songs
+        v1 = any(f.name.startswith(f"{idx:02d}_") and "_v1.mp3" in f.name for f in files)
+        v2 = any(f.name.startswith(f"{idx:02d}_") and "_v2.mp3" in f.name for f in files)
+        if not (v1 and v2):
+            missing.append(t)
+    return missing
 
 
 async def main(project_id: str) -> None:
@@ -72,56 +68,67 @@ async def main(project_id: str) -> None:
 
     state = state_manager.get(project_id)
     if not state:
-        _write_progress(project_id, {"status": "failed", "phase": "init", "errors": ["프로젝트 없음"]})
+        _write(project_id, {"status": "failed", "errors": ["프로젝트 없음"]})
         return
 
     all_tracks = state.get("designed_tracks") or []
     channel_id = state.get("channel_id", "")
-
     has_lyrics = False
-    channel_path = _DIR / "storage" / "channels" / f"{channel_id}.json"
-    if channel_path.exists():
-        ch = json.loads(channel_path.read_text(encoding="utf-8"))
-        has_lyrics = ch.get("has_lyrics", False)
+    ch_path = _DIR / "storage" / "channels" / f"{channel_id}.json"
+    if ch_path.exists():
+        has_lyrics = json.loads(ch_path.read_text(encoding="utf-8")).get("has_lyrics", False)
 
     if not all_tracks:
-        _write_progress(project_id, {"status": "failed", "phase": "init", "errors": ["설계된 트랙 없음"]})
+        _write(project_id, {"status": "failed", "errors": ["설계된 트랙 없음"]})
         return
 
-    total_designed = len(all_tracks)
-    project_dir = _DIR / "storage" / "projects" / project_id / "tracks"
-    project_dir.mkdir(parents=True, exist_ok=True)
+    total = len(all_tracks)
+    tracks_dir = _DIR / "storage" / "projects" / project_id / "tracks"
+    tracks_dir.mkdir(parents=True, exist_ok=True)
 
     sp = _session_path()
     if not sp.exists():
-        _write_progress(project_id, {"status": "failed", "phase": "init", "errors": ["Suno 세션 없음"]})
+        _write(project_id, {"status": "failed", "errors": ["Suno 세션 없음"]})
         return
 
-    task_tracker = {
+    tracker = {
         "status": "running", "phase": "checking",
-        "total_designed": total_designed, "total_batches": 0,
+        "total_designed": total, "total_batches": 0,
         "completed_batches": 0, "tracks_collected": 0,
         "current_song": "", "round": 0, "errors": [],
     }
-    _write_progress(project_id, task_tracker)
+    _write(project_id, tracker)
 
-    for round_num in range(1, MAX_RETRY_ROUNDS + 1):
-        task_tracker["round"] = round_num
-        task_tracker["phase"] = "checking"
-        _write_progress(project_id, task_tracker)
+    def update(phase: str, **kw):
+        tracker["phase"] = phase
+        tracker.update(kw)
+        _write(project_id, tracker)
 
-        songs_todo = _get_incomplete_songs(project_id, all_tracks, has_lyrics, project_dir)
-        if not songs_todo:
-            logger.info(f"라운드 {round_num}: 모든 곡 완료!")
+    def save_results(results: list[dict]):
+        """다운로드 결과를 state.json에 병합."""
+        cur = state_manager.get(project_id) or {}
+        old = cur.get("suno_tracks") or []
+        keys = {(r.get("index"), r.get("slot")) for r in results}
+        merged = [t for t in old if (t.get("index"), t.get("slot")) not in keys]
+        merged.extend(results)
+        merged.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
+        state_manager.update(project_id, {"suno_tracks": merged})
+
+    for rnd in range(1, MAX_ROUNDS + 1):
+        tracker["round"] = rnd
+
+        # ── Phase 1: QA 스캔 ──
+        update("checking", current_song="파일 확인 중...")
+        missing = _scan_missing(all_tracks, tracks_dir)
+        if not missing:
+            logger.info(f"라운드 {rnd}: 전곡 완료!")
             break
+        logger.info(f"라운드 {rnd}: {len(missing)}/{total}곡 미완료")
+        tracker["total_batches"] = len(missing)
 
-        logger.info(f"라운드 {round_num}: {len(songs_todo)}/{total_designed}곡 미완료")
-        task_tracker["total_batches"] = len(songs_todo)
-        task_tracker["completed_batches"] = 0
-
+        # ── 브라우저 열기 (라운드당 1회) ──
         exe = _find_exe()
         pw = await async_playwright().start()
-
         try:
             browser = await pw.chromium.launch(
                 executable_path=exe, headless=False,
@@ -130,129 +137,127 @@ async def main(project_id: str) -> None:
             context = await browser.new_context(
                 storage_state=str(sp),
                 viewport={"width": 1280, "height": 900},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0",
             )
 
-            creator = SunoCreatorAgent(context)
+            # ── Phase 2: Collector 먼저 — Suno에 이미 있는 곡 다운 ──
+            update("collecting", current_song="Suno 검색 중...")
             collector = SunoCollectorAgent(context)
 
-            # 기존 clip ID 수집 (중복 다운로드 방지)
-            existing_suno = (state_manager.get(project_id) or {}).get("suno_tracks", [])
-            collector.set_known_ids({s.get("suno_id", "") for s in existing_suno if s.get("suno_id")})
+            # 기존 clip ID 수집
+            existing = (state_manager.get(project_id) or {}).get("suno_tracks", [])
+            collector.set_known_ids({s.get("suno_id", "") for s in existing if s.get("suno_id")})
 
-            created_count = 0
+            songs_for_search = [
+                {"title": t.get("title", ""), "index": t.get("index", i+1)}
+                for i, t in enumerate(missing)
+            ]
 
-            def on_creator_progress(info):
-                nonlocal created_count
-                created_count = info.get("completed", 0)
-                task_tracker["completed_batches"] = created_count
-                task_tracker["current_song"] = info.get("current_title", "")
-                task_tracker["phase"] = "creating"
-                _write_progress(project_id, task_tracker)
+            def on_collect(info):
+                tracker["tracks_collected"] = len([r for r in collector.get_results() if r.get("status") == "completed"])
+                tracker["current_song"] = info.get("current_title", "")
+                _write(project_id, tracker)
 
-            def on_song_created(result):
-                if created_count >= COLLECTOR_START_AFTER:
-                    collector.enqueue(result)
-
-            def on_collector_progress(info):
-                task_tracker["tracks_collected"] = len([r for r in collector.get_results() if r.get("status") == "completed"])
-                task_tracker["phase"] = "collecting" if task_tracker["phase"] != "creating" else "creating"
-                _write_progress(project_id, task_tracker)
-
-            # Collector 병렬 시작
-            collector_task = asyncio.create_task(
-                collector.run_parallel(
-                    output_dir=str(project_dir),
-                    title_to_index={s["title"]: s["index"] for s in songs_todo},
-                    progress_callback=on_collector_progress,
-                )
+            collect_results = await collector.collect_all(
+                songs=songs_for_search,
+                output_dir=str(tracks_dir),
+                progress_callback=on_collect,
             )
+            save_results(collect_results)
+            await collector.close()
 
-            # Creator 실행 (Create만 클릭 → 빠르게 순회)
+            # ── Phase 3: QA 재스캔 — 아직 미완료인 곡만 Creator에 전달 ──
+            still_missing = _scan_missing(all_tracks, tracks_dir)
+            if not still_missing:
+                logger.info(f"라운드 {rnd}: Collector로 전부 해결!")
+                await context.close()
+                await browser.close()
+                await pw.stop()
+                break
+
+            logger.info(f"라운드 {rnd}: Collector 후 {len(still_missing)}곡 미완료 → Creator 실행")
+
+            # ── Phase 4: Creator — 미생성 곡만 Create (탭 1개) ──
+            update("creating", total_batches=len(still_missing), completed_batches=0)
+            creator = SunoCreatorAgent(context)
+
+            songs_to_create = [
+                {
+                    "title": t.get("title", f"Track {t.get('index', i+1)}"),
+                    "lyrics": t.get("lyrics", "") if has_lyrics else "",
+                    "suno_prompt": t.get("suno_prompt", ""),
+                    "is_instrumental": not has_lyrics,
+                    "index": t.get("index", i + 1),
+                }
+                for i, t in enumerate(still_missing)
+            ]
+
+            def on_create(info):
+                tracker["completed_batches"] = info.get("completed", 0)
+                tracker["current_song"] = info.get("current_title", "")
+                _write(project_id, tracker)
+
             creation_results = await creator.create_all(
-                songs=songs_todo,
-                progress_callback=on_creator_progress,
-                on_song_created=on_song_created,
+                songs=songs_to_create,
+                progress_callback=on_create,
             )
+            await creator.close()
 
-            # Creator 완료 → Collector에 초기 곡들도 추가
-            early_songs = [r for r in creation_results[:COLLECTOR_START_AFTER] if r["status"] == "submitted"]
-            for song in early_songs:
-                collector.enqueue(song)
+            created = len([r for r in creation_results if r["status"] == "submitted"])
+            logger.info(f"라운드 {rnd}: {created}곡 Create 완료, Suno 처리 대기 중...")
 
-            collector.stop()
-            await collector_task
+            # ── Phase 5: 대기 (Suno가 곡을 처리할 시간) ──
+            if created > 0:
+                update("waiting", current_song=f"Suno 처리 대기 ({created}곡)...")
+                await asyncio.sleep(120)  # 2분 대기
 
-            # Creator 탭 정리
-            await creator.close_all_tabs()
+            # ── Phase 6: Collector 다시 — 새로 생성된 곡 다운 ──
+            update("collecting", current_song="새 곡 다운로드 중...")
+            collector2 = SunoCollectorAgent(context)
+            collector2.set_known_ids(collector._known_ids)
 
-            # Collector 결과 저장
-            download_results = collector.get_results()
-            current = state_manager.get(project_id) or {}
-            old = current.get("suno_tracks") or []
-            new_keys = {(r.get("index"), r.get("slot")) for r in download_results}
-            merged = [t for t in old if (t.get("index"), t.get("slot")) not in new_keys]
-            merged.extend(download_results)
-            merged.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
-            state_manager.update(project_id, {"suno_tracks": merged})
-
-            # Collector가 못 찾은 곡들 재시도 (Creator 완료 후 시간 지났으니 Suno에서 생성 완료됐을 수 있음)
-            task_tracker["phase"] = "collecting"
-            _write_progress(project_id, task_tracker)
-            await collector.collect_remaining(
-                songs=songs_todo,
-                output_dir=str(project_dir),
-                progress_callback=on_collector_progress,
+            collect2_results = await collector2.collect_all(
+                songs=songs_for_search,
+                output_dir=str(tracks_dir),
+                progress_callback=on_collect,
             )
+            save_results(collect2_results)
+            await collector2.close()
 
-            # 추가 다운로드 결과 저장
-            all_results = collector.get_results()
-            current2 = state_manager.get(project_id) or {}
-            old2 = current2.get("suno_tracks") or []
-            new_keys2 = {(r.get("index"), r.get("slot")) for r in all_results}
-            merged2 = [t for t in old2 if (t.get("index"), t.get("slot")) not in new_keys2]
-            merged2.extend(all_results)
-            merged2.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
-            state_manager.update(project_id, {"suno_tracks": merged2})
-
-            # Collector 검색 페이지 닫기
-            await collector.close_search_page()
-
+            # 브라우저 닫기
             await context.close()
             await browser.close()
 
         except Exception as e:
             import traceback as _tb
-            task_tracker["errors"].append(f"라운드{round_num}: [{type(e).__name__}] {e}")
-            logger.error(f"라운드 {round_num} 에러: {e}\n{_tb.format_exc()}")
+            tracker["errors"].append(f"R{rnd}: [{type(e).__name__}] {e}")
+            logger.error(f"라운드 {rnd} 에러: {e}\n{_tb.format_exc()}")
         finally:
             await pw.stop()
 
-        # QA 검수 + 자동 연결
-        task_tracker["phase"] = "verifying"
-        _write_progress(project_id, task_tracker)
+        # ── QA 검수 + 자동 연결 ──
+        update("verifying")
         suno_qa_agent.fix_links(project_id)
         qa = suno_qa_agent.verify(project_id)
         done = len([t for t in qa.get("tracks", []) if t["status"] == "complete"])
-        logger.info(f"라운드 {round_num} QA: {done}/{total_designed}곡 완성")
+        logger.info(f"라운드 {rnd}: {done}/{total}곡 완성")
 
-        if done >= total_designed:
+        if done >= total:
             break
         await asyncio.sleep(10)
 
-    # 최종 보고
-    final_qa = suno_qa_agent.verify(project_id)
+    # ── 최종 보고 ──
+    final = suno_qa_agent.verify(project_id)
     suno_qa_agent.fix_links(project_id)
-    task_tracker["status"] = "completed"
-    task_tracker["phase"] = "done"
-    task_tracker["qa_report"] = {
-        "status": final_qa["status"],
-        "total_files": final_qa["total_files"],
-        "expected_files": final_qa["expected_files"],
-        "complete_count": len([t for t in final_qa["tracks"] if t["status"] == "complete"]),
-    }
-    _write_progress(project_id, task_tracker)
-    logger.info(f"종료: {final_qa['total_files']}/{final_qa['expected_files']} 파일, {task_tracker['round']} 라운드")
+    complete = len([t for t in final.get("tracks", []) if t["status"] == "complete"])
+    tracker.update({
+        "status": "completed", "phase": "done",
+        "tracks_collected": final["total_files"],
+        "qa_report": {"status": final["status"], "total_files": final["total_files"],
+                       "expected_files": final["expected_files"], "complete_count": complete},
+    })
+    _write(project_id, tracker)
+    logger.info(f"종료: {final['total_files']}/{final['expected_files']} 파일, {tracker['round']} 라운드")
 
 
 if __name__ == "__main__":
