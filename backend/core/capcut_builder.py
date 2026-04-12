@@ -23,28 +23,42 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-# 폰트 이름 → 시스템 폰트 경로 매핑
-_FONT_PATHS = {
-    "": "C:/Windows/Fonts/malgun.ttf",
-    "SeoulHangangB": str(Path(__file__).parent.parent / "assets" / "fonts" / "seoul_hangang_b.ttf"),
-    "Palatino Linotype": "C:/Windows/Fonts/palabi.ttf",
-    '"Palatino Linotype"': "C:/Windows/Fonts/palabi.ttf",
-    "Pretendard, sans-serif": "C:/Windows/Fonts/malgun.ttf",
-    '"Noto Sans KR", sans-serif': "C:/Windows/Fonts/malgun.ttf",
-    '"Noto Serif KR", serif': "C:/Windows/Fonts/malgun.ttf",
-    "Arial, sans-serif": "C:/Windows/Fonts/arial.ttf",
-    "Georgia, serif": "C:/Windows/Fonts/georgia.ttf",
-    "Impact, sans-serif": "C:/Windows/Fonts/impact.ttf",
-    '"Malgun Gothic", sans-serif': "C:/Windows/Fonts/malgun.ttf",
-    '"Segoe UI", sans-serif': "C:/Windows/Fonts/segoeui.ttf",
-    '"Courier New", monospace': "C:/Windows/Fonts/cour.ttf",
-    '"Times New Roman", serif': "C:/Windows/Fonts/times.ttf",
-}
+# CapCut 캐시 폰트 정보 (content.styles.font에 path+id 필수)
+_CAPCUT_FONT: dict | None = None
 
 
-def _resolve_font(family: str) -> str:
-    """폰트 이름을 실제 시스템 경로로 변환."""
-    return _FONT_PATHS.get(family, _FONT_PATHS.get("", "C:/Windows/Fonts/malgun.ttf"))
+def _load_capcut_font() -> dict:
+    """CapCut 기본 캐시 폰트 정보 로드."""
+    global _CAPCUT_FONT
+    if _CAPCUT_FONT is not None:
+        return _CAPCUT_FONT
+    p = Path(__file__).parent.parent / "assets" / "capcut_default_font.json"
+    if p.exists():
+        _CAPCUT_FONT = json.loads(p.read_text(encoding="utf-8"))
+    else:
+        _CAPCUT_FONT = {}
+    return _CAPCUT_FONT
+
+
+def _resolve_font(_family: str) -> str:
+    """CapCut용 폰트 경로 — 캐시 폰트 사용 (시스템 폰트 직접 참조 시 크래시)."""
+    font_info = _load_capcut_font()
+    return font_info.get("cache_path", "C:/Windows/Fonts/malgun.ttf")
+
+
+def _resolve_content_font(_family: str) -> dict:
+    """content.styles[0].font 객체 — path + id 필수."""
+    font_info = _load_capcut_font()
+    return dict(font_info.get("content_font", {"path": "C:/Windows/Fonts/malgun.ttf"}))
+
+
+def _resolve_fonts_entry() -> dict:
+    """materials.texts[].fonts[] 엔트리."""
+    import copy as _copy
+    font_info = _load_capcut_font()
+    entry = _copy.deepcopy(font_info.get("fonts_entry", {}))
+    entry["id"] = _uuid()  # 각 text마다 고유 ID
+    return entry
 
 
 def _uuid() -> str:
@@ -56,8 +70,38 @@ def _us(seconds: float) -> int:
     return int(seconds * 1_000_000)
 
 
-# 샘플에서 추출한 segment 기본 키 (CapCut이 이 키들을 모두 요구)
+# 샘플에서 추출한 스켈레톤들 (CapCut이 모든 키를 요구)
 _SEG_SKELETON: dict = {}
+_TXT_MAT_SKELETON: dict | None = None
+_AUD_MAT_SKELETON: dict | None = None
+
+
+def _load_text_mat_skeleton() -> dict:
+    global _TXT_MAT_SKELETON
+    if _TXT_MAT_SKELETON is None:
+        p = Path(__file__).parent.parent / "assets" / "capcut_text_material_skeleton.json"
+        if p.exists():
+            _TXT_MAT_SKELETON = json.loads(p.read_text(encoding="utf-8"))
+        else:
+            _TXT_MAT_SKELETON = {}
+    # 딥 카피 + 내부 참조 ID들 새로 생성 (CapCut은 각 text마다 고유 ID 요구)
+    import copy
+    result = copy.deepcopy(_TXT_MAT_SKELETON)
+    # fonts 배열의 ID 갱신
+    for f in result.get("fonts", []):
+        f["id"] = _uuid()
+    return result
+
+
+def _load_audio_mat_skeleton() -> dict:
+    global _AUD_MAT_SKELETON
+    if _AUD_MAT_SKELETON is not None:
+        return dict(_AUD_MAT_SKELETON)
+    p = Path(__file__).parent.parent / "assets" / "capcut_audio_material_skeleton.json"
+    if p.exists():
+        _AUD_MAT_SKELETON = json.loads(p.read_text(encoding="utf-8"))
+        return dict(_AUD_MAT_SKELETON)
+    return {}
 
 
 def _load_seg_skeleton() -> dict:
@@ -85,6 +129,45 @@ def _make_speed(materials: dict) -> str:
     return sid
 
 
+def _make_audio_aux_materials(materials: dict) -> list[str]:
+    """오디오 segment에 필요한 보조 material 생성 — ID 목록 반환.
+    CapCut은 오디오마다 beats, sound_channel_mapping, vocal_separation,
+    placeholder_info를 요구함."""
+    ids = []
+
+    pid = _uuid()
+    materials.setdefault("placeholder_infos", []).append({
+        "error_path": "", "error_text": "", "id": pid,
+        "meta_type": "none", "res_path": "", "res_text": "", "type": "placeholder_info",
+    })
+    ids.append(pid)
+
+    bid = _uuid()
+    materials.setdefault("beats", []).append({
+        "ai_beats": {"beat_speed_infos": [], "beats_path": "", "beats_url": "",
+                     "melody_path": "", "melody_percents": [0.0], "melody_url": ""},
+        "enable_ai_beats": False, "gear": 404, "gear_count": 0,
+        "id": bid, "mode": 404, "type": "beats",
+        "user_beats": [], "user_delete_ai_beats": None,
+    })
+    ids.append(bid)
+
+    scid = _uuid()
+    materials.setdefault("sound_channel_mappings", []).append({
+        "audio_channel_mapping": 0, "id": scid, "is_config_open": False, "type": "none",
+    })
+    ids.append(scid)
+
+    vsid = _uuid()
+    materials.setdefault("vocal_separations", []).append({
+        "choice": 0, "enter_from": "", "final_algorithm": "", "id": vsid,
+        "production_path": "", "removed_sounds": [], "time_range": None, "type": "vocal_separation",
+    })
+    ids.append(vsid)
+
+    return ids
+
+
 def _make_segment(
     material_id: str, start_us: int, duration_us: int,
     materials: dict,
@@ -106,8 +189,11 @@ def _make_segment(
 
     base = dict(type_skels.get(track_type, type_skels.get("video", {})))
 
-    # text/effect는 speed ref 불필요, audio/video만 speed 사용
-    if track_type in ("audio", "video"):
+    # audio/video: speed + 보조 materials, text: 없음
+    if track_type == "audio":
+        aux_ids = _make_audio_aux_materials(materials)
+        refs = [speed_id] + aux_ids + (extra_refs or [])
+    elif track_type == "video":
         refs = [speed_id] + (extra_refs or [])
     else:
         refs = extra_refs or []
@@ -193,13 +279,27 @@ class CapcutBuilder:
         for _ in range(3):
             (project_dir / f"{{{_uuid()}}}").mkdir(exist_ok=True)
 
-        # 오디오 총 길이 계산
-        total_duration = sum(t.get("duration", 0) for t in tracks)
+        # 반복 설정 적용
+        repeat_cfg = state.get("repeat", {})
+        repeat_mode = repeat_cfg.get("mode", "count")
+        single_duration = sum(t.get("duration", 0) for t in tracks)
+
+        if repeat_mode == "count":
+            repeat_count = max(1, repeat_cfg.get("count", 1))
+        elif repeat_mode == "duration" and single_duration > 0:
+            target_sec = repeat_cfg.get("target_minutes", 60) * 60
+            repeat_count = max(1, int(target_sec / single_duration))
+        else:
+            repeat_count = 1
+
+        total_duration = single_duration * repeat_count
         total_us = _us(total_duration)
+        logger.info(f"Repeat: {repeat_count}x, single={single_duration:.0f}s, total={total_duration:.0f}s")
 
         # draft_content.json 생성
         draft_content = self._build_draft_content(
-            state, tracks, images, layers, subtitle_entries, total_us, project_name, project_dir
+            state, tracks, images, layers, subtitle_entries, total_us, project_name, project_dir,
+            repeat_count=repeat_count,
         )
         (project_dir / "draft_content.json").write_text(
             json.dumps(draft_content, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -251,26 +351,12 @@ class CapcutBuilder:
             encoding="utf-8",
         )
 
-        # 에셋을 프로젝트 폴더 내 Resources/에 복사 (미디어 연결 불필요하게)
-        res_dir = project_dir / "Resources"
-        res_dir.mkdir(exist_ok=True)
-
-        # 음원 복사
-        for track in tracks:
-            src = Path(track.get("stored_path", ""))
-            if src.exists():
-                dst = res_dir / src.name
-                try:
-                    shutil.copy(src, dst)
-                except Exception:
-                    pass
-
-        # 배경 이미지를 커버 + Resources에 복사
+        # 에셋: 원본 경로를 직접 참조 (Resources 복사 불필요 — 경로 깨짐 방지)
+        # 커버 이미지만 복사
         bg = images.get("background") or images.get("thumbnail")
         if bg and Path(bg).exists():
             try:
                 shutil.copy(bg, project_dir / "draft_cover.jpg")
-                shutil.copy(bg, res_dir / Path(bg).name)
             except Exception:
                 pass
 
@@ -299,7 +385,7 @@ class CapcutBuilder:
     def _build_draft_content(
         self, state: dict, tracks: list, images: dict, layers: dict,
         subtitle_entries: list, total_us: int, project_name: str,
-        project_dir: Path = None,
+        project_dir: Path = None, repeat_count: int = 1,
     ) -> dict:
         """draft_content.json — 실제 작동하는 샘플 템플릿 기반."""
         assets_dir = Path(__file__).parent.parent / "assets"
@@ -314,13 +400,21 @@ class CapcutBuilder:
         materials = base.get("materials", {})
         track_list: list = []
 
+        # canvas material (CapCut 필수)
+        if not materials.get("canvases"):
+            materials["canvases"] = [{
+                "album_image": "", "blur": 0.0, "color": "", "id": _uuid(),
+                "image": "", "image_id": "", "image_name": "",
+                "source_platform": 0, "team_id": "", "type": "canvas_color",
+            }]
+
         # ── 1. 배경 이미지 트랙 ──
         bg_path = images.get("background") or images.get("thumbnail")
         if bg_path and Path(bg_path).exists():
             vid_id = _uuid()
             materials["videos"].append({
                 "id": vid_id,
-                "path": str(project_dir / "Resources" / Path(bg_path).name) if project_dir else str(bg_path),
+                "path": str(Path(bg_path).resolve()),
                 "type": "photo",
                 "width": 1920,
                 "height": 1080,
@@ -332,31 +426,14 @@ class CapcutBuilder:
                 "segments": [_make_segment(vid_id, 0, total_us, materials, track_type="video", render_index=0)],
             })
 
-        # ── 2. 효과 트랙 (반딧불이 등) ──
-        effect_layers = layers.get("effect_layers", [])
-        for eff in effect_layers:
-            if not eff.get("enabled"):
-                continue
-            eff_id = _uuid()
-            materials["video_effects"].append({
-                "id": eff_id,
-                "name": eff.get("name", "효과"),
-                "type": "video_effect",
-                "effect_id": eff.get("effect_id", ""),
-                "resource_id": eff.get("effect_id", ""),
-                "adjust_params": [
-                    {"name": k, "value": v, "default_value": v}
-                    for k, v in eff.get("params", {}).items()
-                ],
-            })
-            track_list.append({
-                "type": "effect",
-                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
-                "segments": [_make_segment(eff_id, 0, total_us, materials, track_type="effect", render_index=11000)],
-            })
+        # ── 2. 효과 트랙 ──
+        # 프론트엔드 프리뷰용 효과(firefly 등)는 CapCut 리소스 ID가 아니므로
+        # CapCut 빌드에 포함하면 크래시 발생. CapCut에서 직접 추가해야 함.
+        # (효과 레이어는 프리뷰 전용)
 
         # ── 3. 자막 트랙 (SRT) ──
-        if subtitle_entries:
+        subtitle_enabled = layers.get("subtitle_enabled", True)
+        if subtitle_entries and subtitle_enabled:
             sub_style = layers.get("subtitle_style", {})
             sub_segments = []
             for entry in subtitle_entries:
@@ -366,13 +443,17 @@ class CapcutBuilder:
                 color = sub_style.get("color", "#FFFFFF")
                 italic = sub_style.get("italic", False)
                 shadow = sub_style.get("shadow", {})
+                font_path = _resolve_font(font_family)
+                content_font = _resolve_content_font(font_family)
 
-                materials["texts"].append({
+                txt_mat = _load_text_mat_skeleton()
+                txt_mat["fonts"] = [_resolve_fonts_entry()]
+                txt_mat.update({
                     "id": txt_id,
                     "type": "text",
                     "content": json.dumps({
                         "text": entry["text"],
-                        "styles": [{"font": {"path": _resolve_font(font_family)}, "size": font_size,
+                        "styles": [{"font": content_font, "size": font_size,
                                     "fill": {"content": {"render_type": "solid", "solid": {"color": [1, 1, 1]}}},
                                     "range": [0, len(entry["text"])],
                                     "useLetterColor": True,
@@ -380,7 +461,7 @@ class CapcutBuilder:
                                     }],
                     }, ensure_ascii=False),
                     "font_size": float(font_size),
-                    "font_path": _resolve_font(font_family),
+                    "font_path": font_path,
                     "text_color": color,
                     "has_shadow": shadow.get("enabled", False),
                     "shadow_alpha": shadow.get("alpha", 0.36),
@@ -391,8 +472,8 @@ class CapcutBuilder:
                     "alignment": 1,
                     "italic_degree": 12 if italic else 0,
                 })
+                materials["texts"].append(txt_mat)
 
-                # 자막은 animation 없이 (CapCut에서 수동 추가 가능)
                 start_us = _us(entry["start"])
                 dur_us = _us(entry["end"] - entry["start"])
                 sub_segments.append(_make_segment(
@@ -412,13 +493,17 @@ class CapcutBuilder:
         for tl in text_layers:
             txt_id = _uuid()
             shadow = tl.get("shadow", {})
+            font_path = _resolve_font(tl.get("font_family", ""))
+            content_font = _resolve_content_font(tl.get("font_family", ""))
 
-            materials["texts"].append({
+            txt_mat = _load_text_mat_skeleton()
+            txt_mat["fonts"] = [_resolve_fonts_entry()]
+            txt_mat.update({
                 "id": txt_id,
                 "type": "text",
                 "content": json.dumps({
                     "text": tl.get("text", ""),
-                    "styles": [{"font": {"path": _resolve_font(tl.get("font_family", ""))}, "size": tl.get("font_size", 15),
+                    "styles": [{"font": content_font, "size": tl.get("font_size", 15),
                                 "fill": {"content": {"render_type": "solid", "solid": {"color": [1, 1, 1]}}},
                                 "range": [0, len(tl.get("text", ""))],
                                 "useLetterColor": True,
@@ -426,7 +511,7 @@ class CapcutBuilder:
                                 }],
                 }, ensure_ascii=False),
                 "font_size": float(tl.get("font_size", 15)),
-                "font_path": _resolve_font(tl.get("font_family", "")),
+                "font_path": font_path,
                 "text_color": tl.get("color", "#FFFFFF"),
                 "has_shadow": shadow.get("enabled", False),
                 "shadow_alpha": shadow.get("alpha", 0.86),
@@ -440,8 +525,8 @@ class CapcutBuilder:
                 "letter_spacing": tl.get("letter_spacing", 0),
                 "line_spacing": tl.get("line_spacing", 0),
             })
+            materials["texts"].append(txt_mat)
 
-            # 텍스트 레이어도 animation 없이 (CapCut에서 수동 추가)
             track_list.append({
                 "type": "text",
                 "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
@@ -456,9 +541,12 @@ class CapcutBuilder:
                 )],
             })
 
-        # ── 5. 오디오 트랙 ──
+        # ── 5. 오디오 트랙 (반복 적용) ──
         audio_segments = []
         time_offset = 0
+
+        # audio material은 1세트만 생성 (반복 시 같은 material 재사용)
+        audio_mats: list[tuple[str, float]] = []  # (material_id, duration_sec)
         for track in tracks:
             audio_path = track.get("stored_path", "")
             if not audio_path or not Path(audio_path).exists():
@@ -466,25 +554,67 @@ class CapcutBuilder:
             aud_id = _uuid()
             dur = track.get("duration", 0)
             dur_us = _us(dur)
-            # Resources/ 내 복사된 경로 사용
-            res_path = str(project_dir / "Resources" / Path(audio_path).name) if project_dir else str(audio_path)
-            materials["audios"].append({
+            res_path = str(Path(audio_path).resolve())
+            aud_mat = _load_audio_mat_skeleton()
+            aud_mat.update({
                 "id": aud_id,
                 "path": res_path,
                 "duration": dur_us,
                 "type": "extract_music",
                 "name": track.get("title", ""),
             })
-            audio_segments.append(_make_segment(
-                aud_id, _us(time_offset), dur_us, materials, track_type="audio", render_index=0,
-            ))
-            time_offset += dur
+            materials["audios"].append(aud_mat)
+            audio_mats.append((aud_id, dur))
+
+        # repeat_count만큼 반복 배치
+        for _rep in range(repeat_count):
+            for aud_id, dur in audio_mats:
+                dur_us = _us(dur)
+                audio_segments.append(_make_segment(
+                    aud_id, _us(time_offset), dur_us, materials, track_type="audio", render_index=0,
+                ))
+                time_offset += dur
 
         if audio_segments:
             track_list.append({
                 "type": "audio",
                 "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
                 "segments": audio_segments,
+            })
+
+        # ── 6. 이미지/로고 레이어 트랙 (타임라인 자동 배치) ──
+        image_layers = layers.get("image_layers", [])
+        for il in image_layers:
+            img_path = il.get("stored_path", "")
+            if not img_path or not Path(img_path).exists():
+                continue
+            img_id = _uuid()
+            res_path = str(Path(img_path).resolve())
+            materials["videos"].append({
+                "id": img_id,
+                "path": res_path,
+                "type": "photo",
+                "width": 1920,
+                "height": 1080,
+                "duration": total_us,
+            })
+            # 위치/크기를 CapCut 좌표로 변환 (0~1 → -1~1)
+            pos_x = il.get("position_x", 0.5) * 2 - 1
+            pos_y = il.get("position_y", 0.5) * 2 - 1
+            scale = il.get("scale", 1.0) * 0.3  # 프리뷰 스케일 → CapCut 스케일
+            track_list.append({
+                "type": "video",
+                "attribute": 0, "flag": 0, "id": _uuid(), "is_default_name": True, "name": "",
+                "segments": [_make_segment(
+                    img_id, 0, total_us, materials, track_type="video", render_index=2,
+                    clip={
+                        "alpha": il.get("opacity", 1.0),
+                        "flip": {"horizontal": False, "vertical": False},
+                        "rotation": 0.0,
+                        "scale": {"x": scale, "y": scale},
+                        "transform": {"x": pos_x, "y": pos_y},
+                    },
+                )],
             })
 
         # 템플릿 유지 + 우리 데이터만 교체

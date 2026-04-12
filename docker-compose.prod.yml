@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: eileen42/music-outo-frontend:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    image: eileen42/music-outo:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - music-outo-storage:/app/storage
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  music-outo-storage:
+  redis_data:

@@ -38,6 +38,11 @@ class DesignRequest(BaseModel):
     project_id: str
     benchmark_url: str | None = None
     count: int = 20
+    # 사용자 입력 (키워드, 분위기, 가사 힌트 등)
+    keywords: str = ""
+    mood: str = ""
+    lyrics_hint: str = ""
+    extra: str = ""
 
 
 class BatchCreateRequest(BaseModel):
@@ -79,11 +84,20 @@ async def design_tracks(body: DesignRequest):
         if benchmark:
             benchmark_used = benchmark.get("url", "history")
 
+    # 사용자 입력
+    user_input = {
+        "keywords": body.keywords,
+        "mood": body.mood,
+        "lyrics_hint": body.lyrics_hint,
+        "extra": body.extra,
+    }
+
     # 곡 설계 (2단계 — concept + tracks)
     result = await track_designer.design_tracks(
         channel_profile=profile,
         benchmark=benchmark,
         count=body.count,
+        user_input=user_input,
     )
     concept = result.get("concept", {})
     tracks  = result.get("tracks", [])

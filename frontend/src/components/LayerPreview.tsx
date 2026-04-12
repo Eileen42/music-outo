@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { Project, WaveformLayerConfig, TextLayerConfig, TextShadow, TextAnimation, EffectLayerConfig, LayerTemplate } from '../types'
+import type { Project, WaveformLayerConfig, TextLayerConfig, TextShadow, TextAnimation, EffectLayerConfig, ImageLayerConfig, LayerTemplate } from '../types'
 import { api } from '../api/client'
 
 interface Props { project: Project; onRefresh: () => void }
@@ -79,14 +79,14 @@ function Sl({ label, value, min, max, step, fmt, onChange }: {
 
 // ── 접기/펴기 섹션 ──
 function Section({ title, open, onToggle, badge, children }: {
-  title: string; open: boolean; onToggle: () => void; badge?: string; children: React.ReactNode
+  title: string; open: boolean; onToggle: () => void; badge?: React.ReactNode; children: React.ReactNode
 }) {
   return (
     <div className="border-b border-gray-800">
       <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-800/50 text-left">
         <span className="text-[10px] text-gray-600">{open ? '▼' : '▶'}</span>
         <span className="text-xs font-semibold text-gray-300 flex-1">{title}</span>
-        {badge && <span className="text-[9px] bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded-full">{badge}</span>}
+        {badge && (typeof badge === 'string' ? <span className="text-[9px] bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded-full">{badge}</span> : badge)}
       </button>
       {open && <div className="px-3 pb-3 space-y-2">{children}</div>}
     </div>
@@ -99,6 +99,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const [wf, setWf] = useState<WaveformLayerConfig>(mgWf(layers.waveform_layer))
   const [texts, setTexts] = useState<TextLayerConfig[]>((layers.text_layers || []).map(t => mgTxt(t as TextLayerConfig)))
   const [effects, setEffects] = useState<EffectLayerConfig[]>(layers.effect_layers || [])
+  const [imgLayers, setImgLayers] = useState<ImageLayerConfig[]>(layers.image_layers || [])
   const [playing, setPlaying] = useState(false)
   const [templates, setTemplates] = useState<LayerTemplate[]>([])
   const [tplName, setTplName] = useState('')
@@ -107,6 +108,8 @@ export default function LayerPreview({ project, onRefresh }: Props) {
 
   // 자막
   const subtitleEntries = project.subtitle_entries || []
+  const [subEnabled, setSubEnabled] = useState(subtitleEntries.length > 0)
+  const [autoSrtLoading, setAutoSrtLoading] = useState(false)
   const [subStyle, setSubStyle] = useState<Partial<TextLayerConfig>>(
     (layers as unknown as { subtitle_style?: Partial<TextLayerConfig> }).subtitle_style || {}
   )
@@ -114,11 +117,11 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const [playTime, setPlayTime] = useState(0) // 재생 시뮬레이션 시간(초)
 
   // 섹션 토글
-  const [openSec, setOpenSec] = useState<Record<string, boolean>>({ waveform: true, text: true, subtitle: true, effect: true, template: false })
+  const [openSec, setOpenSec] = useState<Record<string, boolean>>({ waveform: true, text: true, subtitle: true, image: true, template: false })
   const toggle = (k: string) => setOpenSec(p => ({ ...p, [k]: !p[k] }))
 
   // 드래그
-  type DragMode = 'move-wf' | 'move-text' | 'resize-wf' | 'resize-text'
+  type DragMode = 'move-wf' | 'move-text' | 'resize-wf' | 'resize-text' | 'move-img' | 'resize-img'
   const [dragMode, setDragMode] = useState<DragMode | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const dragStartRef = useRef<{ mx: number; my: number; origSize: number } | null>(null)
@@ -132,7 +135,9 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const particlesRef = useRef<Particle[]>(initP(40))
   const bgUrl = storageUrl(project.images?.background || project.images?.thumbnail || '')
 
+  const [systemFonts, setSystemFonts] = useState<{name:string;path:string}[]>([])
   useEffect(() => { if (project.channel_id) api.channels.listTemplates(project.channel_id).then(setTemplates).catch(() => {}) }, [project.channel_id])
+  useEffect(() => { api.layers.listFonts(project.id).then(setSystemFonts).catch(() => {}) }, [project.id])
 
   // ── 파형 그리기 ──
   const drawWf = useCallback(() => {
@@ -156,9 +161,49 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   }, [wf])
   const drawFx = useCallback(() => {
     const cv = fxRef.current; if (!cv) return; const ctx = cv.getContext('2d')!; cv.width = CW; cv.height = CH; ctx.clearRect(0, 0, CW, CH)
-    if (!effects.some(e => e.enabled)) return
-    const speed = effects.find(e => e.enabled)?.params?.speed ?? 0.14
-    for (const p of particlesRef.current) { p.x += p.vx * (1 + speed * 5); p.y += p.vy * (1 + speed * 5); p.phase += 0.02; if (p.x < 0 || p.x > 1) p.vx *= -1; if (p.y < 0 || p.y > 1) p.vy *= -1; const fl = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(p.phase)); ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, p.size, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,255,180,${fl * 0.6})`; ctx.fill(); ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, p.size * 3, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,255,150,${fl * 0.15})`; ctx.fill() }
+    const activeEffects = effects.filter(e => e.enabled)
+    if (activeEffects.length === 0) return
+
+    for (const eff of activeEffects) {
+      const spd = eff.params?.speed ?? 0.15
+      const opa = eff.params?.opacity ?? 0.6
+      const density = Math.floor((eff.params?.density ?? 0.5) * 60) + 10
+      const id = eff.effect_id || eff.name
+
+      // 파티클 수 맞추기
+      while (particlesRef.current.length < density) particlesRef.current.push(...initP(10))
+
+      const colors: Record<string, { body: string; glow: string }> = {
+        firefly:   { body: `rgba(255,255,180,${opa})`, glow: `rgba(255,255,150,${opa * 0.25})` },
+        snowfall:  { body: `rgba(255,255,255,${opa})`, glow: `rgba(200,220,255,${opa * 0.2})` },
+        dandelion: { body: `rgba(255,250,230,${opa})`, glow: `rgba(255,245,200,${opa * 0.15})` },
+        starlight: { body: `rgba(255,255,220,${opa})`, glow: `rgba(255,255,180,${opa * 0.3})` },
+        petals:    { body: `rgba(255,180,200,${opa})`, glow: `rgba(255,160,180,${opa * 0.2})` },
+        rain:      { body: `rgba(180,200,255,${opa})`, glow: '' },
+      }
+      const c = colors[id] || colors.firefly
+
+      for (let i = 0; i < Math.min(density, particlesRef.current.length); i++) {
+        const p = particlesRef.current[i]
+        p.phase += 0.02
+        const fl = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(p.phase))
+
+        if (id === 'rain') {
+          p.y += spd * 0.05; if (p.y > 1) { p.y = 0; p.x = Math.random() }
+          ctx.beginPath(); ctx.moveTo(p.x * CW, p.y * CH); ctx.lineTo(p.x * CW - 1, (p.y + 0.02) * CH)
+          ctx.strokeStyle = c.body; ctx.lineWidth = 1; ctx.stroke()
+        } else if (id === 'snowfall' || id === 'dandelion' || id === 'petals') {
+          p.x += Math.sin(p.phase) * 0.001; p.y += spd * 0.01; if (p.y > 1) { p.y = 0; p.x = Math.random() }
+          ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, p.size * (id === 'petals' ? 2 : 1), 0, Math.PI * 2)
+          ctx.fillStyle = c.body; ctx.fill()
+          if (c.glow) { ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, p.size * 3, 0, Math.PI * 2); ctx.fillStyle = c.glow; ctx.fill() }
+        } else {
+          p.x += p.vx * (1 + spd * 5); p.y += p.vy * (1 + spd * 5); if (p.x < 0 || p.x > 1) p.vx *= -1; if (p.y < 0 || p.y > 1) p.vy *= -1
+          ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, p.size, 0, Math.PI * 2); ctx.fillStyle = c.body.replace(String(opa), String(fl * opa)); ctx.fill()
+          if (c.glow) { ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, p.size * 3, 0, Math.PI * 2); ctx.fillStyle = c.glow; ctx.fill() }
+        }
+      }
+    }
   }, [effects])
   useEffect(() => { if (!playing) { drawWf(); drawFx(); return }; let on = true; const t = () => { if (!on) return; drawWf(); drawFx(); animRef.current = requestAnimationFrame(t) }; t(); return () => { on = false; cancelAnimationFrame(animRef.current) } }, [playing, drawWf, drawFx])
   useEffect(() => { drawWf(); drawFx() }, [drawWf, drawFx])
@@ -179,11 +224,11 @@ export default function LayerPreview({ project, onRefresh }: Props) {
 
   // ── 드래그 ──
   const startDrag = (mode: DragMode, id: string) => (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setDragMode(mode); setDragId(id); const l = texts.find(t => t.id === id); dragStartRef.current = { mx: e.clientY, my: e.clientY, origSize: l?.font_size || 36 } }
-  const onMove = useCallback((e: React.MouseEvent) => { if (!dragMode || !boxRef.current) return; const r = boxRef.current.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)); if (dragMode === 'move-wf') setWf(w => ({ ...w, position_x: x, position_y: y })); else if (dragMode === 'move-text') setTexts(p => p.map(t => t.id === dragId ? { ...t, position_x: x, position_y: y } : t)); else if (dragMode === 'resize-wf') { const origW = (wf.bar_count * (wf.bar_width + wf.bar_gap) * S) / CW; const dx = Math.abs(x - wf.position_x) * 2; if (origW > 0) setWf(w => ({ ...w, scale: Math.max(0.2, Math.min(5, dx / origW)) })) } else if (dragMode === 'resize-text' && dragStartRef.current) { const dy = e.clientY - dragStartRef.current.mx; setTexts(p => p.map(t => t.id === dragId ? { ...t, font_size: Math.max(12, Math.min(200, Math.round(dragStartRef.current!.origSize - dy * 0.5))) } : t)) } }, [dragMode, dragId, wf])
+  const onMove = useCallback((e: React.MouseEvent) => { if (!dragMode || !boxRef.current) return; const r = boxRef.current.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)); if (dragMode === 'move-wf') setWf(w => ({ ...w, position_x: x, position_y: y })); else if (dragMode === 'move-text') setTexts(p => p.map(t => t.id === dragId ? { ...t, position_x: x, position_y: y } : t)); else if (dragMode === 'move-img') setImgLayers(p => p.map(l => l.id === dragId ? { ...l, position_x: x, position_y: y } : l)); else if (dragMode === 'resize-wf') { const origW = (wf.bar_count * (wf.bar_width + wf.bar_gap) * S) / CW; const dx = Math.abs(x - wf.position_x) * 2; if (origW > 0) setWf(w => ({ ...w, scale: Math.max(0.2, Math.min(5, dx / origW)) })) } else if (dragMode === 'resize-text' && dragStartRef.current) { const dy = e.clientY - dragStartRef.current.mx; setTexts(p => p.map(t => t.id === dragId ? { ...t, font_size: Math.max(12, Math.min(200, Math.round(dragStartRef.current!.origSize - dy * 0.5))) } : t)) } else if (dragMode === 'resize-img' && dragStartRef.current) { const dy = e.clientY - dragStartRef.current.mx; setImgLayers(p => p.map(l => l.id === dragId ? { ...l, scale: Math.max(0.1, Math.min(5, dragStartRef.current!.origSize - dy * 0.005)) } : l)) } }, [dragMode, dragId, wf])
   const onUp = () => { setDragMode(null); setDragId(null); dragStartRef.current = null }
 
   // ── CRUD ──
-  const save = async () => { setSaving(true); try { await api.layers.update(project.id, { ...layers, waveform_layer: wf, text_layers: texts, effect_layers: effects, subtitle_style: subStyle }); await onRefresh() } finally { setSaving(false) } }
+  const save = async () => { setSaving(true); try { await api.layers.update(project.id, { ...layers, waveform_layer: wf, text_layers: texts, effect_layers: [], image_layers: imgLayers, subtitle_style: subStyle, subtitle_enabled: subEnabled }); await onRefresh() } finally { setSaving(false) } }
   const addTxt = async () => { if (!newText.trim()) return; const t = mgTxt({ id: crypto.randomUUID(), text: newText.trim() }); setTexts(p => [...p, t]); setEditId(t.id); setNewText('') }
   const delTxt = (id: string) => { setTexts(p => p.filter(t => t.id !== id)); if (editId === id) setEditId(null) }
   const updTxt = (id: string, u: Partial<TextLayerConfig>) => setTexts(p => p.map(t => t.id === id ? { ...t, ...u } : t))
@@ -200,11 +245,12 @@ export default function LayerPreview({ project, onRefresh }: Props) {
       {/* ═══ 왼쪽 컨트롤 패널 ═══ */}
       <div className="w-64 shrink-0 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden max-h-[80vh] overflow-y-auto">
         {/* 파형 */}
-        <Section title="🎵 파형" open={openSec.waveform} onToggle={() => toggle('waveform')} badge={wf.enabled ? 'ON' : 'OFF'}>
-          <label className="flex items-center gap-2 cursor-pointer mb-1">
+        <Section title="🎵 파형" open={openSec.waveform} onToggle={() => toggle('waveform')} badge={
+          <label className="flex items-center gap-1 cursor-pointer" onClick={e => e.stopPropagation()}>
             <input type="checkbox" checked={wf.enabled} onChange={e => setWf(w => ({ ...w, enabled: e.target.checked }))} className="w-3 h-3 accent-purple-600" />
-            <span className="text-[10px] text-gray-400">활성화</span>
+            <span className="text-[9px] text-gray-500">{wf.enabled ? 'ON' : 'OFF'}</span>
           </label>
+        }>
           {wf.enabled && <>
             <div className="flex gap-1">{(['bar', 'line', 'circle'] as const).map(s => (<button key={s} onClick={() => setWf(w => ({ ...w, style: s }))} className={`flex-1 py-1 rounded text-[10px] ${wf.style === s ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500'}`}>{s === 'bar' ? '막대' : s === 'line' ? '라인' : '원형'}</button>))}</div>
             {wf.style !== 'circle' && <div className="flex gap-1">{(['bottom', 'center', 'top'] as const).map(a => (<button key={a} onClick={() => setWf(w => ({ ...w, bar_align: a }))} className={`flex-1 py-0.5 rounded text-[9px] ${wf.bar_align === a ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-500'}`}>{a === 'bottom' ? '바닥' : a === 'center' ? '중간' : '위'}</button>))}</div>}
@@ -233,19 +279,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
               {editId === l.id && (
                 <div className="px-2 pb-2 space-y-1.5 border-t border-gray-700 pt-1.5">
                   <input value={l.text} onChange={e => updTxt(l.id, { text: e.target.value })} className="w-full bg-gray-900 text-white rounded px-2 py-1 text-[10px] border border-gray-700" />
-                  <div className="flex gap-1"><select value={l.font_family} onChange={e => updTxt(l.id, { font_family: e.target.value })} className="flex-1 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700">{FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select><select value={l.role} onChange={e => updTxt(l.id, { role: e.target.value as TextLayerConfig['role'] })} className="w-14 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700"><option value="title">제목</option><option value="subtitle">자막</option><option value="description">설명</option><option value="custom">커스텀</option></select></div>
-                  <div className="flex gap-1 items-center flex-wrap"><input type="color" value={l.color} onChange={e => updTxt(l.id, { color: e.target.value })} className="w-5 h-5 rounded cursor-pointer" /><input type="number" value={l.font_size} onChange={e => updTxt(l.id, { font_size: parseInt(e.target.value) || 24 })} className="w-10 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" min={8} max={200} /><span className="text-[8px] text-gray-600">px</span><button onClick={() => updTxt(l.id, { bold: !l.bold })} className={`px-1 py-0.5 rounded text-[10px] font-bold ${l.bold ? 'bg-purple-600 text-white' : 'bg-gray-900 text-gray-500'}`}>B</button><button onClick={() => updTxt(l.id, { italic: !l.italic })} className={`px-1 py-0.5 rounded text-[10px] italic ${l.italic ? 'bg-purple-600 text-white' : 'bg-gray-900 text-gray-500'}`}>I</button></div>
-                  <Sl label="투명" value={l.alpha ?? 1} min={0} max={1} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => updTxt(l.id, { alpha: v })} />
-                  <div className="flex gap-1 items-center"><span className="text-[9px] text-gray-600 w-6">자간</span><input type="number" value={l.letter_spacing ?? 0} step={0.5} onChange={e => updTxt(l.id, { letter_spacing: parseFloat(e.target.value) })} className="w-10 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" /><span className="text-[9px] text-gray-600 w-6">행간</span><input type="number" value={l.line_spacing ?? 0} step={0.1} onChange={e => updTxt(l.id, { line_spacing: parseFloat(e.target.value) })} className="w-10 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" /><div className="flex gap-0.5 ml-auto">{(['left', 'center', 'right'] as const).map(a => (<button key={a} onClick={() => updTxt(l.id, { alignment: a })} className={`px-1 py-0.5 rounded text-[8px] ${(l.alignment || 'center') === a ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-gray-500'}`}>{a === 'left' ? '◀' : a === 'center' ? '◆' : '▶'}</button>))}</div></div>
-                  <Sl label="가로" value={l.scale_x ?? 1} min={0.1} max={2} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => updTxt(l.id, { scale_x: v })} />
-                  <Sl label="세로" value={l.scale_y ?? 1} min={0.1} max={2} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => updTxt(l.id, { scale_y: v })} />
-                  {/* 그림자 */}
-                  <div className="bg-gray-900/50 rounded p-1.5"><div className="flex items-center gap-1 mb-1"><input type="checkbox" checked={l.shadow?.enabled ?? false} onChange={e => updTxt(l.id, { shadow: { ...(l.shadow || DEF_SHADOW), enabled: e.target.checked } })} className="w-3 h-3 accent-purple-600" /><span className="text-[9px] text-gray-500">그림자</span>{l.shadow?.enabled && <input type="color" value={l.shadow.color} onChange={e => updTxt(l.id, { shadow: { ...l.shadow!, color: e.target.value } })} className="w-4 h-4 rounded cursor-pointer" />}</div>
-                    {l.shadow?.enabled && <div className="space-y-1"><Sl label="투명" value={l.shadow.alpha} min={0} max={1} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => updTxt(l.id, { shadow: { ...l.shadow!, alpha: v } })} /><Sl label="거리" value={l.shadow.distance} min={0} max={20} step={1} fmt={v => `${v}`} onChange={v => updTxt(l.id, { shadow: { ...l.shadow!, distance: v } })} /><Sl label="각도" value={l.shadow.angle} min={-180} max={180} step={5} fmt={v => `${v}°`} onChange={v => updTxt(l.id, { shadow: { ...l.shadow!, angle: v } })} /><Sl label="흐림" value={l.shadow.blur} min={0} max={10} step={0.25} fmt={v => `${v}`} onChange={v => updTxt(l.id, { shadow: { ...l.shadow!, blur: v } })} /></div>}
-                  </div>
-                  {/* 애니메이션 */}
-                  <div className="flex gap-1 items-center"><span className="text-[9px] text-gray-500 w-6">등장</span><select value={l.animation_in?.type || 'none'} onChange={e => updTxt(l.id, { animation_in: { type: e.target.value as TextAnimation['type'], duration: l.animation_in?.duration || 3 } })} className="flex-1 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700">{ANIM_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}</select>{l.animation_in?.type !== 'none' && <><input type="number" value={l.animation_in?.duration || 3} step={0.5} min={0.5} max={10} onChange={e => updTxt(l.id, { animation_in: { ...l.animation_in!, duration: parseFloat(e.target.value) } })} className="w-8 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" /><span className="text-[8px] text-gray-600">초</span></>}</div>
-                  <div className="flex gap-1 items-center"><span className="text-[9px] text-gray-500 w-6">퇴장</span><select value={l.animation_out?.type || 'none'} onChange={e => updTxt(l.id, { animation_out: { type: e.target.value as TextAnimation['type'], duration: l.animation_out?.duration || 2 } })} className="flex-1 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700">{ANIM_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}</select>{l.animation_out?.type !== 'none' && <><input type="number" value={l.animation_out?.duration || 2} step={0.5} min={0.5} max={10} onChange={e => updTxt(l.id, { animation_out: { ...l.animation_out!, duration: parseFloat(e.target.value) } })} className="w-8 bg-gray-900 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" /><span className="text-[8px] text-gray-600">초</span></>}</div>
+                  <p className="text-[9px] text-gray-600">폰트/스타일은 CapCut에서 설정 · 캔버스에서 드래그로 위치 조정</p>
                 </div>
               )}
             </div>
@@ -253,9 +287,30 @@ export default function LayerPreview({ project, onRefresh }: Props) {
         </Section>
 
         {/* 자막 (SRT) */}
-        <Section title="💬 자막" open={openSec.subtitle} onToggle={() => toggle('subtitle')} badge={subtitleEntries.length > 0 ? `${subtitleEntries.length}개` : '없음'}>
+        <Section title="💬 자막" open={openSec.subtitle} onToggle={() => toggle('subtitle')} badge={
+          <label className="flex items-center gap-1 cursor-pointer" onClick={e => e.stopPropagation()}>
+            <input type="checkbox" checked={subEnabled} onChange={e => setSubEnabled(e.target.checked)} className="w-3 h-3 accent-purple-600" />
+            <span className="text-[9px] text-gray-500">{subEnabled ? 'ON' : 'OFF'}</span>
+          </label>
+        }>
+          {subEnabled && <>
+          {/* SRT 업로드 또는 자동 생성 */}
+          <div className="flex gap-1 mb-2">
+            <label className="flex-1 text-center py-1 rounded text-[10px] bg-gray-800 text-gray-300 hover:bg-gray-700 cursor-pointer border border-gray-700">
+              SRT 업로드
+              <input type="file" accept=".srt" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0]; if (!file) return
+                try { await api.layers.uploadSrt(project.id, file); await onRefresh() } catch { /* ignore */ }
+              }} />
+            </label>
+            <button onClick={async () => { setAutoSrtLoading(true); try { await api.layers.autoGenerateSrt(project.id); setTimeout(() => onRefresh(), 3000) } catch {} finally { setAutoSrtLoading(false) } }}
+              disabled={autoSrtLoading || project.tracks.length === 0}
+              className="flex-1 py-1 rounded text-[10px] bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 text-white border border-indigo-600">
+              {autoSrtLoading ? '생성 중...' : '자동 생성'}
+            </button>
+          </div>
           {subtitleEntries.length === 0 ? (
-            <p className="text-[10px] text-gray-600">노래만들기 → 트랙추가에서 SRT 파일을 업로드하세요</p>
+            <p className="text-[10px] text-gray-600">{autoSrtLoading ? 'Whisper로 가사 추출 중... 잠시 기다려주세요' : 'SRT 업로드 또는 자동 생성하세요'}</p>
           ) : (<>
             <p className="text-[10px] text-green-400 mb-1">✓ {subtitleEntries.length}개 자막 로드됨</p>
             <div className="flex gap-1 items-center mb-1">
@@ -281,21 +336,29 @@ export default function LayerPreview({ project, onRefresh }: Props) {
                 )
               })}
             </div>
-            <p className="text-[9px] text-gray-600 mb-1">자막 스타일:</p>
-            <select value={subStyle.font_family || FONTS[0].value} onChange={e => setSubStyle(s => ({ ...s, font_family: e.target.value }))} className="w-full bg-gray-800 text-white rounded px-1.5 py-0.5 text-[10px] border border-gray-700 mb-1">{FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select>
-            <div className="flex gap-1 items-center"><input type="color" value={subStyle.color || '#FFFFFF'} onChange={e => setSubStyle(s => ({ ...s, color: e.target.value }))} className="w-5 h-5 rounded cursor-pointer" /><input type="number" value={subStyle.font_size || 15} onChange={e => setSubStyle(s => ({ ...s, font_size: parseInt(e.target.value) }))} className="w-10 bg-gray-800 text-white rounded px-1 py-0.5 text-[10px] border border-gray-700" /><span className="text-[8px] text-gray-600">px</span><button onClick={() => setSubStyle(s => ({ ...s, italic: !s.italic }))} className={`px-1 py-0.5 rounded text-[10px] italic ${subStyle.italic ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500'}`}>I</button></div>
+            <p className="text-[9px] text-gray-600">폰트/크기는 CapCut에서 설정하세요</p>
           </>)}
+          </>}
+          {!subEnabled && <p className="text-[10px] text-gray-600">자막 비활성화됨</p>}
         </Section>
 
-        {/* 효과 */}
-        <Section title="✨ 효과" open={openSec.effect} onToggle={() => toggle('effect')} badge={`${effects.filter(e => e.enabled).length}`}>
-          {effects.map((eff, i) => (
-            <div key={i} className="bg-gray-800 rounded p-1.5 space-y-1">
-              <div className="flex items-center gap-1.5"><input type="checkbox" checked={eff.enabled} onChange={e => setEffects(p => p.map((ef, j) => j === i ? { ...ef, enabled: e.target.checked } : ef))} className="w-3 h-3 accent-purple-600" /><input value={eff.name} onChange={e => setEffects(p => p.map((ef, j) => j === i ? { ...ef, name: e.target.value } : ef))} className="flex-1 bg-gray-900 text-white rounded px-1.5 py-0.5 text-[10px] border border-gray-700" /><button onClick={() => setEffects(p => p.filter((_, j) => j !== i))} className="text-gray-600 hover:text-red-400 text-[10px]">✕</button></div>
-              {Object.entries(eff.params).map(([k, v]) => (<Sl key={k} label={k} value={v as number} min={0} max={1} step={0.01} fmt={val => `${Math.round(val * 100)}%`} onChange={nv => setEffects(p => p.map((ef, j) => j === i ? { ...ef, params: { ...ef.params, [k]: nv } } : ef))} />))}
+        {/* 이미지 레이어 */}
+        <Section title="🖼️ 이미지" open={openSec.image} onToggle={() => toggle('image')} badge={`${imgLayers.length}`}>
+          <input type="file" accept="image/*" onChange={async (e) => {
+            const file = e.target.files?.[0]; if (!file) return
+            try { const layer = await api.layers.uploadImage(project.id, file); setImgLayers(p => [...p, layer]) } catch { /* ignore */ }
+          }} className="block w-full text-[10px] text-gray-400 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-gray-800 file:text-gray-300 hover:file:bg-gray-700 cursor-pointer mb-2" />
+          {imgLayers.map(il => (
+            <div key={il.id} className="bg-gray-800 rounded p-1.5 space-y-1 mb-1">
+              <div className="flex items-center gap-1.5">
+                <img src={storageUrl(il.stored_path)} alt="" className="w-6 h-6 rounded object-cover" />
+                <span className="flex-1 text-[10px] text-white truncate">{il.name}</span>
+                <button onClick={async () => { try { await api.layers.deleteImage(project.id, il.id); setImgLayers(p => p.filter(l => l.id !== il.id)) } catch {} }} className="text-gray-600 hover:text-red-400 text-[10px]">✕</button>
+              </div>
+              <Sl label="크기" value={il.scale} min={0.1} max={5} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => setImgLayers(p => p.map(l => l.id === il.id ? { ...l, scale: v } : l))} />
+              <Sl label="투명도" value={il.opacity} min={0} max={1} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => setImgLayers(p => p.map(l => l.id === il.id ? { ...l, opacity: v } : l))} />
             </div>
           ))}
-          <button onClick={() => setEffects(p => [...p, { enabled: true, name: '새 효과', effect_id: '', params: { animation: 0.5, speed: 0.15 } }])} className="text-[10px] text-purple-400 hover:text-purple-300">+ 효과 추가</button>
         </Section>
 
         {/* 템플릿 */}
@@ -323,7 +386,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
 
         <div ref={boxRef} className="relative rounded-xl overflow-hidden border border-gray-800 select-none" style={{ width: CW, height: CH, background: '#000' }} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}>
           {bgUrl ? <img src={bgUrl} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-sm">배경 이미지 없음</div>}
-          <canvas ref={fxRef} width={CW} height={CH} className="absolute inset-0 pointer-events-none" />
+          {/* 효과 캔버스 제거 — CapCut에서 직접 추가 */}
           {wf.enabled && <>
             <canvas ref={cvRef} width={CW} height={CH} className="absolute inset-0 pointer-events-none" />
             {wf.style !== 'circle' && <div className="absolute border border-dashed border-white/20" style={{ left: wf.position_x * CW - wfNW / 2, top: wf.position_y * CH - wfNH / 2, width: wfNW, height: wfNH }}><div className="absolute inset-0 cursor-move" onMouseDown={startDrag('move-wf', 'wf')} />{['nw', 'ne', 'sw', 'se'].map(c => (<div key={c} className={`absolute w-2.5 h-2.5 bg-white/40 hover:bg-white/80 rounded-sm ${c.includes('n') ? 'top-0' : 'bottom-0'} ${c.includes('w') ? 'left-0' : 'right-0'} cursor-nwse-resize`} style={{ transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('resize-wf', 'wf')} />))}</div>}
@@ -337,9 +400,25 @@ export default function LayerPreview({ project, onRefresh }: Props) {
               <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-purple-500/50 hover:bg-purple-400 rounded-sm cursor-se-resize opacity-0 group-hover:opacity-100" onMouseDown={startDrag('resize-text', l.id)} />
             </div>
           ))}
+          {/* 이미지 레이어 — 바운딩 박스 + 4코너 리사이즈 */}
+          {imgLayers.map(il => {
+            const imgW = 80 * il.scale * S, imgH = 80 * il.scale * S
+            const imgL = il.position_x * CW - imgW / 2, imgT = il.position_y * CH - imgH / 2
+            return (
+              <div key={il.id} className="absolute border border-dashed border-blue-400/30" style={{ left: imgL, top: imgT, width: imgW, height: imgH, opacity: il.opacity }}>
+                <img src={storageUrl(il.stored_path)} alt={il.name} className="absolute inset-0 w-full h-full object-contain cursor-move" draggable={false}
+                  onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setDragMode('move-img'); setDragId(il.id); dragStartRef.current = { mx: e.clientY, my: e.clientY, origSize: il.scale } }} />
+                {['nw', 'ne', 'sw', 'se'].map(c => (
+                  <div key={c} className={`absolute w-2.5 h-2.5 bg-blue-400/50 hover:bg-blue-400 rounded-sm cursor-nwse-resize ${c.includes('n') ? 'top-0' : 'bottom-0'} ${c.includes('w') ? 'left-0' : 'right-0'}`}
+                    style={{ transform: 'translate(-50%,-50%)' }}
+                    onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setDragMode('resize-img'); setDragId(il.id); dragStartRef.current = { mx: e.clientY, my: e.clientY, origSize: il.scale } }} />
+                ))}
+              </div>
+            )
+          })}
           {/* 자막 미리보기 — 재생 중엔 타임코드 맞을 때만 표시 */}
           {subPreview && (!playing || (playTime >= subPreview.start && playTime <= subPreview.end)) && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center" style={{ fontSize: `${(subStyle.font_size || 15) * S * (subStyle.scale_x ?? 0.325)}px`, fontFamily: subStyle.font_family || FONTS[1].value, color: subStyle.color || '#FFFFFF', fontStyle: subStyle.italic ? 'italic' : 'normal', opacity: 0.9, textShadow: '2px 2px 4px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap' }}>
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center" style={{ fontSize: `${(subStyle.font_size || 15) * S * 2}px`, fontFamily: subStyle.font_family || FONTS[0].value, color: subStyle.color || '#FFFFFF', fontStyle: subStyle.italic ? 'italic' : 'normal', opacity: 0.9, textShadow: '2px 2px 4px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap' }}>
               {subPreview.text}
             </div>
           )}

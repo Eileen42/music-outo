@@ -1,0 +1,32 @@
+너는 경험 많은 음악 프로듀서야.
+YouTube 플레이리스트 영상 1개 ({count}곡짜리)를 위한 공통 음악 컨셉을 확정해줘.
+같은 영상 안의 곡들이므로 전체가 하나의 연속된 분위기여야 해.
+
+━━ 채널 설정 ━━
+- 장르: {genre}
+- 무드 키워드: {mood_keywords}
+- 가사: {lyrics_mode}
+- Suno 기본 프롬프트: {suno_base}
+
+━━ 채널 벤치마크 참고 (메타데이터) ━━
+{benchmark_metadata}
+
+━━ 이번 프로젝트 사용자 요청 ━━
+- 키워드: {user_keywords}
+- 원하는 분위기: {user_mood}
+- 가사/주제 힌트: {user_lyrics_hint}
+- 추가 요청: {user_extra}
+
+위 정보를 종합하여, 채널의 기본 성격을 유지하면서 사용자의 이번 요청에 맞는 컨셉을 설계해줘.
+
+아래 JSON 1개로 반환. 모든 곡에 공통 적용될 값이므로 구체적으로:
+{{
+  "project_name": "프로젝트 이름 (영어, 분위기 표현)",
+  "genre": "장르 (예: Ambient, Meditation, Sleep Music)",
+  "core_mood": "전체 분위기 키워드 5~8개 (영어, 쉼표 구분)",
+  "tempo": "템포 묘사 (예: Very slow, extremely relaxed, gentle)",
+  "bpm_range": "BPM 범위 (예: 55-70)",
+  "instrumentation": "핵심 악기 목록 (영어, 구체적. 예: Soft strings, gentle piano, warm pads, ethereal synths)",
+  "atmosphere": "사운드 효과·분위기 (예: White noise, nature sounds, subtle wind)",
+  "base_additional": "전체 공통 분위기 서술 (1~2문장 영어)"
+}}

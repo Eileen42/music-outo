@@ -1,7 +1,11 @@
 import axios from 'axios'
 import type { Project, Track, ProjectImages, ProjectMetadata, ProjectLayers, BuildStatus, RepeatConfig, ImageMood, Channel, DesignedTrack, ProjectConcept, SunoTrack, LayerTemplate } from '../types'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+function getBackendUrl() {
+  return localStorage.getItem('backend_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000'
+}
+
+const BASE = getBackendUrl()
 
 const http = axios.create({ baseURL: BASE })
 
@@ -73,6 +77,8 @@ export const api = {
       http.get<ProjectMetadata>(`/api/projects/${projectId}/metadata`).then(r => r.data),
     generate: (projectId: string, regenerate = false, instruction = '') =>
       http.post<ProjectMetadata>(`/api/projects/${projectId}/metadata/generate`, { regenerate, instruction }).then(r => r.data),
+    readThumbnail: (projectId: string) =>
+      http.get<{ text: string }>(`/api/projects/${projectId}/metadata/read-thumbnail`).then(r => r.data),
     update: (projectId: string, data: Partial<ProjectMetadata>) =>
       http.put<ProjectMetadata>(`/api/projects/${projectId}/metadata`, data).then(r => r.data),
   },
@@ -88,6 +94,17 @@ export const api = {
       http.put(`/api/projects/${projectId}/layers/text/${layerId}`, data).then(r => r.data),
     deleteText: (projectId: string, layerId: string) =>
       http.delete(`/api/projects/${projectId}/layers/text/${layerId}`).then(r => r.data),
+    listFonts: (projectId: string) =>
+      http.get<{ name: string; path: string }[]>(`/api/projects/${projectId}/layers/fonts`).then(r => r.data),
+    uploadImage: (projectId: string, file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return http.post<import('../types').ImageLayerConfig>(`/api/projects/${projectId}/layers/image`, form).then(r => r.data)
+    },
+    deleteImage: (projectId: string, layerId: string) =>
+      http.delete(`/api/projects/${projectId}/layers/image/${layerId}`).then(r => r.data),
+    autoGenerateSrt: (projectId: string) =>
+      http.post<{ status: string; message: string }>(`/api/projects/${projectId}/layers/srt/auto`).then(r => r.data),
     uploadSrt: (projectId: string, file: File) => {
       const form = new FormData()
       form.append('file', file)
@@ -149,6 +166,11 @@ export const api = {
       http.delete('/api/suno/recipe').then(r => r.data),
   },
 
+  agents: {
+    skills: () => http.get<{ composer: { id: string; name: string; summary: string }[]; lyricist: { id: string; name: string; summary: string }[] }>('/api/agents/skills').then(r => r.data),
+    skillContent: (agent: string, skillId: string) => http.get<{ id: string; agent: string; content: string }>(`/api/agents/skills/${agent}/${skillId}`).then(r => r.data),
+  },
+
   channels: {
     list: () => http.get<Channel[]>('/api/channels').then(r => r.data),
     get: (id: string) => http.get<Channel>(`/api/channels/${id}`).then(r => r.data),
@@ -167,10 +189,19 @@ export const api = {
   },
 
   trackDesign: {
-    design: (channelId: string, projectId: string, benchmarkUrl?: string, count = 20) =>
+    design: (channelId: string, projectId: string, opts?: { benchmarkUrl?: string; count?: number; keywords?: string; mood?: string; lyricsHint?: string; extra?: string }) =>
       http.post<{ tracks: DesignedTrack[]; concept: ProjectConcept; benchmark_used: string; total: number }>(
         '/api/tracks/design',
-        { channel_id: channelId, project_id: projectId, benchmark_url: benchmarkUrl ?? null, count }
+        {
+          channel_id: channelId,
+          project_id: projectId,
+          benchmark_url: opts?.benchmarkUrl ?? null,
+          count: opts?.count ?? 20,
+          keywords: opts?.keywords ?? '',
+          mood: opts?.mood ?? '',
+          lyrics_hint: opts?.lyricsHint ?? '',
+          extra: opts?.extra ?? '',
+        }
       ).then(r => r.data),
     list: (projectId: string) =>
       http.get<{ tracks: DesignedTrack[]; concept: ProjectConcept }>(`/api/tracks/${projectId}`).then(r => r.data),

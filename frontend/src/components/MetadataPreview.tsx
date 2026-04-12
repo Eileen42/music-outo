@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Project } from '../types'
 import { api } from '../api/client'
 
@@ -40,6 +40,19 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const [description, setDescription] = useState(meta.description || '')
   const [tags, setTags] = useState((meta.tags || []).join(', '))
   const [comment, setComment] = useState(meta.comment || '')
+  const [thumbnailText, setThumbnailText] = useState('')
+  const [readingThumb, setReadingThumb] = useState(false)
+
+  // 썸네일이 있고 제목이 비어있으면 텍스트 OCR 시도
+  useEffect(() => {
+    if (project.images?.thumbnail && !meta.title) {
+      setReadingThumb(true)
+      api.metadata.readThumbnail(project.id)
+        .then(r => { if (r.text) setThumbnailText(r.text) })
+        .catch(() => {})
+        .finally(() => setReadingThumb(false))
+    }
+  }, [project.images?.thumbnail, project.id, meta.title])
 
   const handleGenerate = async (regenerate = false) => {
     setGenerating(true)
@@ -122,14 +135,33 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
       <div className="space-y-4">
         <div>
           <label className="block text-sm text-gray-400 mb-1">제목</label>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="YouTube 영상 제목"
-            maxLength={100}
-            className="w-full bg-gray-900 border border-gray-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-500"
-          />
-          <div className="text-xs text-gray-600 text-right mt-1">{title.length}/100</div>
+          <div className="relative">
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder={thumbnailText || 'YouTube 영상 제목'}
+              maxLength={100}
+              className="w-full bg-gray-900 border border-gray-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-500"
+            />
+            {readingThumb && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600">
+                썸네일 읽는 중...
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            {thumbnailText && !title ? (
+              <button
+                onClick={() => setTitle(thumbnailText.slice(0, 100))}
+                className="text-[10px] text-purple-400/60 hover:text-purple-400 transition-colors"
+              >
+                썸네일 텍스트 사용: "{thumbnailText.length > 40 ? thumbnailText.slice(0, 40) + '...' : thumbnailText}"
+              </button>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-gray-600">{title.length}/100</span>
+          </div>
         </div>
 
         <div>

@@ -75,7 +75,10 @@ class ProjectStateManager:
     def get(self, project_id: str) -> Optional[dict]:
         return self._load(project_id)
 
-    def list_all(self) -> list[dict]:
+    # 목록 조회 시 제외할 무거운 필드
+    _HEAVY_KEYS = {"designed_tracks", "suno_tracks", "subtitle_entries", "benchmark_data"}
+
+    def list_all(self, summary: bool = False) -> list[dict]:
         if not self._root.exists():
             return []
         projects = []
@@ -83,6 +86,8 @@ class ProjectStateManager:
             if d.is_dir():
                 s = self._load(d.name)
                 if s:
+                    if summary:
+                        s = {k: v for k, v in s.items() if k not in self._HEAVY_KEYS}
                     projects.append(s)
         projects.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
         return projects

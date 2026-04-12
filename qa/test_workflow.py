@@ -254,18 +254,86 @@ def test_5_layers(pid: str):
         print(f"  {SKIP} 프로젝트 없음")
         return
 
+    # 레이어 전체 업데이트
     r = req("PUT", f"/api/projects/{pid}/layers", json={
         "layers": {
             "background_video": None,
             "waveform_layer": {
                 "enabled": True, "style": "bar",
-                "color": "#FFFFFF", "opacity": 0.8, "position_y": 0.5
+                "color": "#FFFFFF", "opacity": 0.8, "position_x": 0.5, "position_y": 0.5,
+                "bar_count": 60, "bar_width": 4, "bar_gap": 2, "bar_height": 120,
+                "bar_min": 0.1, "bar_align": "bottom", "scale": 1.0, "circle_radius": 0.12
             },
-            "text_layers": []
+            "text_layers": [],
+            "effect_layers": [],
+            "image_layers": []
         }
     })
     check("레이어 설정 PUT", r is not None and r.status_code == 200,
           f"status={r.status_code if r else 'no response'}")
+
+    # 텍스트 레이어 CRUD
+    r2 = req("POST", f"/api/projects/{pid}/layers/text", json={
+        "text": "QA 테스트 텍스트", "font_size": 36, "font_family": "SeoulHangangB",
+        "color": "#FFFFFF", "alpha": 1, "position_x": 0.5, "position_y": 0.1,
+        "bold": False, "italic": False, "role": "title"
+    })
+    check("텍스트 레이어 추가 POST", r2 is not None and r2.status_code == 200)
+    text_id = ""
+    if r2 and r2.status_code == 200:
+        text_id = r2.json().get("id", "")
+        check("텍스트 레이어 ID 반환", bool(text_id))
+
+    if text_id:
+        r3 = req("PUT", f"/api/projects/{pid}/layers/text/{text_id}",
+                 json={"text": "수정된 텍스트", "font_size": 48})
+        check("텍스트 레이어 수정 PUT", r3 is not None and r3.status_code == 200)
+        if r3 and r3.status_code == 200:
+            check("텍스트 수정 반영", r3.json().get("text") == "수정된 텍스트")
+
+        r4 = req("DELETE", f"/api/projects/{pid}/layers/text/{text_id}")
+        check("텍스트 레이어 삭제 DELETE", r4 is not None and r4.status_code == 200)
+
+    # 이미지 레이어 업로드/삭제
+    png_bytes = make_test_png()
+    r5 = req("POST", f"/api/projects/{pid}/layers/image",
+             files={"file": ("logo.png", png_bytes, "image/png")})
+    check("이미지 레이어 업로드 POST", r5 is not None and r5.status_code == 200,
+          f"status={r5.status_code if r5 else 'no response'}, body={r5.text[:100] if r5 else ''}")
+    img_id = ""
+    if r5 and r5.status_code == 200:
+        img_data = r5.json()
+        img_id = img_data.get("id", "")
+        check("이미지 레이어 ID 반환", bool(img_id))
+        check("이미지 레이어 name", img_data.get("name") == "logo.png")
+        check("이미지 레이어 stored_path", bool(img_data.get("stored_path")))
+        check("이미지 레이어 기본 scale=1", img_data.get("scale") == 1.0)
+        check("이미지 레이어 기본 opacity=1", img_data.get("opacity") == 1.0)
+
+    if img_id:
+        r6 = req("DELETE", f"/api/projects/{pid}/layers/image/{img_id}")
+        check("이미지 레이어 삭제 DELETE", r6 is not None and r6.status_code == 200)
+
+    # SRT 업로드
+    srt_content = b"1\n00:00:01,000 --> 00:00:03,000\nHello World\n\n2\n00:00:04,000 --> 00:00:06,000\nSecond line\n"
+    r7 = req("POST", f"/api/projects/{pid}/layers/srt",
+             files={"file": ("test.srt", srt_content, "text/plain")})
+    check("SRT 업로드 POST", r7 is not None and r7.status_code == 200,
+          f"status={r7.status_code if r7 else 'no response'}")
+    if r7 and r7.status_code == 200:
+        srt_data = r7.json()
+        check("SRT entries_count=2", srt_data.get("entries_count") == 2)
+
+    # 폰트 목록 조회
+    r8 = req("GET", f"/api/projects/{pid}/layers/fonts")
+    check("폰트 목록 GET", r8 is not None and r8.status_code == 200)
+    if r8 and r8.status_code == 200:
+        fonts = r8.json()
+        check("폰트 1개 이상 반환", len(fonts) > 0, f"count={len(fonts)}")
+
+    # 레이어 전체 조회 확인
+    r9 = req("GET", f"/api/projects/{pid}/layers")
+    check("레이어 조회 GET", r9 is not None and r9.status_code == 200)
 
 
 def test_6_build(pid: str):
@@ -310,23 +378,40 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YPA 워크플로우 QA 테스트")
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--keep", action="store_true", help="테스트 프로젝트 삭제 안 함")
+    parser.add_argument("--repeat", type=int, default=1, help="반복 실행 횟수")
     args = parser.parse_args()
     BASE_URL = args.base_url
 
-    print("=" * 50)
-    print("YouTube Playlist Automator — QA 테스트")
-    print(f"대상: {BASE_URL}")
-    print("=" * 50)
+    total_runs = args.repeat
+    all_ok = True
 
-    test_0_server()
-    pid = test_1_project()
-    test_2_tracks(pid)
-    test_3_images(pid)
-    test_4_metadata(pid)
-    test_5_layers(pid)
-    test_6_build(pid)
-    if not args.keep:
-        test_7_cleanup(pid)
+    for run_num in range(1, total_runs + 1):
+        results.clear()
+        print("\n" + "#" * 50)
+        print(f"  RUN {run_num}/{total_runs}")
+        print("#" * 50)
+        print(f"대상: {BASE_URL}")
 
-    ok = print_summary()
-    sys.exit(0 if ok else 1)
+        test_0_server()
+        pid = test_1_project()
+        test_2_tracks(pid)
+        test_3_images(pid)
+        test_4_metadata(pid)
+        test_5_layers(pid)
+        test_6_build(pid)
+        if not args.keep:
+            test_7_cleanup(pid)
+
+        ok = print_summary()
+        if not ok:
+            all_ok = False
+            print(f"\n!!! RUN {run_num} FAILED — 중단")
+            break
+        print(f"\n  RUN {run_num}/{total_runs} 완료 ✓")
+
+    if total_runs > 1:
+        print("\n" + "=" * 50)
+        print(f"  전체 결과: {'ALL PASS' if all_ok else 'FAILED'} ({total_runs} runs)")
+        print("=" * 50)
+
+    sys.exit(0 if all_ok else 1)
