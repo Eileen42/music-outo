@@ -183,7 +183,7 @@ async def main(project_id: str) -> None:
             collector.stop()
             await collector_task
 
-            # Creator 탭 정리 → 브라우저 닫기
+            # Creator 탭 정리
             await creator.close_all_tabs()
 
             # Collector 결과 저장
@@ -214,6 +214,9 @@ async def main(project_id: str) -> None:
             merged2.extend(all_results)
             merged2.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
             state_manager.update(project_id, {"suno_tracks": merged2})
+
+            # Collector 검색 페이지 닫기
+            await collector.close_search_page()
 
             await context.close()
             await browser.close()
