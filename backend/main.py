@@ -230,6 +230,22 @@ async def set_google_oauth(body: dict):
 
 # ─── 에이전트 스킬 관리 ──────────────────────────────────────────────────────
 
+# ─── QA 검수 ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/projects/{project_id}/qa")
+async def qa_verify(project_id: str):
+    """프로젝트의 곡 파일 완성도 검수."""
+    from agents.suno_qa import suno_qa_agent
+    return suno_qa_agent.verify(project_id)
+
+
+@app.post("/api/projects/{project_id}/qa/fix")
+async def qa_fix_links(project_id: str):
+    """파일은 있지만 연결 안 된 곡 자동 연결."""
+    from agents.suno_qa import suno_qa_agent
+    return suno_qa_agent.fix_links(project_id)
+
+
 @app.get("/api/agents/skills")
 async def list_agent_skills():
     """작곡/작사 에이전트의 사용 가능한 스킬 목록."""
