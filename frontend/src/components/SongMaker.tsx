@@ -658,9 +658,10 @@ export default function SongMaker({ project, onRefresh }: Props) {
                     const total = batchStatus.total_batches || 1
                     const pct = Math.round((done / total) * 100)
                     const phaseLabel = {
-                      checking: '상태 확인 중',
+                      checking: '파일 확인 중',
+                      collecting: 'Suno에서 다운로드 중',
                       creating: '곡 생성 중',
-                      collecting: '다운로드 중',
+                      waiting: 'Suno 처리 대기 중',
                       verifying: '검수 중',
                     }[batchStatus.phase || ''] || '진행 중'
 
