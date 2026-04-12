@@ -161,7 +161,8 @@ async def _post_comment_when_ready(project_id: str, comment: str):
                     ).execute()
                     import logging
                     logging.getLogger(__name__).info(f"댓글 작성 완료: {vid}")
-                    state_manager.update(project_id, {"browser_comment_posted": True, "youtube": {"video_id": vid, "url": f"https://www.youtube.com/watch?v={vid}"}})
+                    cs = state_manager.get(project_id) or {}
+                    state_manager.update(project_id, {"browser_comment_posted": True, "uploaded_set": cs.get("active_suno_set", ""), "youtube": {"video_id": vid, "url": f"https://www.youtube.com/watch?v={vid}"}})
                     return
                 except Exception as e:
                     if "processingFailure" in str(e) or "forbidden" in str(e).lower():
@@ -179,14 +180,21 @@ async def _post_comment_when_ready(project_id: str, comment: str):
 
 
 async def _fill_metadata_browser(project_id: str):
-    """CDP로 YouTube Studio 메타데이터 입력."""
+    """CDP로 YouTube Studio 메타데이터 입력 — 각 단계를 확인하고 미완료분만 실행."""
     import asyncio
+    import logging
+    log = logging.getLogger(__name__)
+
     state = state_manager.get(project_id)
     meta = state.get("metadata", {})
     title = meta.get("title", "")
     desc = meta.get("description", "")
     tags = meta.get("tags", [])
     comment = meta.get("comment", "")
+    images = state.get("images", {})
+    thumb = images.get("thumbnail", "")
+
+    steps_done = []
 
     try:
         from playwright.async_api import async_playwright
@@ -194,102 +202,147 @@ async def _fill_metadata_browser(project_id: str):
             browser = await p.chromium.connect_over_cdp("http://localhost:9224")
             context = browser.contexts[0]
             page = context.pages[0]
+            await page.wait_for_timeout(2000)
 
-            await page.wait_for_timeout(3000)
+            # 업로드 편집 페이지인지 확인 (제목 입력란이 있어야 함)
+            title_el_check = await page.query_selector("#title-textarea [contenteditable]")
+            if not title_el_check:
+                log.error(f"업로드 편집 페이지가 아닙니다. URL: {page.url}")
+                await browser.close()
+                return
 
-            # 클립보드 붙여넣기로 입력 (빠름)
+            # 헬퍼: 클립보드 붙여넣기
             async def paste_text(selector, text):
                 el = await page.query_selector(selector)
+                if not el:
+                    return False
+                await el.click()
+                await page.keyboard.press("Control+a")
+                await page.evaluate(f"navigator.clipboard.writeText({json.dumps(text)})")
+                await page.keyboard.press("Control+v")
+                await page.wait_for_timeout(500)
+                return True
+
+            # 헬퍼: 요소 텍스트 읽기
+            async def get_text(selector):
+                el = await page.query_selector(selector)
                 if el:
-                    await el.click()
-                    await page.keyboard.press("Control+a")
-                    await page.evaluate(f"navigator.clipboard.writeText({json.dumps(text)})")
-                    await page.keyboard.press("Control+v")
-                    await page.wait_for_timeout(500)
-                    return True
-                return False
+                    return (await el.inner_text()).strip()
+                return ""
 
-            # 제목
-            await paste_text("#title-textarea [contenteditable]", title[:100])
-            # 설명
-            await paste_text("#description-textarea [contenteditable]", desc[:5000])
+            # ── 1. 제목 ──
+            current_title = await get_text("#title-textarea [contenteditable]")
+            if not current_title or len(current_title) < 3:
+                if await paste_text("#title-textarea [contenteditable]", title[:100]):
+                    steps_done.append("제목")
+                    log.info("✓ 제목 입력")
+            else:
+                steps_done.append("제목(이미 입력됨)")
 
-            # 태그 (더보기 → 태그)
+            # ── 2. 설명 ──
+            current_desc = await get_text("#description-textarea [contenteditable]")
+            if not current_desc or len(current_desc) < 10:
+                if await paste_text("#description-textarea [contenteditable]", desc[:5000]):
+                    steps_done.append("설명")
+                    log.info("✓ 설명 입력")
+            else:
+                steps_done.append("설명(이미 입력됨)")
+
+            # ── 3. 더보기 + 태그 ──
             more_btn = await page.query_selector("button:has-text('더보기')")
             if more_btn:
                 await more_btn.click()
                 await page.wait_for_timeout(1000)
 
-            tag_input = await page.query_selector("input[aria-label*='태그'], #tags-container input")
-            if tag_input and tags:
-                await tag_input.click()
-                await page.evaluate(f"navigator.clipboard.writeText({json.dumps(', '.join(tags))})")
-                await page.keyboard.press("Control+v")
+            if tags:
+                tag_input = await page.query_selector("input[aria-label*='태그'], #tags-container input")
+                if tag_input:
+                    current_tags = await tag_input.input_value()
+                    if not current_tags:
+                        await tag_input.click()
+                        await page.evaluate(f"navigator.clipboard.writeText({json.dumps(', '.join(tags))})")
+                        await page.keyboard.press("Control+v")
+                        await page.wait_for_timeout(500)
+                        steps_done.append("태그")
+                        log.info("✓ 태그 입력")
+                    else:
+                        steps_done.append("태그(이미 입력됨)")
 
-            await page.wait_for_timeout(1000)
-
-            # 썸네일 업로드
-            images = state.get("images", {})
-            thumb = images.get("thumbnail", "")
+            # ── 4. 썸네일 ──
             if thumb and Path(thumb).exists():
                 try:
-                    thumb_input = await page.query_selector("#still-picker input[type='file'], input[accept='image/jpeg,image/png']")
-                    if not thumb_input:
-                        # 썸네일 업로드 버튼 클릭으로 input 노출
-                        thumb_btn = await page.query_selector("#still-picker button, button:has-text('썸네일 업로드'), button:has-text('Upload thumbnail')")
-                        if thumb_btn:
-                            async with page.expect_file_chooser() as fc:
-                                await thumb_btn.click()
-                            file_chooser = await fc.value
-                            await file_chooser.set_files(thumb)
+                    upload_btn = await page.query_selector('ytcp-thumbnail-uploader button:has-text("파일 업로드")')
+                    if not upload_btn:
+                        upload_btn = await page.query_selector('ytcp-video-custom-still-editor button:has-text("파일 업로드")')
+                    if upload_btn:
+                        async with page.expect_file_chooser(timeout=5000) as fc:
+                            await upload_btn.click()
+                        file_chooser = await fc.value
+                        await file_chooser.set_files(thumb)
+                        await page.wait_for_timeout(3000)
+                        steps_done.append("썸네일")
+                        log.info("✓ 썸네일 업로드")
+                    else:
+                        # fallback: hidden input
+                        fi = await page.query_selector("input[accept*='image']")
+                        if fi:
+                            await fi.set_input_files(thumb)
                             await page.wait_for_timeout(2000)
-                    elif thumb_input:
-                        await thumb_input.set_input_files(thumb)
-                        await page.wait_for_timeout(2000)
+                            steps_done.append("썸네일(fallback)")
+                        else:
+                            steps_done.append("썸네일(버튼 못 찾음)")
                 except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(f"썸네일 업로드 실패: {e}")
+                    log.warning(f"썸네일 건너뜀: {e}")
+                    steps_done.append("썸네일(실패-건너뜀)")
 
-            # 아동용 아님 선택
+            # ── 5. 아동용 아님 ──
             not_for_kids = await page.query_selector("#audience [name='VIDEO_MADE_FOR_KIDS_NOT_MFK']")
             if not not_for_kids:
                 not_for_kids = await page.query_selector("tp-yt-paper-radio-button[name='NOT_MADE_FOR_KIDS']")
             if not_for_kids:
                 await not_for_kids.click()
                 await page.wait_for_timeout(500)
+                steps_done.append("아동용아님")
 
-            # 다음 버튼 3번 클릭 (세부정보 → 동영상 요소 → 확인 → 공개 설정)
+            # ── 6. 다음 버튼 (현재 페이지 확인 후 필요한 만큼만 클릭) ──
             for step in range(3):
-                next_btn = await page.query_selector("#next-button") or await page.query_selector("ytcp-button#next-button")
+                next_btn = await page.query_selector("#next-button")
+                if not next_btn:
+                    next_btn = await page.query_selector("ytcp-button#next-button")
                 if next_btn:
                     await next_btn.click()
                     await page.wait_for_timeout(2000)
+                    steps_done.append(f"다음{step+1}")
 
-            # 일부공개 선택
+            # ── 7. 공개 설정 ──
+            # 현재 페이지가 공개설정 페이지인지 확인
             unlisted = await page.query_selector("tp-yt-paper-radio-button[name='UNLISTED']")
             if not unlisted:
-                # 라디오 버튼 텍스트로 찾기
                 unlisted = await page.query_selector("tp-yt-paper-radio-button:has-text('일부공개')")
             if unlisted:
                 await unlisted.click()
                 await page.wait_for_timeout(1000)
+                steps_done.append("일부공개")
 
-            # 저장/게시 버튼
-            save_btn = await page.query_selector("#done-button") or await page.query_selector("ytcp-button#done-button")
+            # ── 8. 저장/게시 ──
+            save_btn = await page.query_selector("#done-button")
+            if not save_btn:
+                save_btn = await page.query_selector("ytcp-button#done-button")
             if save_btn:
                 await save_btn.click()
                 await page.wait_for_timeout(3000)
+                steps_done.append("게시")
 
             state_manager.update(project_id, {"browser_metadata_filled": True})
+            log.info(f"메타데이터 입력 완료: {steps_done}")
             await browser.close()
 
-            # 브라우저와 무관하게 — API로 최신 업로드 영상 찾아서 댓글 작성
+            # 댓글 자동 작성
             if comment:
                 await _post_comment_when_ready(project_id, comment)
 
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"메타데이터 입력 실패: {e}")
+        log.error(f"메타데이터 입력 실패 (완료: {steps_done}): {e}")
 
 
 @router.get("/upload/{project_id}/status", summary="업로드 상태 확인")
@@ -332,6 +385,8 @@ async def _run_upload(project_id: str, privacy_status: str):
         )
 
         from datetime import datetime
+        current_state = state_manager.get(project_id) or {}
+        uploaded_set = current_state.get("active_suno_set", "")
         state_manager.update(
             project_id,
             {
@@ -341,6 +396,7 @@ async def _run_upload(project_id: str, privacy_status: str):
                     "url": result["url"],
                     "uploaded_at": datetime.utcnow().isoformat(),
                 },
+                "uploaded_set": uploaded_set,
             },
         )
     except Exception as e:

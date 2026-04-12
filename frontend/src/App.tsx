@@ -8,6 +8,13 @@ import MetadataPreview from './components/MetadataPreview'
 import LayerPreview from './components/LayerPreview'
 import BuildDownload from './components/BuildDownload'
 import YouTubeUpload from './components/YouTubeUpload'
+import RegisterForm from './components/RegisterForm'
+import PendingApproval from './components/PendingApproval'
+import SetupGuide from './components/SetupGuide'
+import AdminPage from './components/AdminPage'
+import GeminiSetup from './components/GeminiSetup'
+
+type AuthState = 'loading' | 'register' | 'pending' | 'rejected' | 'approved'
 
 interface Step {
   id: StepId
@@ -87,6 +94,102 @@ export default function App() {
   const [step, setStep] = useState<StepId>(() => (localStorage.getItem('step') as StepId) || 'setup')
   const [showProjectList, setShowProjectList] = useState(() => !localStorage.getItem('projectId'))
   const [restored, setRestored] = useState(false)
+  const [serverOnline, setServerOnline] = useState<boolean | null>(null) // null = 아직 확인 안 됨
+  const [authState, setAuthState] = useState<AuthState>('loading')
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '')
+  const [userName, setUserName] = useState('')
+  const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null)
+  const [showAdmin, setShowAdmin] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('admin') === 'true'
+  })
+
+  const backendUrl = localStorage.getItem('backend_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token')
+    sessionStorage.removeItem('auth_token')
+    setAuthToken('')
+    setUserName('')
+    setAuthState('register')
+  }
+
+  // 로컬 환경 감지 (localhost에서는 인증 건너뜀)
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+
+  // 인증 상태 확인
+  useEffect(() => {
+    // 로컬 환경에서는 인증 없이 바로 사용
+    if (isLocal) {
+      setAuthState('approved')
+      setUserName('로컬 사용자')
+      return
+    }
+
+    if (!authToken) {
+      setAuthState('register')
+      return
+    }
+
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`/api/auth/status?token=${authToken}`)
+        const data = await res.json()
+        if (data.name) setUserName(data.name)
+        if (data.status === 'approved') setAuthState('approved')
+        else if (data.status === 'pending') setAuthState('pending')
+        else if (data.status === 'rejected' || data.status === 'blocked') setAuthState('rejected')
+        else setAuthState('register')
+      } catch {
+        setAuthState('register')
+      }
+    }
+    checkAuth()
+  }, [authToken, isLocal])
+
+  // 서버 연결 상태 체크 (10초마다) — 승인된 사용자만
+  useEffect(() => {
+    if (authState !== 'approved') return
+
+    const check = async () => {
+      try {
+        const res = await fetch(backendUrl + '/health')
+        if (res.ok) {
+          setServerOnline(true)
+          // Gemini 키 설정 여부 확인
+          try {
+            const gRes = await fetch(backendUrl + '/api/settings/gemini')
+            const gData = await gRes.json()
+            setGeminiConfigured(gData.configured)
+          } catch {
+            setGeminiConfigured(null)
+          }
+          return
+        }
+      } catch {
+        try {
+          await fetch(backendUrl + '/health', { mode: 'no-cors' })
+          setServerOnline(true)
+          return
+        } catch {
+          // 서버 미연결
+        }
+      }
+      setServerOnline(false)
+    }
+    check()
+    const id = setInterval(check, 10000)
+    return () => clearInterval(id)
+  }, [authState, backendUrl])
+
+  // 프로젝트 활성화 — 항상 full 데이터 로드 후 표시
+  const activateProject = useCallback(async (id: string, targetStep?: StepId) => {
+    const full = await api.projects.get(id)
+    setActiveProject(full)
+    setProjects(prev => prev.some(p => p.id === id) ? prev.map(p => p.id === id ? full : p) : [full, ...prev])
+    setShowProjectList(false)
+    if (targetStep) setStep(targetStep)
+  }, [])
 
   const loadProjects = useCallback(async () => {
     const list = await api.projects.list()
@@ -95,19 +198,15 @@ export default function App() {
     if (!restored) {
       const savedId = localStorage.getItem('projectId')
       const savedStep = localStorage.getItem('step') as StepId
-      if (savedId) {
-        const saved = list.find(p => p.id === savedId)
-        if (saved) {
-          setActiveProject(saved)
-          setShowProjectList(false)
-          if (savedStep) setStep(savedStep)
-          setRestored(true)
-          return
-        }
+      if (savedId && list.find(p => p.id === savedId)) {
+        if (savedStep) setStep(savedStep)
+        setRestored(true)
+        await activateProject(savedId)
+        return
       }
       setRestored(true)
     }
-  }, [restored])
+  }, [restored, activateProject])
 
   const refreshProject = useCallback(async (id: string) => {
     const updated = await api.projects.get(id)
@@ -133,25 +232,16 @@ export default function App() {
 
   useEffect(() => { loadProjects() }, [loadProjects])
 
-  const handleSelectProject = (p: Project) => {
-    setActiveProject(p)
-    setShowProjectList(false)
-    setStep('tracks')
+  const handleSelectProject = async (p: Project) => {
+    await activateProject(p.id, 'tracks')
   }
 
   const handleCreateProject = async (name: string, playlistTitle: string, channelId: string) => {
-    // 프로젝트 생성 후 channel_id 연결
     const p = await api.projects.create(name, playlistTitle)
     if (channelId) {
-      const updated = await api.projects.update(p.id, { channel_id: channelId })
-      setProjects(prev => [updated, ...prev])
-      setActiveProject(updated)
-    } else {
-      setProjects(prev => [p, ...prev])
-      setActiveProject(p)
+      await api.projects.update(p.id, { channel_id: channelId })
     }
-    setShowProjectList(false)
-    setStep('tracks')
+    await activateProject(p.id, 'tracks')
   }
 
   const handleDeleteProject = async (id: string) => {
@@ -165,6 +255,94 @@ export default function App() {
   const stepProps = { project: activeProject!, onRefresh: () => refreshProject(activeProject!.id) }
   const currentStep = STEPS.find(s => s.id === step)
   const completedCount = activeProject ? getCompletedCount(activeProject) : 0
+
+  // 인증 흐름 — 가입/대기/거절 화면
+  if (authState === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="text-gray-500 text-sm">로딩 중...</div>
+      </div>
+    )
+  }
+
+  if (showAdmin) {
+    return <AdminPage onBack={() => setShowAdmin(false)} />
+  }
+
+  if (authState === 'register') {
+    return (
+      <RegisterForm onRegistered={(token) => {
+        setAuthToken(token)
+        setAuthState('pending')
+      }} />
+    )
+  }
+
+  if (authState === 'pending') {
+    return (
+      <PendingApproval
+        token={authToken}
+        onApproved={() => setAuthState('approved')}
+        onRejected={() => setAuthState('rejected')}
+      />
+    )
+  }
+
+  if (authState === 'rejected') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+        <div className="w-full max-w-md text-center bg-gray-900 rounded-xl border border-gray-800 p-8">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-900/30 flex items-center justify-center">
+            <span className="text-3xl">❌</span>
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">가입이 거절되었습니다</h2>
+          <p className="text-gray-400 text-sm mb-4">관리자에게 문의해주세요.</p>
+          <button
+            onClick={() => { localStorage.removeItem('auth_token'); setAuthToken(''); setAuthState('register') }}
+            className="text-sm text-purple-400 hover:text-purple-300"
+          >
+            다른 계정으로 가입
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // 승인됨 + 서버 확인 중 → 로딩
+  if (authState === 'approved' && serverOnline === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="text-gray-500 text-sm">서버 연결 확인 중...</div>
+        </div>
+      </div>
+    )
+  }
+
+  // 승인됨 + 백엔드 미연결 → 설치 가이드
+  if (authState === 'approved' && serverOnline === false) {
+    return (
+      <>
+        <SetupGuide backendUrl={backendUrl} onConnected={() => setServerOnline(true)} />
+        <button
+          onClick={() => setShowAdmin(true)}
+          className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
+        >
+          관리자
+        </button>
+      </>
+    )
+  }
+
+  // 승인됨 + 서버 연결 + Gemini 미설정 → Gemini 설정 화면
+  if (authState === 'approved' && serverOnline && geminiConfigured === false) {
+    return (
+      <div className="min-h-screen bg-gray-950">
+        <GeminiSetup onComplete={() => setGeminiConfigured(true)} />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-950">
@@ -198,6 +376,19 @@ export default function App() {
             </div>
           </>
         )}
+
+        {/* 사용자 정보 + 로그아웃 */}
+        <div className={`${activeProject && !showProjectList ? '' : 'ml-auto'} flex items-center gap-2`}>
+          {userName && (
+            <span className="text-xs text-gray-500 hidden sm:inline">{userName}</span>
+          )}
+          <button
+            onClick={handleLogout}
+            className="text-xs text-gray-600 hover:text-gray-400 transition-colors px-2 py-1 rounded hover:bg-gray-800"
+          >
+            로그아웃
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -331,6 +522,14 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* 관리자 링크 — 눈에 잘 안 띄게 */}
+      <button
+        onClick={() => setShowAdmin(true)}
+        className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
+      >
+        관리자
+      </button>
     </div>
   )
 }

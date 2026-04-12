@@ -42,6 +42,13 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [regenIdx, setRegenIdx] = useState<number | null>(null)
   const [batchStatus, setBatchStatus] = useState<{ status: string; completed: number; total_batches: number; tracks_collected: number } | null>(null)
   const [expandIdx, setExpandIdx] = useState<number | null>(null)
+  const [showBenchmarks, setShowBenchmarks] = useState(false)
+  const [editingBenchmarkIdx, setEditingBenchmarkIdx] = useState(-1)
+  const [editingBenchmarkUrl, setEditingBenchmarkUrl] = useState('')
+  const [userKeywords, setUserKeywords] = useState('')
+  const [userMood, setUserMood] = useState('')
+  const [userLyricsHint, setUserLyricsHint] = useState('')
+  const [userExtra, setUserExtra] = useState('')
   const [sunoTracks, setSunoTracks] = useState<SunoTrack[]>([])
 
   // 재생 상태
@@ -144,18 +151,17 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [recipeActionCount, setRecipeActionCount] = useState(0)
   const [recipeMsg, setRecipeMsg] = useState('')
 
-  // 채널 로드
+  // 초기 데이터 병렬 로드 (채널 + Suno 세션 + 레시피)
   useEffect(() => {
+    const loads: Promise<void>[] = [
+      api.suno.status().then(setSunoSession).catch(() => setSunoSession(null)),
+      api.suno.getRecipe().then(setRecipe).catch(() => setRecipe(null)),
+    ]
     if (project.channel_id) {
-      api.channels.get(project.channel_id).then(setChannel).catch(() => setChannel(null))
+      loads.push(api.channels.get(project.channel_id).then(setChannel).catch(() => setChannel(null)))
     }
+    Promise.all(loads)
   }, [project.channel_id])
-
-  // Suno 세션 + 레시피 상태 로드
-  useEffect(() => {
-    api.suno.status().then(setSunoSession).catch(() => setSunoSession(null))
-    api.suno.getRecipe().then(setRecipe).catch(() => setRecipe(null))
-  }, [])
 
   const handleSunoLogin = async () => {
     setSunoLoginLoading(true)
@@ -192,14 +198,12 @@ export default function SongMaker({ project, onRefresh }: Props) {
     setSunoLoginMsg('')
   }
 
-  // 초기 suno 트랙 + 활성 세트 로드
+  // 초기 suno 트랙 + 활성 세트 병렬 로드
   useEffect(() => {
-    api.trackDesign.sunoTracks(project.id)
-      .then(r => setSunoTracks(r.tracks))
-      .catch(() => {})
-    api.trackDesign.getActiveSet(project.id)
-      .then(r => setActiveSet(r.active_set))
-      .catch(() => {})
+    Promise.all([
+      api.trackDesign.sunoTracks(project.id).then(r => setSunoTracks(r.tracks)).catch(() => {}),
+      api.trackDesign.getActiveSet(project.id).then(r => setActiveSet(r.active_set)).catch(() => {}),
+    ])
   }, [project.id])
 
   // Suno 진행 폴링
@@ -229,8 +233,14 @@ export default function SongMaker({ project, onRefresh }: Props) {
       const result = await api.trackDesign.design(
         project.channel_id,
         project.id,
-        benchmarkUrl.trim() || undefined,
-        count,
+        {
+          benchmarkUrl: benchmarkUrl.trim() || undefined,
+          count,
+          keywords: userKeywords.trim(),
+          mood: userMood.trim(),
+          lyricsHint: userLyricsHint.trim(),
+          extra: userExtra.trim(),
+        },
       )
       setTracks(result.tracks)
       setConcept(result.concept ?? null)
@@ -378,8 +388,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
           )}
 
           {/* 채널 정보 */}
-          {channel && (
-            <div className="bg-gray-900 rounded-xl p-4 mb-6 border border-gray-800 flex items-center gap-3">
+          {channel && (<>
+            <div className="bg-gray-900 rounded-xl p-4 mb-3 border border-gray-800 flex items-center gap-3">
               <div className="text-2xl">
                 {channel.genre[0] === 'meditation' ? '🧘' : channel.genre[0] === 'jazz' ? '🎷' : '🎵'}
               </div>
@@ -392,12 +402,76 @@ export default function SongMaker({ project, onRefresh }: Props) {
                 </div>
               </div>
               {channel.benchmark_history.length > 0 && (
-                <div className="ml-auto text-xs text-indigo-400">
-                  벤치마크 {channel.benchmark_history.length}개 저장됨
-                </div>
+                <button
+                  onClick={() => setShowBenchmarks(v => !v)}
+                  className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  벤치마크 {channel.benchmark_history.length}개 {showBenchmarks ? '▲' : '▼'}
+                </button>
               )}
             </div>
-          )}
+
+            {/* 벤치마크 목록 */}
+            {showBenchmarks && channel.benchmark_history.length > 0 && (
+              <div className="mb-6 space-y-2">
+                {channel.benchmark_history.map((b: { url: string; video_id: string; title?: string }, idx: number) => (
+                  <div key={idx} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-2">
+                    <span className="text-xs text-gray-500 shrink-0">#{idx + 1}</span>
+                    <a
+                      href={b.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300 truncate flex-1"
+                      title={b.url}
+                    >
+                      {b.title && b.title !== b.video_id ? b.title : b.url}
+                    </a>
+                    {editingBenchmarkIdx === idx ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          value={editingBenchmarkUrl}
+                          onChange={e => setEditingBenchmarkUrl(e.target.value)}
+                          className="bg-gray-700 text-white text-xs rounded px-2 py-1 w-64 border border-gray-600 focus:outline-none focus:border-indigo-500"
+                        />
+                        <button
+                          onClick={async () => {
+                            const updated = [...channel.benchmark_history]
+                            updated[idx] = { ...updated[idx], url: editingBenchmarkUrl }
+                            await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
+                            setEditingBenchmarkIdx(-1)
+                            onRefresh()
+                          }}
+                          className="text-xs text-green-400 hover:text-green-300 px-1"
+                        >✓</button>
+                        <button
+                          onClick={() => setEditingBenchmarkIdx(-1)}
+                          className="text-xs text-gray-500 hover:text-gray-300 px-1"
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => { setEditingBenchmarkIdx(idx); setEditingBenchmarkUrl(b.url) }}
+                          className="text-xs text-gray-500 hover:text-yellow-400 px-1"
+                          title="수정"
+                        >✏️</button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm('이 벤치마크를 삭제하시겠습니까?')) return
+                            const updated = channel.benchmark_history.filter((_: unknown, i: number) => i !== idx)
+                            await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
+                            onRefresh()
+                          }}
+                          className="text-xs text-gray-500 hover:text-red-400 px-1"
+                          title="삭제"
+                        >🗑️</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>)}
 
           {/* 설계 폼 */}
           {!hasDesigned && project.channel_id && (
@@ -406,18 +480,54 @@ export default function SongMaker({ project, onRefresh }: Props) {
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">
-                    벤치마크 YouTube URL <span className="text-gray-600">(선택 — 없으면 채널 히스토리 사용)</span>
+                    키워드 <span className="text-gray-600">(쉼표로 구분. 예: 봄, 산책, 카페)</span>
                   </label>
                   <input
-                    value={benchmarkUrl}
-                    onChange={e => setBenchmarkUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={userKeywords}
+                    onChange={e => setUserKeywords(e.target.value)}
+                    placeholder="봄, 산책, 따뜻한 오후, 카페..."
                     className="w-full bg-gray-800 text-white rounded-xl px-3 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
                   />
                 </div>
-                <div className="flex items-center gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    원하는 분위기
+                  </label>
+                  <input
+                    value={userMood}
+                    onChange={e => setUserMood(e.target.value)}
+                    placeholder="밝고 경쾌한, 잔잔하고 포근한..."
+                    className="w-full bg-gray-800 text-white rounded-xl px-3 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+                  />
+                </div>
+                {channel?.has_lyrics && (
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">설계할 곡 수</label>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      가사/주제 힌트 <span className="text-gray-600">(선택)</span>
+                    </label>
+                    <textarea
+                      value={userLyricsHint}
+                      onChange={e => setUserLyricsHint(e.target.value)}
+                      placeholder="새로운 시작에 대한 설렘, 여행을 떠나는 기분..."
+                      rows={2}
+                      className="w-full bg-gray-800 text-white rounded-xl px-3 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600 resize-none"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    추가 요청 <span className="text-gray-600">(선택. 예: 피아노 중심으로)</span>
+                  </label>
+                  <input
+                    value={userExtra}
+                    onChange={e => setUserExtra(e.target.value)}
+                    placeholder="피아노 중심으로, BPM 느리게..."
+                    className="w-full bg-gray-800 text-white rounded-xl px-3 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+                  />
+                </div>
+                <div className="flex items-center gap-4 pt-1">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">곡 수</label>
                     <select
                       value={count}
                       onChange={e => setCount(Number(e.target.value))}
@@ -808,6 +918,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-bold text-white">세트 A</span>
                         <span className="text-xs text-gray-500">버전 1</span>
+                        {project.uploaded_set === 'A' && <span className="text-[9px] bg-green-800 text-green-300 px-1.5 py-0.5 rounded-full ml-auto">업로드 완료</span>}
                       </div>
                       <div className="text-xs text-gray-400">
                         {setStats.a.completed > 0
@@ -830,6 +941,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-bold text-white">세트 B</span>
                         <span className="text-xs text-gray-500">버전 2</span>
+                        {project.uploaded_set === 'B' && <span className="text-[9px] bg-green-800 text-green-300 px-1.5 py-0.5 rounded-full ml-auto">업로드 완료</span>}
                       </div>
                       <div className="text-xs text-gray-400">
                         {setStats.b.completed > 0
@@ -1039,12 +1151,18 @@ export default function SongMaker({ project, onRefresh }: Props) {
               )}
 
               {/* 재설계 폼 (하단) */}
-              <div className="mt-4 pt-4 border-t border-gray-800">
+              <div className="mt-4 pt-4 border-t border-gray-800 space-y-2">
                 <div className="flex items-center gap-3">
                   <input
-                    value={benchmarkUrl}
-                    onChange={e => setBenchmarkUrl(e.target.value)}
-                    placeholder="벤치마크 URL 변경 (선택)"
+                    value={userKeywords}
+                    onChange={e => setUserKeywords(e.target.value)}
+                    placeholder="키워드 (쉼표 구분)"
+                    className="flex-1 bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+                  />
+                  <input
+                    value={userMood}
+                    onChange={e => setUserMood(e.target.value)}
+                    placeholder="분위기"
                     className="flex-1 bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
                   />
                   <button
@@ -1064,36 +1182,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
 
       {/* ── 트랙 추가 탭 ── */}
       {tab === 'upload' && (
-        <div>
-          <TrackEditor project={project} onRefresh={onRefresh} />
-
-          {/* SRT 자막 업로드 */}
-          <div className="mt-6 pt-4 border-t border-gray-800">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">확언/자막 SRT 파일</h3>
-            <p className="text-xs text-gray-500 mb-3">SRT 파일을 업로드하면 레이어 설정에서 자막으로 사용됩니다.</p>
-            <input
-              type="file"
-              accept=".srt"
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                try {
-                  const res = await api.layers.uploadSrt(project.id, file)
-                  alert(`SRT 업로드 완료: ${res.entries_count}개 자막`)
-                  onRefresh()
-                } catch {
-                  alert('SRT 업로드 실패')
-                }
-              }}
-              className="block w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-gray-300 hover:file:bg-gray-700 cursor-pointer"
-            />
-            {project.subtitle_srt_path && (
-              <p className="text-xs text-green-400 mt-2">
-                ✓ SRT 파일 업로드됨 ({project.subtitle_entries?.length || 0}개 자막)
-              </p>
-            )}
-          </div>
-        </div>
+        <TrackEditor project={project} onRefresh={onRefresh} />
       )}
     </div>
   )

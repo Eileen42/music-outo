@@ -13,7 +13,7 @@ async def create_project(body: ProjectCreate):
 
 @router.get("", summary="프로젝트 목록 조회")
 async def list_projects():
-    return state_manager.list_all()
+    return state_manager.list_all(summary=True)
 
 
 @router.get("/{project_id}", summary="프로젝트 상세 조회")

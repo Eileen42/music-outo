@@ -78,18 +78,21 @@ function YouTubeChannelLink({ channelId }: { channelId: string }) {
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-red-400">▶</span>
         <span className="text-[10px] text-gray-400 truncate">{info.youtube_channel_title || 'YouTube 연결됨'}</span>
-        <button onClick={async () => {
+        <span role="button" onClick={async (e) => {
+          e.stopPropagation()
           await api.youtube.revoke()
           setInfo({ authorized: false })
-        }} className="text-[9px] text-gray-600 hover:text-red-400 ml-auto">해제</button>
+        }} className="text-[9px] text-gray-600 hover:text-red-400 ml-auto cursor-pointer">해제</span>
       </div>
     )
   }
 
   return (
-    <button
-      disabled={loading}
-      onClick={async () => {
+    <div
+      role="button"
+      onClick={async (e) => {
+        e.stopPropagation()
+        if (loading) return
         setLoading(true)
         try {
           const { auth_url } = await api.youtube.getAuthUrl(channelId)
@@ -97,10 +100,10 @@ function YouTubeChannelLink({ channelId }: { channelId: string }) {
         } catch { /* ignore */ }
         finally { setLoading(false) }
       }}
-      className="text-[10px] text-red-400 hover:text-red-300 w-full text-left"
+      className="text-[10px] text-red-400 hover:text-red-300 w-full text-left cursor-pointer"
     >
       {loading ? '연결 중...' : '▶ YouTube 채널 연결'}
-    </button>
+    </div>
   )
 }
 
@@ -120,6 +123,13 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
   const [formLoading, setFormLoading]         = useState(false)
   const [formError, setFormError]             = useState('')
   const [showUploadSection, setShowUploadSection] = useState(false)
+
+  // 채널 수정
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
+  const [editForm, setEditForm] = useState<NewChannelForm>(EMPTY_FORM)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [editUploadSection, setEditUploadSection] = useState(false)
 
   // 기존 프로젝트 채널 연결
   const [linkingProjectId, setLinkingProjectId] = useState<string | null>(null)
@@ -173,6 +183,56 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
       setFormError(String(msg))
     } finally {
       setFormLoading(false)
+    }
+  }
+
+  const startEditChannel = (ch: Channel) => {
+    const us = ch.upload_settings
+    setEditingChannel(ch)
+    setEditForm({
+      channel_id: ch.channel_id,
+      name: ch.name,
+      genre: ch.genre.join(', '),
+      has_lyrics: ch.has_lyrics,
+      subtitle_type: ch.subtitle_type as NewChannelForm['subtitle_type'],
+      suno_base_prompt: ch.suno_base_prompt || '',
+      default_privacy: (us?.default_privacy || 'private') as NewChannelForm['default_privacy'],
+      default_tags: us?.default_tags?.join(', ') || '',
+      default_description: us?.default_description || '',
+    })
+    setEditError('')
+    setEditUploadSection(false)
+  }
+
+  const handleUpdateChannel = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!editingChannel) return
+    setEditLoading(true)
+    setEditError('')
+    try {
+      await api.channels.update(editingChannel.channel_id, {
+        name: editForm.name.trim(),
+        genre: editForm.genre.split(',').map(g => g.trim()).filter(Boolean),
+        has_lyrics: editForm.has_lyrics,
+        subtitle_type: editForm.subtitle_type,
+        suno_base_prompt: editForm.suno_base_prompt.trim(),
+        upload_settings: {
+          default_privacy: editForm.default_privacy,
+          default_tags: editForm.default_tags.split(',').map(t => t.trim()).filter(Boolean),
+          default_description: editForm.default_description.trim(),
+          auto_add_playlist: false,
+        } as UploadSettings,
+      } as Partial<Channel>)
+      await loadChannels()
+      setEditingChannel(null)
+      if (selectedChannel?.channel_id === editingChannel.channel_id) {
+        setSelectedChannel(null)
+      }
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '채널 수정 실패'
+      setEditError(String(msg))
+    } finally {
+      setEditLoading(false)
     }
   }
 
@@ -413,13 +473,127 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
                       </span>
                     )}
                   </div>
-                  {/* YouTube 채널 연결 */}
-                  <div className="mt-2 pt-2 border-t border-gray-800" onClick={e => e.stopPropagation()}>
+                  {/* YouTube 채널 연결 + 수정 */}
+                  <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between" onClick={e => e.stopPropagation()}>
                     <YouTubeChannelLink channelId={ch.channel_id} />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); startEditChannel(ch) }}
+                      className="text-[10px] text-gray-600 hover:text-indigo-400 transition-colors shrink-0"
+                    >
+                      ✏️ 수정
+                    </button>
                   </div>
                 </button>
               )
             })}
+          </div>
+        )}
+
+        {/* ── 채널 수정 폼 ── */}
+        {editingChannel && (
+          <div className="bg-gray-900 rounded-2xl p-5 mt-4 border border-yellow-800/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-white">📺 {editingChannel.name} 수정</h3>
+              <button onClick={() => setEditingChannel(null)} className="text-xs text-gray-500 hover:text-gray-300">✕ 취소</button>
+            </div>
+            <form onSubmit={handleUpdateChannel} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">채널 이름</label>
+                  <input
+                    value={editForm.name}
+                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">채널 ID <span className="text-gray-600">(수정 불가)</span></label>
+                  <input value={editForm.channel_id} disabled className="w-full bg-gray-800/50 text-gray-500 rounded-xl px-3 py-2 text-sm border border-gray-700 font-mono cursor-not-allowed" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">장르 <span className="text-gray-600">(쉼표로 구분)</span></label>
+                <input
+                  value={editForm.genre}
+                  onChange={e => setEditForm(f => ({ ...f, genre: e.target.value }))}
+                  className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">자막 방식</label>
+                  <select
+                    value={editForm.subtitle_type}
+                    onChange={e => setEditForm(f => ({ ...f, subtitle_type: e.target.value as NewChannelForm['subtitle_type'] }))}
+                    className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="none">자막 없음</option>
+                    <option value="affirmation">확언 자막</option>
+                    <option value="lyrics">가사 자막</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-3 pt-5">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={editForm.has_lyrics} onChange={e => setEditForm(f => ({ ...f, has_lyrics: e.target.checked }))} className="sr-only peer" />
+                    <div className="w-9 h-5 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600" />
+                    <span className="ml-2 text-xs text-gray-400">가사 포함</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Suno 기본 프롬프트</label>
+                <input
+                  value={editForm.suno_base_prompt}
+                  onChange={e => setEditForm(f => ({ ...f, suno_base_prompt: e.target.value }))}
+                  className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+                />
+              </div>
+
+              {/* 업로드 설정 (접이식) */}
+              <div className="border border-gray-800 rounded-xl overflow-hidden">
+                <button type="button" onClick={() => setEditUploadSection(v => !v)} className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-800/50 hover:bg-gray-800 transition-colors text-left">
+                  <span className="text-xs font-semibold text-gray-400">▶ 업로드 설정</span>
+                  <span className="text-gray-600 text-xs">{editUploadSection ? '▲' : '▼'}</span>
+                </button>
+                {editUploadSection && (
+                  <div className="p-4 space-y-3 border-t border-gray-800">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">기본 공개 설정</label>
+                        <select value={editForm.default_privacy} onChange={e => setEditForm(f => ({ ...f, default_privacy: e.target.value as NewChannelForm['default_privacy'] }))} className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500">
+                          <option value="private">비공개</option>
+                          <option value="unlisted">일부 공개</option>
+                          <option value="public">공개</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">기본 태그</label>
+                        <input value={editForm.default_tags} onChange={e => setEditForm(f => ({ ...f, default_tags: e.target.value }))} className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">기본 설명 템플릿</label>
+                      <textarea value={editForm.default_description} onChange={e => setEditForm(f => ({ ...f, default_description: e.target.value }))} rows={3} className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600 resize-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {editError && <p className="text-red-400 text-xs">{editError}</p>}
+
+              <div className="flex gap-2">
+                <button type="submit" disabled={editLoading} className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">
+                  {editLoading ? '저장 중...' : '변경사항 저장'}
+                </button>
+                <button type="button" onClick={() => setEditingChannel(null)} className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm transition-colors">
+                  취소
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>

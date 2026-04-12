@@ -87,12 +87,24 @@ export interface EffectLayerConfig {
   params: Record<string, number>  // {animation: 0.46, speed: 0.14}
 }
 
+export interface ImageLayerConfig {
+  id: string
+  name: string
+  stored_path: string
+  position_x: number
+  position_y: number
+  scale: number
+  opacity: number
+}
+
 export interface ProjectLayers {
   background_video: string | null
   waveform_layer: WaveformLayerConfig | null
   text_layers: TextLayerConfig[]
   effect_layers: EffectLayerConfig[]
+  image_layers?: ImageLayerConfig[]
   subtitle_style?: Partial<TextLayerConfig>
+  subtitle_enabled?: boolean
 }
 
 export interface LayerTemplate {
@@ -160,6 +172,8 @@ export interface Project {
   youtube: YouTubeInfo
   repeat: RepeatConfig
   image_mood: ImageMood | null
+  uploaded_set?: string
+  active_suno_set?: string
   designed_tracks?: DesignedTrack[]
 }
 

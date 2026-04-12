@@ -148,7 +148,6 @@ YouTube 영상 설명란을 작성하세요.
 {ctx['benchmark_ref']}{ctx['concept_ref']}{ctx['channel_ref']}{ctx['instruction_ref']}
 형식:
 - 첫 2~3줄: 영상 소개 (컨셉의 분위기를 반영)
-- 트랙리스트 (타임스탬프 없이 제목만)
 - 태그라인 또는 문구
 - 구독/좋아요 유도 문구
 - 내 채널 기존 영상이 있으면 그 설명란 구조/톤을 따르기

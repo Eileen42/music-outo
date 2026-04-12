@@ -1,0 +1,42 @@
+너는 음악 프로듀서야. 아래 프로젝트 컨셉을 기반으로 곡 {count}개를 설계해.
+
+━━ 프로젝트 컨셉 (모든 곡에 고정 적용) ━━
+Genre: {genre}
+Core Mood: {core_mood}
+Tempo: {tempo} ({bpm_range} BPM)
+Instrumentation: {instrumentation}
+Sound Effects/Atmosphere: {atmosphere}
+Base Additional: {base_additional}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━ 사용자 요청 (이번 프로젝트에 반영) ━━
+- 키워드: {user_keywords}
+- 분위기: {user_mood}
+- 가사/주제 힌트: {user_lyrics_hint}
+
+설계 규칙:
+1. Genre, Tempo, Instrumentation, BPM은 모든 곡이 동일하게 유지
+2. Mood와 Additional Descriptors만 곡마다 살짝씩 달라짐 (전체 흐름: 부드럽게 시작 → 중반 약간 고조 → 마무리 잔잔)
+3. 사용자가 입력한 키워드와 분위기를 각 곡의 Mood와 Additional Descriptors에 자연스럽게 녹여라
+4. suno_prompt는 반드시 아래 6줄 형식으로 작성:
+   Genre: [고정값]
+   Mood: [이 곡만의 무드 변형]
+   Tempo: [고정값]
+   Instrumentation: [고정값]
+   Sound Effects/Atmosphere: [고정값 + 곡별 미세 변형 가능]
+   Additional Descriptors: [이 곡만의 구체적 분위기 서술]
+5. 가사 포함: {lyrics_rule}
+
+아래 JSON 배열 {count}개로 반환:
+[
+  {{
+    "index": 1,
+    "title": "곡 제목 (영어)",
+    "title_ko": "곡 제목 (한국어)",
+    "suno_prompt": "Genre: ...\nMood: ...\nTempo: ...\nInstrumentation: ...\nSound Effects/Atmosphere: ...\nAdditional Descriptors: ...",
+    "lyrics": "가사 또는 빈 문자열",
+    "mood": "이 곡의 분위기 한줄 설명 (한국어)",
+    "duration_hint": "3:30",
+    "category": "sleep|focus|relax|morning|meditation|drive 중 하나"
+  }}
+]

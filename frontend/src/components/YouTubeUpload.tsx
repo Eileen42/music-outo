@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Project } from '../types'
 import { api } from '../api/client'
+import OAuthGuideModal from './OAuthGuideModal'
 
 interface Props {
   project: Project
@@ -17,6 +18,7 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   const [privacyStatus, setPrivacyStatus] = useState('unlisted')
   const [loading, setLoading] = useState(true)
   const [showGuide, setShowGuide] = useState(false)
+  const [fillingMeta, setFillingMeta] = useState(false)
 
   const yt = project.youtube || { video_id: null, url: null, uploaded_at: null }
   const buildDone = project.build?.status === 'done'
@@ -106,12 +108,21 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
         </div>
       )}
 
+      {/* OAuth 가이드 팝업 */}
+      {showGuide && <OAuthGuideModal onClose={() => setShowGuide(false)} />}
+
       {/* ── STEP 1: Google 계정 연결 ── */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
           <span className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 text-xs flex items-center justify-center font-bold shrink-0">1</span>
           <h3 className="text-sm font-semibold text-gray-200">Google 계정 연결</h3>
           {authorized && <span className="text-green-400 text-xs ml-auto">✅ 연결됨</span>}
+          <button
+            onClick={() => setShowGuide(true)}
+            className="ml-auto text-xs text-gray-500 hover:text-purple-400 transition-colors flex items-center gap-1"
+          >
+            <span>❓</span> 설정 가이드
+          </button>
         </div>
 
         {authorized ? (
@@ -251,16 +262,21 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
             </div>
             {/* 메타데이터 자동 입력 (브라우저 업로드 후) */}
             <button onClick={async () => {
-              await api.youtube.fillMetadata(project.id)
-              // 댓글 완료까지 폴링
-              const poll = setInterval(async () => {
-                try { await onRefresh() } catch {}
-              }, 15000)
-              setTimeout(() => clearInterval(poll), 600000) // 10분 후 중단
+              setFillingMeta(true)
+              try {
+                await api.youtube.fillMetadata(project.id)
+                // 댓글 완료까지 폴링
+                const poll = setInterval(async () => {
+                  try { await onRefresh() } catch {}
+                }, 15000)
+                setTimeout(() => clearInterval(poll), 600000)
+              } catch {} finally { setTimeout(() => setFillingMeta(false), 30000) }
             }}
-              className="w-full bg-indigo-700 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-              ✍️ 메타데이터 자동 입력 (브라우저에 파일 올린 후 클릭)
+              disabled={fillingMeta}
+              className="w-full bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
+              {fillingMeta ? '⏳ 입력 중... (제목→설명→태그→썸네일→공개설정)' : '✍️ 메타데이터 자동 입력 (브라우저에 파일 올린 후 클릭)'}
             </button>
+            {fillingMeta && <p className="text-[10px] text-gray-500 text-center">브라우저에서 자동 입력 중입니다. 30초 정도 소요. 중간에 막히면 다시 클릭하세요 — 완료된 항목은 건너뛰고 이어서 진행합니다.</p>}
             {/* 브라우저 업로드 후 댓글 대기 안내 */}
             {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled &&
              !(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
