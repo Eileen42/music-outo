@@ -40,7 +40,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState<Partial<DesignedTrack>>({})
   const [regenIdx, setRegenIdx] = useState<number | null>(null)
-  const [batchStatus, setBatchStatus] = useState<{ status: string; completed: number; total_batches: number; tracks_collected: number } | null>(null)
+  const [batchStatus, setBatchStatus] = useState<{ status: string; completed: number; total_batches: number; tracks_collected: number; current_song?: string; phase?: string } | null>(null)
   const [expandIdx, setExpandIdx] = useState<number | null>(null)
   const [showBenchmarks, setShowBenchmarks] = useState(false)
   const [editingBenchmarkIdx, setEditingBenchmarkIdx] = useState(-1)
@@ -636,7 +636,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       <span className="inline-block w-3 h-3 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin shrink-0" />
                       <div className="flex-1">
                         <div className="font-semibold mb-1">
-                          Suno 생성 중... {batchStatus.completed}/{batchStatus.total_batches} 배치
+                          {batchStatus.phase === 'creating' ? '곡 생성 중' : batchStatus.phase === 'collecting' ? '다운로드 중' : batchStatus.phase === 'verifying' ? '검수 중' : 'Suno 생성 중'}... {batchStatus.completed}/{batchStatus.total_batches}
+                          {batchStatus.current_song && <span className="text-green-200 font-normal ml-2">"{batchStatus.current_song}"</span>}
                         </div>
                         <div className="w-full bg-green-900/50 rounded-full h-1.5">
                           <div
@@ -711,7 +712,17 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       onClick={() => setExpandIdx(expandIdx === idx ? null : idx)}
                     >
                       <span className="text-gray-600 text-xs w-5 text-center shrink-0">{t.index}</span>
-                      <span className="text-base shrink-0">{categoryIcon(t.category)}</span>
+                      {/* 생성 중 로딩 표시 */}
+                      {batchStatus?.status === 'running' && batchStatus?.current_song === t.title ? (
+                        <span className="shrink-0 flex items-center gap-1.5">
+                          <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-[10px] text-indigo-400 font-medium">
+                            {batchStatus.phase === 'creating' ? '생성중' : batchStatus.phase === 'collecting' ? '다운로드중' : '처리중'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-base shrink-0">{categoryIcon(t.category)}</span>
+                      )}
 
                       {/* 재생 버튼 1, 2 */}
                       {(() => {
