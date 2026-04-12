@@ -1,14 +1,17 @@
 """
-Suno 일괄생성 오케스트레이터 — Creator + Collector 병렬 실행.
+Suno 일괄생성 오케스트레이터 — QA 주도 재시도 루프.
 
-브라우저 1개를 공유하며:
-  1. Creator Agent가 탭을 추가하며 순차 생성
-  2. Creator 3곡째부터 Collector Agent가 병렬로 다운로드 시작
-  3. Creator 완료 → Collector 나머지 다운로드
-  4. QA Agent 검수 + 자동 연결
-  5. 브라우저 닫기
+흐름:
+  1. QA Agent가 현재 상태 검수 (어디까지 완료?)
+  2. 미완료 곡만 추출
+  3. Creator Agent → 미완료 곡만 생성 (탭 추가 방식)
+  4. Collector Agent → 병렬 다운로드
+  5. QA 재검수 → 아직 미완료 있으면 → 2번으로 돌아감
+  6. 전부 완료 or 최대 재시도 초과 → 종료
 
-별도 프로세스로 실행:
+중간에 끊겨도 다시 실행하면 QA가 진행 상황을 파악하고 이어서 진행.
+
+별도 프로세스:
     python _suno_batch_runner.py <project_id>
 """
 from __future__ import annotations
@@ -31,6 +34,7 @@ logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("suno_orchestrator")
 
 PARALLEL_START_AFTER = 3  # Creator N곡 후 Collector 병렬 시작
+MAX_RETRY_ROUNDS = 5      # 최대 재시도 라운드
 
 
 def _progress_path(project_id: str) -> Path:
@@ -41,6 +45,38 @@ def _write_progress(project_id: str, data: dict) -> None:
     p = _progress_path(project_id)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def _get_incomplete_songs(
+    project_id: str,
+    all_tracks: list[dict],
+    has_lyrics: bool,
+) -> list[dict]:
+    """QA 기반으로 미완료 곡 목록 추출."""
+    from agents.suno_qa import suno_qa_agent
+    qa = suno_qa_agent.verify(project_id)
+
+    # 완료된 index 집합
+    done_indices = {
+        t["index"] for t in qa.get("tracks", [])
+        if t["status"] == "complete"
+    }
+
+    # 미완료 곡만 추출
+    songs = []
+    for i, t in enumerate(all_tracks):
+        idx = t.get("index", i + 1)
+        if idx in done_indices:
+            continue
+        songs.append({
+            "title": t.get("title", f"Track {idx}"),
+            "lyrics": t.get("lyrics", "") if has_lyrics else "",
+            "suno_prompt": t.get("suno_prompt", ""),
+            "is_instrumental": not has_lyrics,
+            "index": idx,
+        })
+
+    return songs
 
 
 async def main(project_id: str) -> None:
@@ -55,7 +91,7 @@ async def main(project_id: str) -> None:
         _write_progress(project_id, {"status": "failed", "phase": "init", "errors": ["프로젝트 없음"]})
         return
 
-    tracks = state.get("designed_tracks") or []
+    all_tracks = state.get("designed_tracks") or []
     channel_id = state.get("channel_id", "")
 
     has_lyrics = False
@@ -64,197 +100,183 @@ async def main(project_id: str) -> None:
         ch = json.loads(channel_path.read_text(encoding="utf-8"))
         has_lyrics = ch.get("has_lyrics", False)
 
-    if not tracks:
+    if not all_tracks:
         _write_progress(project_id, {"status": "failed", "phase": "init", "errors": ["설계된 트랙 없음"]})
         return
 
-    # 이미 완료된 곡 건너뛰기
-    existing_suno = state.get("suno_tracks") or []
-    from collections import Counter
-    idx_count = Counter(
-        st["index"] for st in existing_suno
-        if st.get("status") == "completed" and st.get("index")
-    )
-    fully_done = {idx for idx, cnt in idx_count.items() if cnt >= 2}
-
-    songs_input = [
-        {
-            "title": t.get("title", f"Track {t.get('index', i+1)}"),
-            "lyrics": t.get("lyrics", "") if has_lyrics else "",
-            "suno_prompt": t.get("suno_prompt", ""),
-            "is_instrumental": not has_lyrics,
-            "index": t.get("index", i + 1),
-        }
-        for i, t in enumerate(tracks)
-        if t.get("index", i + 1) not in fully_done
-    ]
-
-    if not songs_input:
-        _write_progress(project_id, {
-            "status": "completed", "phase": "done",
-            "completed_batches": 0, "tracks_collected": 0, "errors": [],
-        })
-        return
-
-    total = len(songs_input)
-    skipped = len(tracks) - total
-    if skipped:
-        logger.info(f"이미 완료 {skipped}곡 건너뜀, {total}곡 생성 예정")
-
+    total_designed = len(all_tracks)
     project_dir = _DIR / "storage" / "projects" / project_id / "tracks"
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    task_tracker = {
-        "status": "running",
-        "phase": "creating",
-        "total_batches": total,
-        "completed_batches": 0,
-        "tracks_collected": 0,
-        "current_song": "",
-        "errors": [],
-    }
-    _write_progress(project_id, task_tracker)
-
-    # ═══════════════════════════════════════════════════
-    # 브라우저 1개 공유 — Creator + Collector 동시 사용
-    # ═══════════════════��═══════════════════════════════
     sp = _session_path()
     if not sp.exists():
         _write_progress(project_id, {"status": "failed", "phase": "init", "errors": ["Suno 세션 없음"]})
         return
 
-    exe = _find_exe()
-    pw = await async_playwright().start()
+    task_tracker = {
+        "status": "running",
+        "phase": "checking",
+        "total_designed": total_designed,
+        "total_batches": 0,
+        "completed_batches": 0,
+        "tracks_collected": 0,
+        "current_song": "",
+        "round": 0,
+        "errors": [],
+    }
+    _write_progress(project_id, task_tracker)
 
-    try:
-        browser = await pw.chromium.launch(
-            executable_path=exe,
-            headless=False,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--exclude-switches=enable-automation",
-                "--no-first-run",
-                "--disable-infobars",
-            ],
-        )
-        context = await browser.new_context(
-            storage_state=str(sp),
-            viewport={"width": 1280, "height": 900},
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0"
-            ),
-        )
+    # ═══════════════════════════════════════════
+    # QA 주도 재시도 루프
+    # ═══════════════════════════════════════════
+    for round_num in range(1, MAX_RETRY_ROUNDS + 1):
+        # Step 1: QA 검수 — 미완료 곡 확인
+        task_tracker["phase"] = "checking"
+        task_tracker["round"] = round_num
+        _write_progress(project_id, task_tracker)
 
-        # 에이전트 생성 (같은 context 공유)
-        creator = SunoCreatorAgent(context)
-        collector = SunoCollectorAgent(context)
+        songs_todo = _get_incomplete_songs(project_id, all_tracks, has_lyrics)
 
-        created_count = 0
+        if not songs_todo:
+            logger.info(f"라운드 {round_num}: 모든 곡 완료!")
+            break
 
-        def on_creator_progress(info: dict):
-            nonlocal created_count
-            created_count = info.get("completed", 0)
-            task_tracker["completed_batches"] = created_count
-            task_tracker["current_song"] = info.get("current_title", "")
-            task_tracker["phase"] = "creating"
-            _write_progress(project_id, task_tracker)
+        logger.info(f"라운드 {round_num}: {len(songs_todo)}/{total_designed}곡 미완료, 생성 시작")
+        task_tracker["total_batches"] = len(songs_todo)
+        task_tracker["completed_batches"] = 0
 
-        def on_song_created(result: dict):
-            """Creator가 곡 하나 생성 완료 시 → Collector 큐에 추가."""
-            if created_count >= PARALLEL_START_AFTER:
-                collector.enqueue(result)
+        # Step 2: 브라우저 열기
+        exe = _find_exe()
+        pw = await async_playwright().start()
 
-        def on_collector_progress(info: dict):
-            task_tracker["tracks_collected"] = info.get("completed", 0) * 2
-            task_tracker["phase"] = "collecting" if task_tracker["phase"] != "creating" else "creating"
-            _write_progress(project_id, task_tracker)
-
-        # ═══════════════════════════════════════════
-        # Creator + Collector 병렬 실행
-        # ══════════════════��════════════════════════
-        logger.info(f"시작: {total}곡 (Creator {PARALLEL_START_AFTER}곡 후 Collector 병렬)")
-
-        # Collector를 백그라운드 태스크로 실행
-        collector_task = asyncio.create_task(
-            collector.run_parallel(
-                output_dir=str(project_dir),
-                progress_callback=on_collector_progress,
+        try:
+            browser = await pw.chromium.launch(
+                executable_path=exe,
+                headless=False,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--exclude-switches=enable-automation",
+                    "--no-first-run",
+                    "--disable-infobars",
+                ],
             )
-        )
+            context = await browser.new_context(
+                storage_state=str(sp),
+                viewport={"width": 1280, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0"
+                ),
+            )
 
-        # Creator 실행 (완료까지 대기)
-        creation_results = await creator.create_all(
-            songs=songs_input,
-            progress_callback=on_creator_progress,
-            on_song_created=on_song_created,
-        )
+            creator = SunoCreatorAgent(context)
+            collector = SunoCollectorAgent(context)
+            created_count = 0
 
-        # Creator 완료 → 처음 3곡(병렬 전) + 나머지 실패 곡 Collector에 추가
-        early_songs = [r for r in creation_results[:PARALLEL_START_AFTER] if r["status"] == "created"]
-        for song in early_songs:
-            collector.enqueue(song)
+            def on_creator_progress(info: dict):
+                nonlocal created_count
+                created_count = info.get("completed", 0)
+                task_tracker["completed_batches"] = created_count
+                task_tracker["current_song"] = info.get("current_title", "")
+                task_tracker["phase"] = "creating"
+                _write_progress(project_id, task_tracker)
 
-        # Collector 종료 시그널
-        collector.stop()
-        await collector_task
+            def on_song_created(result: dict):
+                if created_count >= PARALLEL_START_AFTER:
+                    collector.enqueue(result)
 
-        # Creator 탭 정리
-        await creator.close_all_tabs()
+            def on_collector_progress(info: dict):
+                task_tracker["tracks_collected"] = info.get("completed", 0) * 2
+                if task_tracker["phase"] != "creating":
+                    task_tracker["phase"] = "collecting"
+                _write_progress(project_id, task_tracker)
 
-        download_results = collector.get_results()
-        downloaded = len([r for r in download_results if r["status"] == "completed"])
-        created = len([r for r in creation_results if r["status"] == "created"])
+            # Step 3: Creator + Collector 병렬 실행
+            collector_task = asyncio.create_task(
+                collector.run_parallel(
+                    output_dir=str(project_dir),
+                    progress_callback=on_collector_progress,
+                )
+            )
 
-        logger.info(f"Creator: {created}/{total}곡, Collector: {downloaded}파일")
+            creation_results = await creator.create_all(
+                songs=songs_todo,
+                progress_callback=on_creator_progress,
+                on_song_created=on_song_created,
+            )
 
-        # state.json에 저장
-        current_state = state_manager.get(project_id) or {}
-        old_tracks = current_state.get("suno_tracks") or []
-        new_keys = {(r.get("index"), r.get("slot")) for r in download_results}
-        merged = [t for t in old_tracks if (t.get("index"), t.get("slot")) not in new_keys]
-        merged.extend(download_results)
-        merged.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
-        state_manager.update(project_id, {"suno_tracks": merged})
+            # 병렬 시작 전 곡들을 Collector에 추가
+            early_songs = [r for r in creation_results[:PARALLEL_START_AFTER] if r["status"] == "created"]
+            for song in early_songs:
+                collector.enqueue(song)
 
-        # ═══════════════════════════════════════════
-        # Phase 3: QA Agent
-        # ═══════════════════���═══════════════════════
+            collector.stop()
+            await collector_task
+            await creator.close_all_tabs()
+
+            download_results = collector.get_results()
+
+            # state.json에 저장
+            current_state = state_manager.get(project_id) or {}
+            old_tracks = current_state.get("suno_tracks") or []
+            new_keys = {(r.get("index"), r.get("slot")) for r in download_results}
+            merged = [t for t in old_tracks if (t.get("index"), t.get("slot")) not in new_keys]
+            merged.extend(download_results)
+            merged.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
+            state_manager.update(project_id, {"suno_tracks": merged})
+
+            # 브라우저 정리
+            await context.close()
+            await browser.close()
+
+        except Exception as e:
+            import traceback as _tb
+            err = _tb.format_exc()
+            task_tracker["errors"].append(f"라운드{round_num}: [{type(e).__name__}] {e}")
+            logger.error(f"라운드 {round_num} 에러: {e}\n{err}")
+        finally:
+            await pw.stop()
+
+        # Step 4: QA 검수 + 자동 연결
         task_tracker["phase"] = "verifying"
         _write_progress(project_id, task_tracker)
 
-        qa_report = suno_qa_agent.verify(project_id)
-        fix_result = suno_qa_agent.fix_links(project_id)
+        suno_qa_agent.fix_links(project_id)
+        qa = suno_qa_agent.verify(project_id)
 
-        task_tracker["status"] = "completed"
-        task_tracker["phase"] = "done"
-        task_tracker["tracks_collected"] = downloaded
-        task_tracker["qa_report"] = {
-            "status": qa_report["status"],
-            "total_files": qa_report["total_files"],
-            "expected_files": qa_report["expected_files"],
-            "missing_count": len(qa_report["missing"]),
-            "fixed_links": fix_result["fixed"],
-        }
-        _write_progress(project_id, task_tracker)
+        completed = len([t for t in qa.get("tracks", []) if t["status"] == "complete"])
+        logger.info(f"라운드 {round_num} 완료: {completed}/{total_designed}곡 완성")
 
-        logger.info(f"완료: 생성 {created}/{total}, 다운 {downloaded}, QA {qa_report['status']}")
+        if completed >= total_designed:
+            logger.info("전체 완료!")
+            break
 
-        # 브라우저 정리
-        await context.close()
-        await browser.close()
+        # 다음 라운드 전 잠시 대기
+        logger.info(f"미완료 {total_designed - completed}곡, 10초 후 다음 라운드 시작")
+        await asyncio.sleep(10)
 
-    except Exception as e:
-        import traceback as _tb
-        err = _tb.format_exc()
-        task_tracker["status"] = "failed"
-        task_tracker["errors"].append(f"[{type(e).__name__}] {e}")
-        task_tracker["traceback"] = err
-        _write_progress(project_id, task_tracker)
-        logger.error(f"실패: {e}\n{err}")
-    finally:
-        await pw.stop()
+    # ═══════════════════════════════════════════
+    # 최종 QA 보고
+    # ═══════════════════════════════════════════
+    final_qa = suno_qa_agent.verify(project_id)
+    suno_qa_agent.fix_links(project_id)
+
+    task_tracker["status"] = "completed"
+    task_tracker["phase"] = "done"
+    task_tracker["qa_report"] = {
+        "status": final_qa["status"],
+        "total_files": final_qa["total_files"],
+        "expected_files": final_qa["expected_files"],
+        "missing_count": len(final_qa["missing"]),
+        "complete_count": len([t for t in final_qa["tracks"] if t["status"] == "complete"]),
+    }
+    _write_progress(project_id, task_tracker)
+
+    logger.info(
+        f"전체 종료: {final_qa['total_files']}/{final_qa['expected_files']} 파일, "
+        f"QA {final_qa['status']}, {task_tracker.get('round', 0)} 라운드"
+    )
 
 
 if __name__ == "__main__":
