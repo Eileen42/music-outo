@@ -45,6 +45,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [showBenchmarks, setShowBenchmarks] = useState(false)
   const [editingBenchmarkIdx, setEditingBenchmarkIdx] = useState(-1)
   const [editingBenchmarkUrl, setEditingBenchmarkUrl] = useState('')
+  const [qaStatus, setQaStatus] = useState<{ status: string; tracks: { index: number; title: string; v1_exists: boolean; v2_exists: boolean; status: string }[] } | null>(null)
   const [userKeywords, setUserKeywords] = useState('')
   const [userMood, setUserMood] = useState('')
   const [userLyricsHint, setUserLyricsHint] = useState('')
@@ -198,11 +199,12 @@ export default function SongMaker({ project, onRefresh }: Props) {
     setSunoLoginMsg('')
   }
 
-  // 초기 suno 트랙 + 활성 세트 병렬 로드
+  // 초기 suno 트랙 + 활성 세트 + QA 병렬 로드
   useEffect(() => {
     Promise.all([
       api.trackDesign.sunoTracks(project.id).then(r => setSunoTracks(r.tracks)).catch(() => {}),
       api.trackDesign.getActiveSet(project.id).then(r => setActiveSet(r.active_set)).catch(() => {}),
+      api.qa.verify(project.id).then(setQaStatus).catch(() => {}),
     ])
   }, [project.id])
 
@@ -215,9 +217,12 @@ export default function SongMaker({ project, onRefresh }: Props) {
         setBatchStatus(s)
         if (s.status !== 'running') {
           clearInterval(timer)
-          // 완료 시 트랙 목록 갱신
+          // 완료 시 트랙 목록 + QA 갱신
           api.trackDesign.sunoTracks(project.id)
             .then(r => setSunoTracks(r.tracks))
+            .catch(() => {})
+          api.qa.verify(project.id)
+            .then(setQaStatus)
             .catch(() => {})
         }
       } catch { clearInterval(timer) }
@@ -609,16 +614,24 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   >
                     다시 설계
                   </button>
-                  {project.channel_id && (
-                    <button
-                      onClick={handleBatchCreate}
-                      disabled={batchStatus?.status === 'running' || !sunoSession?.session_exists}
-                      title={!sunoSession?.session_exists ? 'Suno 로그인 필요' : ''}
-                      className="bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      🎵 Suno 일괄 생성
-                    </button>
-                  )}
+                  {project.channel_id && (() => {
+                    const hasAnySuno = sunoTracks.length > 0 || (qaStatus && qaStatus.tracks.some(t => t.status !== 'missing'))
+                    const allComplete = qaStatus?.status === 'pass'
+                    const missingCount = qaStatus?.tracks.filter(t => t.status !== 'complete').length || 0
+
+                    return allComplete ? (
+                      <span className="text-xs text-green-400 px-3 py-1.5">✅ 전곡 완료</span>
+                    ) : (
+                      <button
+                        onClick={handleBatchCreate}
+                        disabled={batchStatus?.status === 'running' || !sunoSession?.session_exists}
+                        title={!sunoSession?.session_exists ? 'Suno 로그인 필요' : hasAnySuno ? `미완료 ${missingCount}곡 이어서 생성` : ''}
+                        className="bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                      >
+                        {hasAnySuno ? `🔄 미완료 ${missingCount}곡 재생성` : '🎵 Suno 일괄 생성'}
+                      </button>
+                    )
+                  })()}
                 </div>
               </div>
 
@@ -712,7 +725,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       onClick={() => setExpandIdx(expandIdx === idx ? null : idx)}
                     >
                       <span className="text-gray-600 text-xs w-5 text-center shrink-0">{t.index}</span>
-                      {/* 생성 중 로딩 표시 */}
+                      {/* 생성 중 로딩 / QA 상태 표시 */}
                       {batchStatus?.status === 'running' && batchStatus?.current_song === t.title ? (
                         <span className="shrink-0 flex items-center gap-1.5">
                           <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
@@ -720,9 +733,19 @@ export default function SongMaker({ project, onRefresh }: Props) {
                             {batchStatus.phase === 'creating' ? '생성중' : batchStatus.phase === 'collecting' ? '다운로드중' : '처리중'}
                           </span>
                         </span>
-                      ) : (
-                        <span className="text-base shrink-0">{categoryIcon(t.category)}</span>
-                      )}
+                      ) : (() => {
+                        const qa = qaStatus?.tracks.find(q => q.index === t.index)
+                        if (!qa || qa.status === 'missing') return <span className="text-base shrink-0">{categoryIcon(t.category)}</span>
+                        return (
+                          <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full font-medium ${
+                            qa.status === 'complete'
+                              ? 'bg-green-900/50 text-green-400'
+                              : 'bg-yellow-900/50 text-yellow-400'
+                          }`}>
+                            {qa.status === 'complete' ? '✓' : qa.v1_exists ? 'v1' : 'v2'}
+                          </span>
+                        )
+                      })()}
 
                       {/* 재생 버튼 1, 2 */}
                       {(() => {

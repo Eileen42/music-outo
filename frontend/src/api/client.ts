@@ -166,6 +166,15 @@ export const api = {
       http.delete('/api/suno/recipe').then(r => r.data),
   },
 
+  qa: {
+    verify: (projectId: string) => http.get<{
+      status: string; total_designed: number; total_files: number; expected_files: number;
+      tracks: { index: number; title: string; v1_exists: boolean; v2_exists: boolean; status: string }[];
+      missing: { index: number; title: string; missing: string[] }[];
+    }>(`/api/projects/${projectId}/qa`).then(r => r.data),
+    fix: (projectId: string) => http.post<{ fixed: number; message: string }>(`/api/projects/${projectId}/qa/fix`).then(r => r.data),
+  },
+
   agents: {
     skills: () => http.get<{ composer: { id: string; name: string; summary: string }[]; lyricist: { id: string; name: string; summary: string }[] }>('/api/agents/skills').then(r => r.data),
     skillContent: (agent: string, skillId: string) => http.get<{ id: string; agent: string; content: string }>(`/api/agents/skills/${agent}/${skillId}`).then(r => r.data),
