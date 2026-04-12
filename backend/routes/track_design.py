@@ -299,7 +299,19 @@ async def batch_reset(project_id: str):
 
 @router.get("/{project_id}/suno-status", summary="Suno 자동화 진행 상태")
 async def suno_status(project_id: str):
-    """Suno 일괄 생성 진행 상태."""
+    """
+    Suno 일괄 생성 진행 상태.
+    progress.json 파일에서 직접 읽음 (별도 프로세스가 실시간 기록).
+    """
+    progress_path = settings.storage_dir / "projects" / project_id / "_suno_progress.json"
+    if progress_path.exists():
+        try:
+            data = json.loads(progress_path.read_text(encoding="utf-8"))
+            return data
+        except Exception:
+            pass
+
+    # fallback: in-memory
     task = _suno_tasks.get(project_id)
     if not task:
         return {"status": "idle"}
