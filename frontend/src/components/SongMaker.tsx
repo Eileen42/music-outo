@@ -677,6 +677,69 @@ export default function SongMaker({ project, onRefresh }: Props) {
                 </div>
               )}
 
+              {/* QA 상태 요약 카드 */}
+              {qaStatus && batchStatus?.status !== 'running' && (
+                <div className={`mb-4 p-4 rounded-xl border text-sm ${
+                  qaStatus.status === 'pass'
+                    ? 'bg-green-900/20 border-green-700/50'
+                    : 'bg-gray-900 border-gray-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-white">
+                      {qaStatus.status === 'pass' ? '✅ 전곡 완료' : '📋 곡 생성 현황'}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {qaStatus.tracks.filter(t => t.status === 'complete').length}/{qaStatus.tracks.length}곡 완성
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-800 rounded-full h-2 mb-3">
+                    <div
+                      className={`h-2 rounded-full transition-all ${qaStatus.status === 'pass' ? 'bg-green-500' : 'bg-indigo-500'}`}
+                      style={{ width: `${(qaStatus.tracks.filter(t => t.status === 'complete').length / qaStatus.tracks.length) * 100}%` }}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {qaStatus.tracks.map(t => (
+                      <span
+                        key={t.index}
+                        className={`text-[10px] w-7 h-5 flex items-center justify-center rounded ${
+                          t.status === 'complete'
+                            ? 'bg-green-900/60 text-green-400'
+                            : t.status === 'partial'
+                            ? 'bg-yellow-900/60 text-yellow-400'
+                            : 'bg-gray-800 text-gray-600'
+                        }`}
+                        title={`${t.index}. ${t.title} — ${t.status === 'complete' ? 'v1+v2 완료' : t.status === 'partial' ? (t.v1_exists ? 'v1만' : 'v2만') : '미생성'}`}
+                      >
+                        {t.index}
+                      </span>
+                    ))}
+                  </div>
+                  {qaStatus.status !== 'pass' && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        onClick={handleBatchCreate}
+                        disabled={batchStatus?.status === 'running' || !sunoSession?.session_exists}
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
+                      >
+                        🔄 미완료 {qaStatus.tracks.filter(t => t.status !== 'complete').length}곡 재생성
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await api.qa.fix(project.id)
+                          const qa = await api.qa.verify(project.id)
+                          setQaStatus(qa)
+                          api.trackDesign.sunoTracks(project.id).then(r => setSunoTracks(r.tracks)).catch(() => {})
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-300 px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
+                      >
+                        🔗 연결 수정
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Suno 다운로드 실패 재시도 바 */}
               {sunoTracks.length > 0 && sunoTracks.some(t => t.status === 'download_failed' || t.status === 'duplicate') && (
                 <div className="mb-4 space-y-2">
