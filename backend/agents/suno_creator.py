@@ -59,16 +59,22 @@ class SunoCreatorAgent:
             for attempt in range(3):
                 page = await self._context.new_page()
                 try:
-                    await self._create_and_move_on(
-                        page=page,
-                        title=title,
-                        lyrics=song.get("lyrics", "") if not song.get("is_instrumental") else "",
-                        style_prompt=song.get("suno_prompt", ""),
-                        is_instrumental=song.get("is_instrumental", False),
+                    await asyncio.wait_for(
+                        self._create_and_move_on(
+                            page=page,
+                            title=title,
+                            lyrics=song.get("lyrics", "") if not song.get("is_instrumental") else "",
+                            style_prompt=song.get("suno_prompt", ""),
+                            is_instrumental=song.get("is_instrumental", False),
+                        ),
+                        timeout=90.0,  # 곡당 최대 90초
                     )
                     self._pages.append({"page": page, "title": title, "index": index})
                     success = True
                     break
+                except asyncio.TimeoutError:
+                    last_error = f"곡당 타임아웃 (90초 초과): {title}"
+                    logger.warning(f"[{i+1}/{total}] 시도 {attempt+1} 타임아웃")
                 except Exception as e:
                     last_error = str(e) or type(e).__name__
                     logger.warning(f"[{i+1}/{total}] 시도 {attempt+1} 실패: {last_error}")
@@ -129,16 +135,27 @@ class SunoCreatorAgent:
     ) -> None:
         """
         suno.com/create → 입력 → Create 클릭 → 끝 (clip 수집 안 기다림).
+        전체 과정에 타임아웃 + 단계별 스크린샷으로 디버깅 지원.
         """
-        # SunoAutomation의 입력 헬퍼 재사용
+        from pathlib import Path as _Path
+        debug_dir = _Path(__file__).parent.parent / "storage" / "debug"
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        safe = title[:20].replace(" ", "_").replace("'", "")
+
         suno = SunoAutomation.__new__(SunoAutomation)
         suno._context = self._context
 
+        # Step 1: 페이지 로드
+        logger.info(f"[Creator] Step1 페이지 로드: {title}")
         await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
         await page.wait_for_timeout(2_000)
 
+        # Step 2: Advanced 모드
+        logger.info(f"[Creator] Step2 Advanced 모드: {title}")
         await suno._switch_to_custom_mode(page)
 
+        # Step 3: 메타데이터 입력
+        logger.info(f"[Creator] Step3 메타데이터 입력: {title}")
         recipe = get_recipe()
         if recipe and recipe.get("actions"):
             await suno._replay_recipe(page, title, lyrics, style_prompt, is_instrumental, recipe)
@@ -150,9 +167,41 @@ class SunoCreatorAgent:
             if title:
                 await suno._react_fill_title(page, title)
 
-        # Create 클릭만 하고 끝 — clip 수집 안 함
-        await suno._click_create_btn(page, title)
-        logger.info(f"Create 클릭 완료 (clip 수집 안 함): {title}")
+        # Step 4: Create 클릭 전 스크린샷
+        try:
+            await page.screenshot(path=str(debug_dir / f"before_create_{safe}.png"))
+        except Exception:
+            pass
 
-        # 클릭 후 짧은 대기 (Suno가 요청 접수하도록)
+        # Step 4: 크레딧/에러 확인
+        page_text = await page.evaluate("() => document.body.innerText.substring(0, 500)")
+        if "Insufficient credits" in page_text or "rate limit" in page_text.lower():
+            await page.screenshot(path=str(debug_dir / f"error_{safe}.png"))
+            raise RuntimeError(f"Suno 에러 감지: {page_text[:200]}")
+
+        # Step 5: Create 클릭
+        logger.info(f"[Creator] Step4 Create 클릭: {title}")
+        try:
+            await asyncio.wait_for(
+                suno._click_create_btn(page, title),
+                timeout=15.0,
+            )
+        except asyncio.TimeoutError:
+            await page.screenshot(path=str(debug_dir / f"create_timeout_{safe}.png"))
+            raise RuntimeError(f"Create 버튼 클릭 타임아웃 (15초): {title}")
+
+        # Step 6: 클릭 후 확인
         await page.wait_for_timeout(2_000)
+
+        # 클릭 후 에러 확인
+        post_text = await page.evaluate("() => document.body.innerText.substring(0, 500)")
+        if "Something went wrong" in post_text or "Error" in post_text[:100]:
+            await page.screenshot(path=str(debug_dir / f"post_create_error_{safe}.png"))
+            raise RuntimeError(f"Create 후 에러: {post_text[:200]}")
+
+        try:
+            await page.screenshot(path=str(debug_dir / f"after_create_{safe}.png"))
+        except Exception:
+            pass
+
+        logger.info(f"[Creator] Create 완료: {title}")
