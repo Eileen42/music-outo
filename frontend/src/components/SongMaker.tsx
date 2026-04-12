@@ -224,14 +224,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
         const s = await api.trackDesign.sunoStatus(project.id)
         setBatchStatus(s)
 
-        // 10초마다 QA도 갱신 (다운로드 진행상황 반영)
+        // 매 폴링마다 sunoTracks 갱신 → 다운된 곡 바로 재생 가능
+        api.trackDesign.sunoTracks(project.id).then(r => setSunoTracks(r.tracks)).catch(() => {})
+
+        // 10초마다 QA도 갱신
         if (tick % 3 === 0) {
           api.qa.verify(project.id).then(setQaStatus).catch(() => {})
         }
 
         if (s.status !== 'running') {
           clearInterval(timer)
-          api.trackDesign.sunoTracks(project.id).then(r => setSunoTracks(r.tracks)).catch(() => {})
           api.qa.verify(project.id).then(setQaStatus).catch(() => {})
         }
       } catch { clearInterval(timer) }
