@@ -1,8 +1,7 @@
 """
-Song Collector Agent — Suno에서 곡을 검색하여 다운로드.
+Song Collector Agent — 탭 1개로 Suno 검색 + 다운로드.
 
-핵심: 검색 페이지를 한 번만 열고 곡마다 검색어만 교체.
-페이지 열고닫기 없이 검색 → 다운 → 다음 검색 → 다운 → ... 반복.
+같은 탭에서: 검색어 입력 → 결과 확인 → 다운 → 검색어 교체 → 반복
 """
 from __future__ import annotations
 
@@ -18,91 +17,34 @@ logger = logging.getLogger("suno_collector")
 
 
 class SunoCollectorAgent:
-    """Suno 검색 페이지 1개로 모든 곡을 찾아 다운로드하는 에이전트."""
+    """탭 1개로 Suno 검색하여 곡을 다운로드하는 에이전트."""
 
     def __init__(self, context: BrowserContext) -> None:
         self._context = context
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._page: Page | None = None
         self._results: list[dict] = []
-        self._running = True
         self._known_ids: set[str] = set()
-        self._search_page: Page | None = None
 
     def set_known_ids(self, ids: set[str]) -> None:
         self._known_ids = ids
 
-    async def _get_search_page(self) -> Page:
-        """검색 페이지를 한 번만 열고 재사용."""
-        if self._search_page and not self._search_page.is_closed():
-            return self._search_page
-
-        self._search_page = await self._context.new_page()
-        await self._search_page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
-        await self._search_page.wait_for_timeout(3_000)
-        logger.info("[Collector] 검색 페이지 오픈")
-        return self._search_page
-
-    async def close_search_page(self) -> None:
-        """작업 완료 후 검색 페이지 닫기."""
-        if self._search_page and not self._search_page.is_closed():
-            try:
-                await self._search_page.close()
-            except Exception:
-                pass
-            self._search_page = None
-
-    async def run_parallel(
-        self,
-        output_dir: str,
-        title_to_index: dict[str, int],
-        progress_callback=None,
-    ) -> None:
-        """병렬 모드: Creator 큐에서 꺼내 즉시 검색+다운."""
-        out_dir = Path(output_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        collected_count = 0
-
-        while self._running or not self._queue.empty():
-            try:
-                song = await asyncio.wait_for(self._queue.get(), timeout=10.0)
-            except asyncio.TimeoutError:
-                continue
-
-            title = song.get("title", "")
-            index = song.get("index", 0)
-            if not title:
-                continue
-
-            logger.info(f"[Collector] 검색: [{index:02d}] {title}")
-
-            for attempt in range(3):
-                results = await self._search_one(title, index, out_dir)
-                if results:
-                    self._results.extend(results)
-                    break
-                if attempt < 2:
-                    wait = 30 * (attempt + 1)
-                    logger.info(f"[Collector] '{title}' 미완성, {wait}초 후 재시도")
-                    await asyncio.sleep(wait)
-
-            collected_count += 1
-            if progress_callback:
-                progress_callback({
-                    "current_index": index, "current_title": title,
-                    "phase": "collecting", "completed": collected_count, "total": collected_count,
-                })
-
-        logger.info(f"[Collector] 병렬 수집 완료: {len(self._results)}개")
-
-    async def collect_remaining(
+    async def collect_all(
         self,
         songs: list[dict],
         output_dir: str,
         progress_callback=None,
-    ) -> None:
-        """Creator 완료 후 남은 곡 일괄 검색+다운. 페이지 재사용."""
+    ) -> list[dict]:
+        """
+        탭 1개에서 모든 곡을 순차적으로 검색+다운로드.
+        이미 v1+v2 있는 곡은 건너뜀.
+        """
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
+
+        # 검색 페이지 1번만 열기
+        self._page = await self._context.new_page()
+        await self._page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
+        await self._page.wait_for_timeout(3_000)
 
         for i, song in enumerate(songs):
             title = song.get("title", "")
@@ -112,40 +54,44 @@ class SunoCollectorAgent:
 
             # 이미 v1+v2 있으면 건너뛰기
             safe = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", title)
-            if (out_dir / f"{index:02d}_{safe}_v1.mp3").exists() and (out_dir / f"{index:02d}_{safe}_v2.mp3").exists():
+            v1 = out_dir / f"{index:02d}_{safe}_v1.mp3"
+            v2 = out_dir / f"{index:02d}_{safe}_v2.mp3"
+            if v1.exists() and v1.stat().st_size > 10_000 and v2.exists() and v2.stat().st_size > 10_000:
+                logger.info(f"[{index:02d}] {title}: 이미 완료, 건너뜀")
                 continue
 
-            for attempt in range(3):
-                results = await self._search_one(title, index, out_dir)
-                if results:
-                    self._results.extend(results)
-                    break
-                if attempt < 2:
-                    await asyncio.sleep(30 * (attempt + 1))
+            logger.info(f"[{index:02d}] {title}: 검색 중...")
+
+            results = await self._search_one(title, index, out_dir)
+            self._results.extend(results)
 
             if progress_callback:
                 progress_callback({
-                    "current_index": index, "current_title": title,
-                    "phase": "collecting", "completed": i + 1, "total": len(songs),
+                    "current_index": index,
+                    "current_title": title,
+                    "phase": "collecting",
+                    "completed": i + 1,
+                    "total": len(songs),
                 })
 
-    def enqueue(self, song_result: dict) -> None:
-        self._queue.put_nowait(song_result)
+        logger.info(f"수집 완료: {len(self._results)}개 파일")
+        return self._results
 
-    def stop(self) -> None:
-        self._running = False
+    async def close(self) -> None:
+        """탭 닫기."""
+        if self._page and not self._page.is_closed():
+            try:
+                await self._page.close()
+            except Exception:
+                pass
+            self._page = None
 
     def get_results(self) -> list[dict]:
         return self._results
 
-    # ── 핵심: 페이지 재사용 검색 ─────────────────────────────────
-
     async def _search_one(self, title: str, index: int, out_dir: Path) -> list[dict]:
-        """
-        검색 페이지에서 검색어만 교체하여 곡 찾기 + 다운로드.
-        페이지를 열고 닫지 않음.
-        """
-        page = await self._get_search_page()
+        """같은 탭에서 검색어만 교체하여 검색 + 다운로드."""
+        page = self._page
         found_clips: list[dict] = []
         results = []
 
@@ -177,22 +123,21 @@ class SunoCollectorAgent:
         try:
             page.on("response", on_response)
 
-            # 검색 입력 찾기
             search_input = await page.query_selector('input[aria-label="Search clips"]')
             if not search_input:
                 search_input = await page.query_selector('input[placeholder*="Search"]')
             if not search_input:
-                # 페이지가 이상한 상태 → 새로고침
-                logger.warning(f"[Collector] 검색 입력창 없음, 페이지 새로고침")
-                await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
-                await page.wait_for_timeout(3_000)
+                # 페이지 새로고침
+                await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=15_000)
+                await page.wait_for_timeout(2_000)
                 search_input = await page.query_selector('input[aria-label="Search clips"]')
-                if not search_input:
-                    logger.warning(f"[Collector] 검색 입력창 재시도 실패: {title}")
-                    page.remove_listener("response", on_response)
-                    return results
 
-            # 검색어 입력 (기존 내용 지우고 새로 입력)
+            if not search_input:
+                logger.warning(f"[Collector] 검색 입력창 없음: {title}")
+                page.remove_listener("response", on_response)
+                return results
+
+            # 검색어 교체
             await search_input.click()
             await search_input.fill("")
             await page.wait_for_timeout(300)
@@ -203,10 +148,9 @@ class SunoCollectorAgent:
 
             to_dl = found_clips[:2]
             if not to_dl:
-                logger.info(f"[Collector] '{title}': 검색 결과 없음")
+                logger.info(f"[Collector] '{title}': Suno에 없음")
                 return results
 
-            # 다운로드
             for slot, clip in enumerate(to_dl, 1):
                 safe = re.sub(r'[\u4E00-\u9FFF\u3400-\u4DBF\\/:*?"<>|]', "_", title)
                 prefix = f"{index:02d}_{safe}_v{slot}"
@@ -218,15 +162,17 @@ class SunoCollectorAgent:
                 })
                 self._known_ids.add(clip["id"])
 
-            logger.info(f"[Collector] '{title}': {len(results)}개 다운로드")
+            if results:
+                logger.info(f"[Collector] '{title}': {len([r for r in results if r['status']=='completed'])}개 다운")
 
         except Exception as e:
-            logger.warning(f"[Collector] '{title}' 검색 실패: {e}")
-            page.remove_listener("response", on_response)
+            logger.warning(f"[Collector] '{title}' 실패: {e}")
+            try:
+                page.remove_listener("response", on_response)
+            except Exception:
+                pass
 
         return results
-
-    # ── 다운로드 ─────────────────────────────────────────────────
 
     async def _download_clip(self, clip_id: str, audio_url: str, out_dir: Path, prefix: str) -> str:
         dest = out_dir / f"{prefix}.mp3"
@@ -236,8 +182,7 @@ class SunoCollectorAgent:
         cookies = await self._context.cookies("https://suno.com")
         cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
         headers = {
-            "Cookie": cookie_header,
-            "Referer": "https://suno.com/",
+            "Cookie": cookie_header, "Referer": "https://suno.com/",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0",
         }
 
@@ -254,31 +199,7 @@ class SunoCollectorAgent:
                             content = await resp.read()
                             if len(content) > 10_000:
                                 dest.write_bytes(content)
-                                logger.info(f"다운로드 OK: {dest.name} ({len(content)//1024}KB)")
                                 return str(dest)
                 except Exception:
                     pass
-
-        # Fallback: 곡 페이지에서 audio tag (별도 탭)
-        return await self._page_download(clip_id, dest, headers)
-
-    async def _page_download(self, clip_id: str, dest: Path, headers: dict) -> str:
-        page = await self._context.new_page()
-        try:
-            await page.goto(f"https://suno.com/song/{clip_id}", wait_until="domcontentloaded", timeout=30_000)
-            for _ in range(60):
-                src = await page.evaluate("() => { const a = document.querySelector('audio'); return a ? a.src : ''; }")
-                if src and src.startswith("http"):
-                    async with aiohttp.ClientSession() as http:
-                        async with http.get(src, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                            if resp.status == 200:
-                                content = await resp.read()
-                                if len(content) > 10_000:
-                                    dest.write_bytes(content)
-                                    return str(dest)
-                await asyncio.sleep(5)
-            return ""
-        except Exception:
-            return ""
-        finally:
-            await page.close()
+        return ""
