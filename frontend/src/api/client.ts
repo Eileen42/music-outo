@@ -225,7 +225,14 @@ export const api = {
     batchStop: (projectId: string) =>
       http.post<{ reset: boolean }>(`/api/tracks/${projectId}/batch-reset`).then(r => r.data),
     sunoStatus: (projectId: string) =>
-      http.get<{ status: string; completed: number; total_batches: number; tracks_collected: number }>(`/api/tracks/${projectId}/suno-status`).then(r => r.data),
+      http.get<{
+        status: string; phase?: string; round?: number;
+        total_designed?: number; total_batches: number;
+        completed_batches?: number; completed?: number;
+        tracks_collected: number; current_song?: string;
+        errors?: string[];
+        qa_report?: { status: string; total_files: number; expected_files: number; complete_count: number };
+      }>(`/api/tracks/${projectId}/suno-status`).then(r => r.data),
     sunoTracks: (projectId: string) =>
       http.get<{ tracks: SunoTrack[]; total: number }>(`/api/tracks/${projectId}/suno-tracks`).then(r => r.data),
     reorderSunoTracks: (projectId: string, order: number[]) =>
