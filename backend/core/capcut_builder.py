@@ -628,33 +628,26 @@ class CapcutBuilder:
             if wf_video.exists():
                 wf_id = _uuid()
                 wf_path = str(wf_video.resolve())
-                # 루프 길이 (5초 = 5_000_000 us)
-                loop_us = 5_000_000
+                # 전체 길이 단일 영상 (루프 아님 → 깜빡임 없음)
                 materials["videos"].append({
                     "id": wf_id,
                     "path": wf_path,
                     "type": "video",
                     "width": 1920,
                     "height": 1080,
-                    "duration": loop_us,
+                    "duration": total_us,
                 })
-                # 전체 길이를 루프로 채우기 — 1920x1080 전체 프레임이므로 스케일/위치 변환 불필요
-                wf_segments = []
-                cursor = 0
-                while cursor < total_us:
-                    seg_dur = min(loop_us, total_us - cursor)
-                    wf_segments.append(_make_segment(
-                        wf_id, cursor, seg_dur, materials, track_type="video",
-                        render_index=1,
-                        clip={
-                            "alpha": 1.0,  # 투명도는 MOV 내부 RGBA로 이미 처리됨
-                            "flip": {"horizontal": False, "vertical": False},
-                            "rotation": 0.0,
-                            "scale": {"x": 1.0, "y": 1.0},  # 1:1 (프론트 설정이 MOV에 이미 반영)
-                            "transform": {"x": 0.0, "y": 0.0},
-                        },
-                    ))
-                    cursor += loop_us
+                wf_segments = [_make_segment(
+                    wf_id, 0, total_us, materials, track_type="video",
+                    render_index=1,
+                    clip={
+                        "alpha": 1.0,
+                        "flip": {"horizontal": False, "vertical": False},
+                        "rotation": 0.0,
+                        "scale": {"x": 1.0, "y": 1.0},
+                        "transform": {"x": 0.0, "y": 0.0},
+                    },
+                )]
                 track_list.append({
                     "type": "video",
                     "attribute": 0, "flag": 0, "id": _uuid(),
