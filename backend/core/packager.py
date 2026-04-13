@@ -121,11 +121,13 @@ class Packager:
 
             layers = project_state.get("layers", {})
 
-            # 1. 오디오 병합
+            # 1. 오디오 병합 (캐시: 이미 있으면 건너뜀)
             report(10, "오디오 병합 중...")
             audio_paths = [Path(t["stored_path"]) for t in tracks if t.get("stored_path") and Path(t["stored_path"]).exists()]
             merged_audio = output_dir / "merged_audio.mp3"
-            if len(audio_paths) == 1:
+            if merged_audio.exists() and merged_audio.stat().st_size > 10_000:
+                report(20, "오디오 캐시 사용")
+            elif len(audio_paths) == 1:
                 import shutil
                 shutil.copy(audio_paths[0], merged_audio)
             elif audio_paths:
@@ -133,7 +135,7 @@ class Packager:
                     await audio_pipeline.merge_tracks(audio_paths, merged_audio)
                 except Exception as e:
                     import logging
-                    logging.getLogger(__name__).warning(f"오디오 병합 실패 (개별 트랙으로 진행): {e}")
+                    logging.getLogger(__name__).warning(f"오디오 병합 실패: {e}")
 
             # 2. 파형 생성 (PNG + MP4)
             waveform_config = layers.get("waveform_layer") or {}
