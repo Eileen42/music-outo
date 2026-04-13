@@ -189,9 +189,8 @@ class WaveformGenerator:
         r, g, b = self._hex_to_rgb(color)
         alpha = int(opacity * 255)
 
-        # 프론트 Canvas(640px)에서의 시각적 크기를 1920px에서 재현
-        # 프론트: CW=640, S=640/1920=0.333, CSS표시≈300px → 시각적 보정 3x
-        sc = scale * 3.0  # 프론트 프리뷰의 시각적 크기에 맞춤
+        # 1920x1080 기준 실제 크기 (보정 없음)
+        sc = scale
         bw = bar_width * sc
         gap = bar_gap * sc
         max_h = bar_height * sc
