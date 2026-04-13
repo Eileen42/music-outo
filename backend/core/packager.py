@@ -150,7 +150,15 @@ class Packager:
                     logging.getLogger(__name__).warning(f"파형 PNG 생성 실패: {e}")
                 # MP4 (FFmpeg 필요 — 없으면 건너뜀)
                 import shutil
-                if shutil.which("ffmpeg"):
+                ffmpeg_found = shutil.which("ffmpeg")
+                if not ffmpeg_found:
+                    from pathlib import Path as _P
+                    winget_dir = _P.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
+                    if winget_dir.exists():
+                        for _p in winget_dir.rglob("ffmpeg.exe"):
+                            ffmpeg_found = str(_p)
+                            break
+                if ffmpeg_found:
                     report(45, "파형 애니메이션 생성 중...")
                     try:
                         await waveform_generator.generate_video(
