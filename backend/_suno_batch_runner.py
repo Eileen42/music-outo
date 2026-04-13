@@ -289,23 +289,29 @@ async def main(project_id: str) -> None:
         finally:
             await pw.stop()
 
-        suno_qa_agent.fix_links(project_id)
+        # 라운드 끝 검수 (cleanup + fix + verify)
+        suno_qa_agent.final_check(project_id)
         d, _ = _count(all_tracks, tdir)
         logger.info(f"라운드 {rnd}: {d}/{total}곡")
         if d >= total:
             break
-        is_first = False  # 2라운드부터는 재생성 모드
+        is_first = False
         await asyncio.sleep(5)
 
-    # 최종
-    final = suno_qa_agent.verify(project_id)
-    suno_qa_agent.fix_links(project_id)
+    # 최종 검수 (중복/고아/빈파일 정리 + 연결 + 검증)
+    update(phase="verifying", current_song="최종 검수 중...")
+    final = suno_qa_agent.final_check(project_id)
     c = len([t for t in final.get("tracks", []) if t["status"] == "complete"])
     tracker.update(status="completed", phase="done", tracks_collected=final["total_files"],
-                   qa_report={"status": final["status"], "total_files": final["total_files"],
-                              "expected_files": final["expected_files"], "complete_count": c})
+                   qa_report={
+                       "status": final["status"],
+                       "total_files": final["total_files"],
+                       "expected_files": final["expected_files"],
+                       "complete_count": c,
+                       "cleanup": final.get("cleanup", {}),
+                   })
     _w(project_id, tracker)
-    logger.info(f"종료: {c}/{total}곡, {tracker['round']}라운드")
+    logger.info(f"종료: {c}/{total}곡, {tracker['round']}라운드, cleanup={final.get('cleanup', {})}")
 
 
 if __name__ == "__main__":

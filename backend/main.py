@@ -246,6 +246,20 @@ async def qa_fix_links(project_id: str):
     return suno_qa_agent.fix_links(project_id)
 
 
+@app.post("/api/projects/{project_id}/qa/cleanup")
+async def qa_cleanup(project_id: str):
+    """중복/고아/빈파일 정리."""
+    from agents.suno_qa import suno_qa_agent
+    return suno_qa_agent.cleanup(project_id)
+
+
+@app.post("/api/projects/{project_id}/qa/final")
+async def qa_final_check(project_id: str):
+    """최종 검수 (cleanup + fix + verify)."""
+    from agents.suno_qa import suno_qa_agent
+    return suno_qa_agent.final_check(project_id)
+
+
 @app.get("/api/agents/skills")
 async def list_agent_skills():
     """작곡/작사 에이전트의 사용 가능한 스킬 목록."""
