@@ -42,9 +42,9 @@ OUTPUT_H = 1080
 
 
 def _bell_envelope(i: int, count: int) -> float:
-    """프론트와 동일한 bellEnvelope — 중앙이 높고 양쪽이 낮은 곡선."""
+    """프론트와 100% 동일: 0.2 + 0.8 * exp(-3 * x²)"""
     x = (i / max(count - 1, 1)) * 2 - 1  # -1 ~ 1
-    return math.exp(-2.5 * x * x)
+    return 0.2 + 0.8 * math.exp(-3.0 * x * x)
 
 
 class WaveformGenerator:
@@ -136,12 +136,11 @@ class WaveformGenerator:
         self, audio_path: Path, output_mp4: Path,
         width: int = OUTPUT_W, height: int = OUTPUT_H,
         color: str = "#FFFFFF", style: WaveformStyle = "bar",
-        loop_duration: float = LOOP_DURATION, fps: int = FPS,
-        waveform_config: dict | None = None, **_kw,
+        fps: int = FPS, waveform_config: dict | None = None, **_kw,
     ) -> Path:
         """
-        프론트 LayerPreview와 동일한 파형 애니메이션 생성.
-        waveform_config: 프론트의 WaveformLayerConfig 전체.
+        전체 오디오 길이에 맞는 파형 애니메이션 생성 (루프 아님).
+        깜빡임 없이 하나의 연속 영상.
         """
         ffmpeg = _FFMPEG or _find_ffmpeg_bin()
         if not ffmpeg:
@@ -150,8 +149,12 @@ class WaveformGenerator:
         cfg = waveform_config or {}
         bar_count = cfg.get("bar_count", 60)
 
+        # 전체 오디오 길이 사용 (루프 아님)
+        audio = AudioSegment.from_file(str(audio_path))
+        total_duration = len(audio) / 1000.0
+
         frames_data = await asyncio.to_thread(
-            self._extract_realtime_energy, audio_path, loop_duration, fps, bar_count
+            self._extract_realtime_energy, audio_path, total_duration, fps, bar_count
         )
 
         output_mov = output_mp4.with_suffix(".mov")
@@ -187,6 +190,7 @@ class WaveformGenerator:
         style = cfg.get("style", "bar")
 
         r, g, b = self._hex_to_rgb(color)
+        # 프론트: ctx.globalAlpha = opacity → 모든 바에 동일 alpha
         alpha = int(opacity * 255)
 
         # 1920x1080 기준 실제 크기 (보정 없음)
