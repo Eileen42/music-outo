@@ -106,7 +106,7 @@ class Packager:
         project_dir: Path,
         progress_cb: Optional[Callable[[int, str], None]] = None,
     ) -> dict:
-        """CapCut 프로젝트 파일만 생성 (FFmpeg 불필요, 오디오 병합 안 함)."""
+        """CapCut 프로젝트 파일 생성 (오디오 병합 + 파형 포함)."""
         output_dir = project_dir / "outputs"
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -119,7 +119,52 @@ class Packager:
             if not tracks:
                 raise ValueError("트랙이 없습니다.")
 
-            report(30, "CapCut 프로젝트 생성 중...")
+            layers = project_state.get("layers", {})
+
+            # 1. 오디오 병합
+            report(10, "오디오 병합 중...")
+            audio_paths = [Path(t["stored_path"]) for t in tracks if t.get("stored_path") and Path(t["stored_path"]).exists()]
+            merged_audio = output_dir / "merged_audio.mp3"
+            if len(audio_paths) == 1:
+                import shutil
+                shutil.copy(audio_paths[0], merged_audio)
+            elif audio_paths:
+                try:
+                    await audio_pipeline.merge_tracks(audio_paths, merged_audio)
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"오디오 병합 실패 (개별 트랙으로 진행): {e}")
+
+            # 2. 파형 생성 (PNG + MP4)
+            waveform_config = layers.get("waveform_layer") or {}
+            if waveform_config.get("enabled", True) and merged_audio.exists():
+                report(30, "파형 생성 중...")
+                wf_color = waveform_config.get("color", "#FFFFFF")
+                wf_style = waveform_config.get("style", "bar")
+                try:
+                    await waveform_generator.generate_image(
+                        merged_audio, output_dir / "waveform.png", color=wf_color, style=wf_style,
+                    )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"파형 PNG 생성 실패: {e}")
+                # MP4 (FFmpeg 필요 — 없으면 건너뜀)
+                import shutil
+                if shutil.which("ffmpeg"):
+                    report(45, "파형 애니메이션 생성 중...")
+                    try:
+                        await waveform_generator.generate_video(
+                            merged_audio, output_dir / "waveform_loop.mp4", color=wf_color, style=wf_style,
+                        )
+                    except Exception as e:
+                        import logging
+                        logging.getLogger(__name__).warning(f"파형 MP4 생성 실패: {e}")
+                else:
+                    import logging
+                    logging.getLogger(__name__).info("FFmpeg 없음 — 파형 MP4 건너뜀")
+
+            # 3. CapCut 프로젝트 생성
+            report(60, "CapCut 프로젝트 생성 중...")
             capcut_file = await capcut_builder.build(project_state, output_dir)
 
             report(100, "완료!")
