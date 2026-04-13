@@ -164,7 +164,9 @@ class Packager:
                     report(45, "파형 애니메이션 생성 중...")
                     try:
                         await waveform_generator.generate_video(
-                            merged_audio, output_dir / "waveform_loop.mp4", color=wf_color, style=wf_style,
+                            merged_audio, output_dir / "waveform_loop.mp4",
+                            color=wf_color, style=wf_style,
+                            waveform_config=waveform_config,
                         )
                     except Exception as e:
                         import logging
