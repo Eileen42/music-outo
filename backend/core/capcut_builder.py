@@ -615,12 +615,16 @@ class CapcutBuilder:
         # ── 6. 파형 비디오 레이어 (루프 반복) ──
         waveform_config = layers.get("waveform_layer") or {}
         if waveform_config.get("enabled", True) and project_dir:
-            # output_dir(packager의 outputs 폴더)에서 파형 MP4 찾기
-            wf_video = output_dir / "waveform_loop.mp4" if output_dir else None
-            if not wf_video or not wf_video.exists():
-                wf_video = project_dir / "outputs" / "waveform_loop.mp4"
-            if not wf_video.exists():
-                wf_video = project_dir / "waveform_loop.mp4"
+            # output_dir에서 파형 비디오 찾기 (MOV 우선 → MP4 폴백)
+            wf_video = None
+            for ext in (".mov", ".mp4"):
+                for search_dir in ([output_dir] if output_dir else []) + [project_dir / "outputs", project_dir]:
+                    candidate = search_dir / f"waveform_loop{ext}"
+                    if candidate.exists():
+                        wf_video = candidate
+                        break
+                if wf_video:
+                    break
             if wf_video.exists():
                 wf_id = _uuid()
                 wf_path = str(wf_video.resolve())
