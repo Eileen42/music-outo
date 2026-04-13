@@ -207,22 +207,31 @@ export default function BuildDownload({ project, onRefresh }: Props) {
             )}
           </div>
 
-          {/* CapCut 미디어 연결 경로 안내 */}
+          {/* CapCut 에셋 안내 */}
           {buildMode === 'capcut' && build.capcut_file && (
-            <div className="mt-4 bg-gray-800 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold text-gray-300">📂 CapCut 미디어 연결 경로</span>
-                <button onClick={() => {
-                  const path = build.capcut_file!.replace(/\\/g, '/').replace(/\/[^/]+\.zip$/, '/Resources')
-                    .replace('/outputs/', '/').replace(/\/capcut_project\//, '/')
-                  // CapCut 프로젝트 폴더 내 Resources
-                  const capcut = `C:/Users/${path.includes('tofha') ? 'tofha' : 'user'}/AppData/Local/CapCut/User Data/Projects/com.lveditor.draft/${project.name}/Resources`
-                  navigator.clipboard.writeText(capcut)
-                }} className="text-[10px] text-indigo-400 hover:text-indigo-300 ml-auto">복사</button>
+            <div className="mt-4 bg-gray-800 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-300">📂 CapCut 에셋 안내</span>
               </div>
-              <p className="text-[10px] text-gray-500 mb-2">CapCut에서 "미디어 연결" 팝업이 나타나면 아래 경로로 지정하세요:</p>
-              <div className="bg-gray-900 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono break-all select-all">
-                C:\Users\tofha\AppData\Local\CapCut\User Data\Projects\com.lveditor.draft\{project.name}\Resources
+              <div className="text-[11px] text-gray-400 space-y-2">
+                <p>ZIP 안에 <code className="text-indigo-300 bg-gray-900 px-1 rounded">Resources</code> 폴더에 모든 에셋(오디오, 이미지, 파형)이 포함되어 있습니다.</p>
+                <ol className="space-y-1 list-decimal list-inside">
+                  <li>ZIP을 CapCut 프로젝트 폴더에 압축 해제</li>
+                  <li>CapCut에서 프로젝트 열기</li>
+                  <li>"미디어 연결" 팝업 → Resources 폴더 지정</li>
+                </ol>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 mb-1">CapCut 프로젝트 폴더:</p>
+                <div
+                  className="bg-gray-900 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono break-all cursor-pointer hover:text-indigo-300 transition-colors"
+                  onClick={() => {
+                    navigator.clipboard.writeText(build.capcut_file!.replace(/\\/g, '\\').replace(/\/[^/]+\.zip$/, ''))
+                  }}
+                  title="클릭하여 복사"
+                >
+                  {build.capcut_file?.replace(/\/[^/]+\.zip$/, '').replace(/\//g, '\\')}
+                </div>
               </div>
             </div>
           )}
