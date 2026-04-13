@@ -301,9 +301,7 @@ class CapcutBuilder:
             state, tracks, images, layers, subtitle_entries, total_us, project_name, project_dir,
             repeat_count=repeat_count,
         )
-        (project_dir / "draft_content.json").write_text(
-            json.dumps(draft_content, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        # draft_content.json은 에셋 복사 후 경로 업데이트 뒤에 저장 (아래에서)
 
         # draft_meta_info.json (스켈레톤 기반)
         draft_id = _uuid()
@@ -351,8 +349,40 @@ class CapcutBuilder:
             encoding="utf-8",
         )
 
-        # 에셋: 원본 경로를 직접 참조 (Resources 복사 불필요 — 경로 깨짐 방지)
-        # 커버 이미지만 복사
+        # ── 에셋을 Resources 폴더에 모으기 ──
+        resources_dir = project_dir / "Resources"
+        resources_dir.mkdir(parents=True, exist_ok=True)
+
+        # draft_content.json의 절대경로 → Resources 내 상대경로로 변환
+        path_map: dict[str, str] = {}  # 원본절대경로 → Resources 내 파일명
+
+        def _copy_asset(src_path: str, prefix: str = "") -> str:
+            """에셋을 Resources에 복사하고 새 경로 반환."""
+            src = Path(src_path)
+            if not src.exists():
+                return src_path
+            dest_name = f"{prefix}{src.name}" if prefix else src.name
+            dest = resources_dir / dest_name
+            if not dest.exists():
+                shutil.copy(src, dest)
+            new_path = str(dest.resolve())
+            path_map[src_path] = new_path
+            return new_path
+
+        # materials의 모든 경로를 Resources로 복사
+        for mat in draft_content.get("materials", {}).get("videos", []):
+            if mat.get("path"):
+                mat["path"] = _copy_asset(mat["path"], "")
+        for mat in draft_content.get("materials", {}).get("audios", []):
+            if mat.get("path"):
+                mat["path"] = _copy_asset(mat["path"], "")
+
+        # draft_content 재저장 (경로 업데이트)
+        (project_dir / "draft_content.json").write_text(
+            json.dumps(draft_content, ensure_ascii=False), encoding="utf-8"
+        )
+
+        # 커버 이미지
         bg = images.get("background") or images.get("thumbnail")
         if bg and Path(bg).exists():
             try:
@@ -360,7 +390,7 @@ class CapcutBuilder:
             except Exception:
                 pass
 
-        # 샘플에서 복사한 필수 파일들
+        # 샘플 필수 파일들
         assets_dir = Path(__file__).parent.parent / "assets"
         for src_name, dst_name in [
             ("capcut_key_value.json", "key_value.json"),
@@ -371,7 +401,7 @@ class CapcutBuilder:
             if src.exists():
                 shutil.copy(src, project_dir / dst_name)
 
-        # CapCut 폴더에 직접 생성된 경우 ZIP도 별도로 만들어 다운로드용
+        # ZIP 생성 (Resources 폴더 포함)
         zip_path = output_dir / f"{safe_name}.zip"
         shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
 
