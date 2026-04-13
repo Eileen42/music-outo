@@ -97,6 +97,10 @@ function Section({ title, open, onToggle, badge, children }: {
 
 export default function LayerPreview({ project, onRefresh }: Props) {
   const [saving, setSaving] = useState(false)
+  const [wfCreating, setWfCreating] = useState(false)
+  const [wfReady, setWfReady] = useState(false)
+  const [wfProgress, setWfProgress] = useState(0)
+  const [wfFileSize, setWfFileSize] = useState('')
   const layers = project.layers || { background_video: null, waveform_layer: null, text_layers: [], effect_layers: [] }
   const [wf, setWf] = useState<WaveformLayerConfig>(mgWf(layers.waveform_layer))
   const [texts, setTexts] = useState<TextLayerConfig[]>((layers.text_layers || []).map(t => mgTxt(t as TextLayerConfig)))
@@ -140,6 +144,50 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const [systemFonts, setSystemFonts] = useState<{name:string;path:string}[]>([])
   useEffect(() => { if (project.channel_id) api.channels.listTemplates(project.channel_id).then(setTemplates).catch(() => {}) }, [project.channel_id])
   useEffect(() => { api.layers.listFonts(project.id).then(setSystemFonts).catch(() => {}) }, [project.id])
+
+  // 파형 상태 초기 확인
+  useEffect(() => {
+    api.waveform.status(project.id).then(s => {
+      setWfReady(s.ready)
+      setWfFileSize(s.file_size || '')
+    }).catch(() => {})
+  }, [project.id])
+
+  const handleCreateWaveform = async () => {
+    setWfCreating(true)
+    setWfProgress(0)
+    setWfReady(false)
+    try {
+      await api.waveform.create(project.id, {
+        duration: 10, fps: 24,
+        bar_count: wf.bar_count, bar_width: wf.bar_width, bar_gap: wf.bar_gap,
+        bar_height: wf.bar_height, uniformity: wf.bar_min ?? 0.3,
+        color: wf.color, opacity: wf.opacity,
+        bar_align: wf.bar_align, scale: wf.scale,
+        position_x: wf.position_x, position_y: wf.position_y,
+        style: wf.style,
+      })
+      // 폴링
+      const poll = setInterval(async () => {
+        try {
+          const s = await api.waveform.status(project.id)
+          setWfProgress(s.progress)
+          if (s.ready) {
+            clearInterval(poll)
+            setWfCreating(false)
+            setWfReady(true)
+            setWfFileSize(s.file_size || '')
+          }
+          if (s.error) {
+            clearInterval(poll)
+            setWfCreating(false)
+          }
+        } catch { clearInterval(poll); setWfCreating(false) }
+      }, 2000)
+    } catch {
+      setWfCreating(false)
+    }
+  }
 
   // ── 파형 그리기 ──
   const drawWf = useCallback(() => {
@@ -265,6 +313,30 @@ export default function LayerPreview({ project, onRefresh }: Props) {
             <Sl label="높이" value={wf.bar_height} min={20} max={400} step={10} fmt={v => `${v}px`} onChange={v => setWf(w => ({ ...w, bar_height: v }))} />
             <Sl label="균일도" value={wf.bar_min ?? 0.1} min={0} max={0.5} step={0.05} fmt={v => v <= 0.05 ? '편차 최대' : v >= 0.45 ? '거의 균일' : `최소높이 ${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, bar_min: v }))} />
             <Sl label="투명도" value={wf.opacity} min={0} max={1} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, opacity: v }))} />
+
+            {/* 파형 만들기 버튼 */}
+            <div className="pt-2 border-t border-gray-800">
+              {wfCreating ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                    <span className="text-xs text-purple-300">파형 생성 중... {wfProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-800 rounded-full h-1.5">
+                    <div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: `${wfProgress}%` }} />
+                  </div>
+                </div>
+              ) : wfReady ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-green-400">파형 준비 완료 ✓ {wfFileSize}</span>
+                  <button onClick={handleCreateWaveform} className="text-[10px] text-gray-500 hover:text-purple-400 px-2 py-1 rounded border border-gray-700">재생성</button>
+                </div>
+              ) : (
+                <button onClick={handleCreateWaveform} className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
+                  🎵 파형 만들기
+                </button>
+              )}
+            </div>
           </>}
         </Section>
 

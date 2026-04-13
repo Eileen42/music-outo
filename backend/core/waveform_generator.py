@@ -1,9 +1,8 @@
 """
-오디오에서 파형 데이터(JSON) + 정적 이미지(PNG) + 투명 애니메이션(MOV) 생성.
+파형 생성기 — 사전 생성 방식.
 
-MOV: 프론트 LayerPreview와 100% 동일한 렌더링.
-프론트의 WaveformLayerConfig(bar_count, bar_width, bar_gap, bar_height,
-position, opacity, color, bar_align, scale, bar_min)을 그대로 반영.
+레이어 설정에서 "파형 만들기" → 10초 24fps 투명 MOV 생성.
+빌드 시 capcut_builder가 이 MOV를 반복 배치.
 """
 from __future__ import annotations
 
@@ -34,166 +33,149 @@ def _find_ffmpeg_bin() -> str | None:
 _FFMPEG = _find_ffmpeg_bin()
 
 WaveformStyle = Literal["bar", "line", "circle"]
-LOOP_DURATION = 5.0
-FPS = 20
-# 캡컷 출력 해상도
-OUTPUT_W = 1920
-OUTPUT_H = 1080
 
-
-def _bell_envelope(i: int, count: int) -> float:
-    """프론트와 100% 동일: 0.2 + 0.8 * exp(-3 * x²)"""
-    x = (i / max(count - 1, 1)) * 2 - 1  # -1 ~ 1
+# 프론트와 동일한 bellEnvelope
+def _bell(i: int, n: int) -> float:
+    x = (i / max(n - 1, 1)) * 2 - 1
     return 0.2 + 0.8 * math.exp(-3.0 * x * x)
 
 
 class WaveformGenerator:
+    """파형 MOV 사전 생성기."""
+
     def __init__(self, samples: int = 200):
         self.samples = samples
 
-    # ── 데이터 ───────────────────────────────────────────────────
-
-    async def generate_data(self, audio_path: Path, output_json: Path) -> dict:
-        data = await asyncio.to_thread(self._extract_peaks, audio_path)
-        output_json.parent.mkdir(parents=True, exist_ok=True)
-        await asyncio.to_thread(output_json.write_text, json.dumps(data, ensure_ascii=False))
-        return data
+    # ── 데이터 추출 ──────────────────────────────────────────────
 
     def _extract_peaks(self, audio_path: Path) -> dict:
         audio = AudioSegment.from_file(str(audio_path))
         mono = audio.set_channels(1)
         raw = mono.get_array_of_samples()
         total = len(raw)
-        chunk_size = max(total // self.samples, 1)
+        chunk = max(total // self.samples, 1)
         peaks = []
-        max_val = float(2 ** (mono.sample_width * 8 - 1))
+        mx = float(2 ** (mono.sample_width * 8 - 1))
         for i in range(self.samples):
-            s = i * chunk_size
-            e = min(s + chunk_size, total)
-            chunk = raw[s:e]
-            peak = max(abs(v) for v in chunk) / max_val if chunk else 0.0
-            peaks.append(round(peak, 4))
+            s, e = i * chunk, min((i + 1) * chunk, total)
+            pk = max(abs(v) for v in raw[s:e]) / mx if s < e else 0.0
+            peaks.append(round(pk, 4))
         return {"samples": self.samples, "peaks": peaks, "duration": len(audio) / 1000.0}
 
-    def _extract_realtime_energy(self, audio_path: Path, duration: float, fps: int, bar_count: int) -> list[list[float]]:
+    def _extract_energy(self, audio_path: Path, duration: float, fps: int, bar_count: int) -> list[list[float]]:
         audio = AudioSegment.from_file(str(audio_path))
         clip = audio[:int(duration * 1000)]
         mono = clip.set_channels(1)
         raw = mono.get_array_of_samples()
-        max_val = float(2 ** (mono.sample_width * 8 - 1))
-        total_frames = int(duration * fps)
-        spf = max(len(raw) // total_frames, 1)
+        mx = float(2 ** (mono.sample_width * 8 - 1))
+        n_frames = int(duration * fps)
+        spf = max(len(raw) // n_frames, 1)
         frames = []
-        for f in range(total_frames):
-            fs = f * spf
-            fe = min(fs + spf, len(raw))
-            frame_raw = raw[fs:fe]
+        for f in range(n_frames):
+            fs, fe = f * spf, min((f + 1) * spf, len(raw))
+            fr = raw[fs:fe]
             bars = []
-            bsize = max(len(frame_raw) // bar_count, 1)
+            bs = max(len(fr) // bar_count, 1)
             for b in range(bar_count):
-                bs = b * bsize
-                be = min(bs + bsize, len(frame_raw))
-                chunk = frame_raw[bs:be]
-                energy = min(sum(abs(v) for v in chunk) / len(chunk) / max_val * 3.5, 1.0) if chunk else 0.0
+                s, e = b * bs, min((b + 1) * bs, len(fr))
+                chunk = fr[s:e]
+                energy = min(sum(abs(v) for v in chunk) / len(chunk) / mx * 3.5, 1.0) if chunk else 0.0
                 bars.append(energy)
             frames.append(bars)
         return frames
 
-    # ── PNG ───────────────────────────────────────────────────────
+    # ── PNG (정적) ───────────────────────────────────────────────
 
-    async def generate_image(
-        self, audio_path: Path, output_png: Path,
-        width: int = 1920, height: int = 200,
-        color: str = "#FFFFFF", style: WaveformStyle = "bar",
-    ) -> Path:
-        data = await self.generate_data(audio_path, output_png.with_suffix(".json"))
-        await asyncio.to_thread(self._draw_static, data["peaks"], output_png, width, height, color, style)
+    async def generate_image(self, audio_path: Path, output_png: Path,
+                              width=1920, height=200, color="#FFFFFF",
+                              style: WaveformStyle = "bar") -> Path:
+        data = await asyncio.to_thread(self._extract_peaks, audio_path)
+        output_png.parent.mkdir(parents=True, exist_ok=True)
+        json_path = output_png.with_suffix(".json")
+        json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        await asyncio.to_thread(self._draw_png, data["peaks"], output_png, width, height, color, style)
         return output_png
 
-    def _draw_static(self, peaks, out, w, h, color, style):
+    def _draw_png(self, peaks, out, w, h, color, style):
         from PIL import Image, ImageDraw
         img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
-        n = len(peaks)
-        bw = max(w // n - 1, 1)
-        cy = h // 2
+        n = len(peaks); bw = max(w // n - 1, 1); cy = h // 2
         r, g, b = self._hex_to_rgb(color)
         for i, pk in enumerate(peaks):
-            x = int(i * w / n)
-            bh = max(int(pk * h * 0.9), 1)
+            x = int(i * w / n); bh = max(int(pk * h * 0.9), 1)
             if style == "bar":
-                draw.rectangle([x, cy - bh // 2, x + bw, cy + bh // 2], fill=(r, g, b, 220))
-            elif style == "line" and i > 0:
-                px = int((i - 1) * w / n)
-                ph = max(int(peaks[i - 1] * h * 0.9), 1)
-                draw.line([(px, cy - ph // 2), (x, cy - bh // 2)], fill=(r, g, b, 255), width=2)
-        out.parent.mkdir(parents=True, exist_ok=True)
+                draw.rectangle([x, cy - bh//2, x+bw, cy+bh//2], fill=(r, g, b, 220))
         img.save(str(out), "PNG")
 
-    # ── 투명 MOV (프론트 프리뷰와 동일한 렌더링) ────────────────
+    # ── MOV (투명 애니메이션) — 사전 생성 ────────────────────────
 
-    async def generate_video(
-        self, audio_path: Path, output_mp4: Path,
-        width: int = OUTPUT_W, height: int = OUTPUT_H,
-        color: str = "#FFFFFF", style: WaveformStyle = "bar",
-        fps: int = FPS, waveform_config: dict | None = None, **_kw,
+    async def create_waveform_mov(
+        self,
+        audio_path: Path,
+        output_dir: Path,
+        duration: int = 10,
+        fps: int = 24,
+        bar_count: int = 20,
+        bar_width: int = 4,
+        bar_gap: int = 3,
+        uniformity: float = 0.3,
+        color: str = "#FFFFFF",
+        opacity: float = 0.8,
+        bar_height: int = 120,
+        bar_align: str = "center",
+        scale: float = 1.0,
+        position_x: float = 0.5,
+        position_y: float = 0.7,
+        style: str = "bar",
+        progress_cb=None,
     ) -> Path:
         """
-        전체 오디오 길이에 맞는 파형 애니메이션 생성 (루프 아님).
-        깜빡임 없이 하나의 연속 영상.
+        10초 24fps 투명 MOV 생성.
+        PIL로 프레임 렌더링 → FFmpeg 파이프 인코딩.
         """
         ffmpeg = _FFMPEG or _find_ffmpeg_bin()
         if not ffmpeg:
             raise RuntimeError("FFmpeg를 찾을 수 없습니다")
 
-        cfg = waveform_config or {}
-        bar_count = cfg.get("bar_count", 60)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_mov = output_dir / "waveform_loop.mov"
 
-        # 전체 오디오 길이 사용 (루프 아님)
-        audio = AudioSegment.from_file(str(audio_path))
-        total_duration = len(audio) / 1000.0
-
+        # 에너지 데이터 추출
+        if progress_cb:
+            progress_cb(10)
         frames_data = await asyncio.to_thread(
-            self._extract_realtime_energy, audio_path, total_duration, fps, bar_count
+            self._extract_energy, audio_path, duration, fps, bar_count
         )
 
-        output_mov = output_mp4.with_suffix(".mov")
-        output_mov.parent.mkdir(parents=True, exist_ok=True)
-
+        # PIL 렌더링 + FFmpeg 파이프
+        if progress_cb:
+            progress_cb(30)
         await asyncio.to_thread(
-            self._render_matched, frames_data, output_mov, width, height, cfg, fps, ffmpeg
+            self._render_mov, frames_data, output_mov,
+            1920, 1080,  # 항상 1920x1080
+            bar_count, bar_width, bar_gap, bar_height, uniformity,
+            color, opacity, bar_align, scale, position_x, position_y, style,
+            fps, ffmpeg, progress_cb,
         )
 
-        if output_mov.exists():
-            import shutil
-            shutil.copy(output_mov, output_mp4)
-        return output_mp4
+        if progress_cb:
+            progress_cb(100)
+        return output_mov
 
-    def _render_matched(
-        self, frames_data, output_mov, width, height, cfg, fps, ffmpeg,
-    ) -> None:
-        """프론트 LayerPreview의 drawWf()와 정확히 동일한 렌더링."""
+    def _render_mov(
+        self, frames_data, output_mov,
+        width, height,
+        bar_count, bar_width, bar_gap, bar_height, uniformity,
+        color, opacity, bar_align, scale, pos_x, pos_y, style,
+        fps, ffmpeg, progress_cb,
+    ):
+        """프론트 drawWf()와 동일한 렌더링 → FFmpeg 파이프."""
         from PIL import Image, ImageDraw
 
-        # 프론트 설정 파싱 (DEF_WF 기본값 포함)
-        bar_count = cfg.get("bar_count", 60)
-        bar_width = cfg.get("bar_width", 4)
-        bar_gap = cfg.get("bar_gap", 2)
-        bar_height = cfg.get("bar_height", 120)
-        bar_min = cfg.get("bar_min", 0.1)
-        bar_align = cfg.get("bar_align", "bottom")
-        scale = cfg.get("scale", 1.0)
-        opacity = cfg.get("opacity", 0.8)
-        pos_x = cfg.get("position_x", 0.5)
-        pos_y = cfg.get("position_y", 0.7)
-        color = cfg.get("color", "#FFFFFF")
-        style = cfg.get("style", "bar")
-
         r, g, b = self._hex_to_rgb(color)
-        # 프론트: ctx.globalAlpha = opacity → 모든 바에 동일 alpha
         alpha = int(opacity * 255)
 
-        # 1920x1080 기준 실제 크기 (보정 없음)
         sc = scale
         bw = bar_width * sc
         gap = bar_gap * sc
@@ -203,11 +185,10 @@ class WaveformGenerator:
         total_w = bar_count * (bw + gap)
         start_x = cx - total_w / 2
 
-        # 스무딩용
-        prev_bars = [0.0] * bar_count
-        targ_bars = [0.0] * bar_count
-        smooth = 0.08  # 프론트와 동일
+        prev_bars = [uniformity] * bar_count
+        targ_bars = [uniformity] * bar_count
         tick = 0
+        total_frames = len(frames_data)
 
         cmd = [
             ffmpeg, "-y",
@@ -223,51 +204,49 @@ class WaveformGenerator:
             img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            # 프론트 애니메이션 로직 그대로 재현
             tick += 1
             if tick % 6 == 0:
                 for i in range(bar_count):
-                    # 프론트: targRef[i] = Math.random() * (1 - bmin) + bmin
-                    # 여기서는 실제 에너지 데이터 사용 (더 정확)
-                    targ_bars[i] = max(energy_bars[i] * (1 - bar_min) + bar_min, bar_min)
+                    targ_bars[i] = max(energy_bars[i] * (1 - uniformity) + uniformity, uniformity)
 
             for i in range(bar_count):
-                # 스무딩: 프론트와 동일
-                prev_bars[i] += (targ_bars[i] - prev_bars[i]) * smooth
-                env = _bell_envelope(i, bar_count)
+                prev_bars[i] += (targ_bars[i] - prev_bars[i]) * 0.08
+                env = _bell(i, bar_count)
                 h = prev_bars[i] * max_h * env
                 if h < 1:
-                    continue  # bar_min=0이면 에너지 없는 바는 안 그림
+                    continue
                 x = start_x + i * (bw + gap)
 
                 if style == "circle":
-                    # circle 모드 — 프론트와 동일
-                    circle_r = height * (cfg.get("circle_radius", 0.12)) * scale
+                    cr = height * 0.12 * sc
                     cbw = max(2, bw * 0.8)
                     angle = (i / bar_count) * math.pi * 2 - math.pi / 2
-                    x1 = cx + math.cos(angle) * circle_r
-                    y1 = cy + math.sin(angle) * circle_r
-                    x2 = cx + math.cos(angle) * (circle_r + h)
-                    y2 = cy + math.sin(angle) * (circle_r + h)
+                    x1 = cx + math.cos(angle) * cr
+                    y1 = cy + math.sin(angle) * cr
+                    x2 = cx + math.cos(angle) * (cr + h)
+                    y2 = cy + math.sin(angle) * (cr + h)
                     draw.line([(x1, y1), (x2, y2)], fill=(r, g, b, alpha), width=max(int(cbw), 1))
                 else:
-                    # bar 모드 — align에 따라 위치
                     if bar_align == "center":
-                        draw.rectangle([x, cy - h / 2, x + bw, cy + h / 2], fill=(r, g, b, alpha))
+                        draw.rectangle([x, cy - h/2, x + bw, cy + h/2], fill=(r, g, b, alpha))
                     elif bar_align == "top":
                         draw.rectangle([x, cy, x + bw, cy + h], fill=(r, g, b, alpha))
-                    else:  # bottom
+                    else:
                         draw.rectangle([x, cy - h, x + bw, cy], fill=(r, g, b, alpha))
 
             proc.stdin.write(img.tobytes())
 
+            if progress_cb and f_idx % 24 == 0:
+                pct = 30 + int(f_idx / total_frames * 65)
+                progress_cb(pct)
+
         proc.stdin.close()
-        proc.wait(timeout=60)
+        proc.wait(timeout=120)
 
     @staticmethod
     def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
         hex_color = hex_color.lstrip("#")
-        return tuple(int(hex_color[i: i + 2], 16) for i in (0, 2, 4))
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 
 waveform_generator = WaveformGenerator()

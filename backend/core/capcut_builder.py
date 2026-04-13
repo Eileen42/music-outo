@@ -612,33 +612,45 @@ class CapcutBuilder:
                 "segments": audio_segments,
             })
 
-        # ── 6. 파형 비디오 레이어 (루프 반복) ──
-        waveform_config = layers.get("waveform_layer") or {}
-        if waveform_config.get("enabled", True) and project_dir:
-            # output_dir에서 파형 비디오 찾기 (MOV 우선 → MP4 폴백)
-            wf_video = None
-            for ext in (".mov", ".mp4"):
-                for search_dir in ([output_dir] if output_dir else []) + [project_dir / "outputs", project_dir]:
-                    candidate = search_dir / f"waveform_loop{ext}"
-                    if candidate.exists():
-                        wf_video = candidate
-                        break
-                if wf_video:
-                    break
-            if wf_video.exists():
-                wf_id = _uuid()
-                wf_path = str(wf_video.resolve())
-                # 전체 길이 단일 영상 (루프 아님 → 깜빡임 없음)
-                materials["videos"].append({
-                    "id": wf_id,
-                    "path": wf_path,
-                    "type": "video",
-                    "width": 1920,
-                    "height": 1080,
-                    "duration": total_us,
-                })
-                wf_segments = [_make_segment(
-                    wf_id, 0, total_us, materials, track_type="video",
+        # ── 6. 파형 비디오 레이어 (사전 생성된 MOV 반복 배치) ──
+        # assets/waveform_loop.mov가 있을 때만 포함 (없으면 건너뜀)
+        wf_mov = None
+        if state.get("id"):
+            from config import settings as _s
+            assets_dir = _s.storage_dir / "projects" / state["id"] / "assets"
+            candidate = assets_dir / "waveform_loop.mov"
+            if candidate.exists():
+                wf_mov = candidate
+
+        if wf_mov:
+            wf_id = _uuid()
+            wf_path = str(wf_mov.resolve())
+            # MOV 파일의 실제 길이 (마이크로초)
+            loop_us = 10_000_000  # 10초 기본값
+            try:
+                from pydub.utils import mediainfo
+                info = mediainfo(str(wf_mov))
+                if info.get("duration"):
+                    loop_us = int(float(info["duration"]) * 1_000_000)
+            except Exception:
+                pass
+
+            materials["videos"].append({
+                "id": wf_id,
+                "path": wf_path,
+                "type": "video",
+                "width": 1920,
+                "height": 1080,
+                "duration": loop_us,
+            })
+
+            # 전체 오디오 길이에 맞게 반복 배치 (갭 0)
+            wf_segments = []
+            cursor = 0
+            while cursor < total_us:
+                seg_dur = min(loop_us, total_us - cursor)
+                wf_segments.append(_make_segment(
+                    wf_id, cursor, seg_dur, materials, track_type="video",
                     render_index=1,
                     clip={
                         "alpha": 1.0,
@@ -647,13 +659,15 @@ class CapcutBuilder:
                         "scale": {"x": 1.0, "y": 1.0},
                         "transform": {"x": 0.0, "y": 0.0},
                     },
-                )]
-                track_list.append({
-                    "type": "video",
-                    "attribute": 0, "flag": 0, "id": _uuid(),
-                    "is_default_name": True, "name": "waveform",
-                    "segments": wf_segments,
-                })
+                ))
+                cursor += loop_us
+
+            track_list.append({
+                "type": "video",
+                "attribute": 0, "flag": 0, "id": _uuid(),
+                "is_default_name": True, "name": "waveform",
+                "segments": wf_segments,
+            })
 
         # ── 7. 이미지/로고 레이어 트랙 (타임라인 자동 배치) ──
         image_layers = layers.get("image_layers", [])
