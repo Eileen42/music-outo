@@ -35,7 +35,9 @@ const DEF_WF: WaveformLayerConfig = {
   position_x: 0.5, position_y: 0.7, bar_count: 60, bar_width: 4, bar_gap: 2,
   bar_height: 120, bar_min: 0.1, bar_align: 'bottom', scale: 1.0, circle_radius: 0.12,
 }
-const CW = 640, CH = 360, S = CW / 1920
+// Canvas: 1920x1080 렌더링 → CSS 640x360 축소 표시 (MOV와 100% 동일)
+const CW = 1920, CH = 1080, S = 1.0
+const CSS_W = 640, CSS_H = 360, CSS_S = CSS_W / CW  // 축소 비율
 
 function mgWf(s: Partial<WaveformLayerConfig> | null): WaveformLayerConfig { return { ...DEF_WF, ...(s || {}) } }
 function mgTxt(t: Partial<TextLayerConfig> & { id: string; text: string }): TextLayerConfig {
@@ -237,8 +239,9 @@ export default function LayerPreview({ project, onRefresh }: Props) {
   const subPreview = subtitleEntries[subPreviewIdx]
 
   // 파형 바운딩
-  const wfNW = wf.bar_count * ((wf.bar_width + wf.bar_gap) * S) * wf.scale
-  const wfNH = wf.bar_height * S * wf.scale
+  // 바운딩 박스: CSS 640x360 기준
+  const wfNW = wf.bar_count * ((wf.bar_width + wf.bar_gap) * wf.scale) * CSS_S
+  const wfNH = wf.bar_height * wf.scale * CSS_S
 
   return (
     <div className="flex gap-4">
@@ -384,26 +387,26 @@ export default function LayerPreview({ project, onRefresh }: Props) {
           </div>
         </div>
 
-        <div ref={boxRef} className="relative rounded-xl overflow-hidden border border-gray-800 select-none" style={{ width: CW, height: CH, background: '#000' }} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}>
+        <div ref={boxRef} className="relative rounded-xl overflow-hidden border border-gray-800 select-none" style={{ width: 640, height: 360, background: '#000' }} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}>
           {bgUrl ? <img src={bgUrl} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-sm">배경 이미지 없음</div>}
           {/* 효과 캔버스 제거 — CapCut에서 직접 추가 */}
           {wf.enabled && <>
             <canvas ref={cvRef} width={CW} height={CH} className="absolute inset-0 pointer-events-none" />
-            {wf.style !== 'circle' && <div className="absolute border border-dashed border-white/20" style={{ left: wf.position_x * CW - wfNW / 2, top: wf.position_y * CH - wfNH / 2, width: wfNW, height: wfNH }}><div className="absolute inset-0 cursor-move" onMouseDown={startDrag('move-wf', 'wf')} />{['nw', 'ne', 'sw', 'se'].map(c => (<div key={c} className={`absolute w-2.5 h-2.5 bg-white/40 hover:bg-white/80 rounded-sm ${c.includes('n') ? 'top-0' : 'bottom-0'} ${c.includes('w') ? 'left-0' : 'right-0'} cursor-nwse-resize`} style={{ transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('resize-wf', 'wf')} />))}</div>}
-            {wf.style === 'circle' && <div className="absolute w-6 h-6 cursor-move rounded-full border border-white/30 hover:border-white/60 bg-white/10 flex items-center justify-center" style={{ left: `${wf.position_x * 100}%`, top: `${wf.position_y * 100}%`, transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('move-wf', 'wf')}><span className="text-[7px] text-white/40">+</span></div>}
+            {wf.style !== 'circle' && <div className="absolute border border-dashed border-white/20" style={{ left: wf.position_x * CSS_W - wfNW / 2, top: wf.position_y * CSS_H - wfNH / 2, width: wfNW, height: wfNH }}><div className="absolute inset-0 cursor-move" onMouseDown={startDrag('move-wf', 'wf')} />{['nw', 'ne', 'sw', 'se'].map(c => (<div key={c} className={`absolute w-2.5 h-2.5 bg-white/40 hover:bg-white/80 rounded-sm ${c.includes('n') ? 'top-0' : 'bottom-0'} ${c.includes('w') ? 'left-0' : 'right-0'} cursor-nwse-resize`} style={{ transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('resize-wf', 'wf')} />))}</div>}
+            {wf.style === 'circle' && <div className="absolute w-6 h-6 cursor-move rounded-full border border-white/30 hover:border-white/60 bg-white/10 flex items-center justify-center" style={{ left: wf.position_x * CSS_W, top: wf.position_y * CSS_H, transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('move-wf', 'wf')}><span className="text-[7px] text-white/40">+</span></div>}
           </>}
           {/* 텍스트 */}
           {texts.map(l => (
             <div key={l.id} className={`absolute group ${dragId === l.id ? 'ring-2 ring-purple-400' : 'hover:ring-1 hover:ring-white/20'}`}
-              style={{ left: `${l.position_x * 100}%`, top: `${l.position_y * 100}%`, transform: `translate(-50%,-50%) scaleX(${l.scale_x ?? 1}) scaleY(${l.scale_y ?? 1})`, fontSize: `${l.font_size * S}px`, fontFamily: l.font_family, color: l.color, opacity: l.alpha ?? 1, fontWeight: l.bold ? 'bold' : 'normal', fontStyle: l.italic ? 'italic' : 'normal', textShadow: l.shadow?.enabled ? `${Math.cos((l.shadow.angle || 0) * Math.PI / 180) * (l.shadow.distance || 5) * S}px ${-Math.sin((l.shadow.angle || 0) * Math.PI / 180) * (l.shadow.distance || 5) * S}px ${(l.shadow.blur || 2) * S}px rgba(0,0,0,${l.shadow.alpha || 0.5})` : '1px 1px 3px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap', userSelect: 'none', textAlign: l.alignment || 'center' }}>
+              style={{ left: `${l.position_x * 100}%`, top: `${l.position_y * 100}%`, transform: `translate(-50%,-50%) scaleX(${l.scale_x ?? 1}) scaleY(${l.scale_y ?? 1})`, fontSize: `${l.font_size * CSS_S}px`, fontFamily: l.font_family, color: l.color, opacity: l.alpha ?? 1, fontWeight: l.bold ? 'bold' : 'normal', fontStyle: l.italic ? 'italic' : 'normal', textShadow: l.shadow?.enabled ? `${Math.cos((l.shadow.angle || 0) * Math.PI / 180) * (l.shadow.distance || 5) * CSS_S}px ${-Math.sin((l.shadow.angle || 0) * Math.PI / 180) * (l.shadow.distance || 5) * CSS_S}px ${(l.shadow.blur || 2) * CSS_S}px rgba(0,0,0,${l.shadow.alpha || 0.5})` : '1px 1px 3px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap', userSelect: 'none', textAlign: l.alignment || 'center' }}>
               <div className="cursor-move" onMouseDown={startDrag('move-text', l.id)} onDoubleClick={() => setEditId(editId === l.id ? null : l.id)}>{l.text}</div>
               <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-purple-500/50 hover:bg-purple-400 rounded-sm cursor-se-resize opacity-0 group-hover:opacity-100" onMouseDown={startDrag('resize-text', l.id)} />
             </div>
           ))}
           {/* 이미지 레이어 — 바운딩 박스 + 4코너 리사이즈 */}
           {imgLayers.map(il => {
-            const imgW = 80 * il.scale * S, imgH = 80 * il.scale * S
-            const imgL = il.position_x * CW - imgW / 2, imgT = il.position_y * CH - imgH / 2
+            const imgW = 80 * il.scale * CSS_S, imgH = 80 * il.scale * CSS_S
+            const imgL = il.position_x * CSS_W - imgW / 2, imgT = il.position_y * CSS_H - imgH / 2
             return (
               <div key={il.id} className="absolute border border-dashed border-blue-400/30" style={{ left: imgL, top: imgT, width: imgW, height: imgH, opacity: il.opacity }}>
                 <img src={storageUrl(il.stored_path)} alt={il.name} className="absolute inset-0 w-full h-full object-contain cursor-move" draggable={false}
@@ -418,7 +421,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
           })}
           {/* 자막 미리보기 — 재생 중엔 타임코드 맞을 때만 표시 */}
           {subPreview && (!playing || (playTime >= subPreview.start && playTime <= subPreview.end)) && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center" style={{ fontSize: `${(subStyle.font_size || 15) * S * 2}px`, fontFamily: subStyle.font_family || FONTS[0].value, color: subStyle.color || '#FFFFFF', fontStyle: subStyle.italic ? 'italic' : 'normal', opacity: 0.9, textShadow: '2px 2px 4px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap' }}>
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center" style={{ fontSize: `${(subStyle.font_size || 15) * CSS_S * 2}px`, fontFamily: subStyle.font_family || FONTS[0].value, color: subStyle.color || '#FFFFFF', fontStyle: subStyle.italic ? 'italic' : 'normal', opacity: 0.9, textShadow: '2px 2px 4px rgba(0,0,0,0.5)', whiteSpace: 'pre-wrap' }}>
               {subPreview.text}
             </div>
           )}
