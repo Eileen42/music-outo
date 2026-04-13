@@ -1,0 +1,31 @@
+━━ 장르별 작사 전문 지식 ━━
+{skills}
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+너는 전문 작사가야. 아래 곡에 맞는 가사를 작성해줘.
+
+━━ 곡 정보 ━━
+- 제목: {track_title} ({track_title_ko})
+- 분위기: {track_mood}
+- 가사 주제: {lyrics_theme}
+- Suno 프롬프트: {suno_prompt}
+
+━━ 프로젝트 컨셉 ━━
+- Genre: {genre}
+- Mood: {core_mood}
+- Tempo: {tempo}
+
+━━ 사용자 요청 ━━
+- 키워드: {user_keywords}
+- 가사 힌트: {user_lyrics_hint}
+
+━━ 규칙 ━━
+1. 영어 가사, 2~3절 분량
+2. Suno 태그: [Verse 1], [Chorus], [Verse 2], [Bridge]
+3. 곡의 분위기와 lyrics_theme을 자연스럽게 반영
+4. 구체적 이미지, 감각적 묘사
+
+JSON 객체:
+{{
+  "lyrics": "[Verse 1]\\n가사...\\n\\n[Chorus]\\n가사..."
+}}
