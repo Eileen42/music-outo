@@ -2,6 +2,9 @@ from agents.analyzer import analyzer_agent
 from agents.designer import designer_agent
 from agents.composer import composer_agent
 from agents.lyricist import lyricist_agent
+from agents.meta_designer import meta_designer_agent
+from agents.meta_writer import meta_writer_agent
+from agents.meta_qa import meta_qa_agent
 from agents.suno_creator import SunoCreatorAgent
 from agents.suno_collector import SunoCollectorAgent
 from agents.suno_qa import suno_qa_agent
