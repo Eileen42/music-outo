@@ -232,7 +232,8 @@ class WaveformGenerator:
                 prev_bars[i] += (targ_bars[i] - prev_bars[i]) * smooth
                 env = _bell_envelope(i, bar_count)
                 h = prev_bars[i] * max_h * env
-                h = max(h, 2)
+                if h < 1:
+                    continue  # bar_min=0이면 에너지 없는 바는 안 그림
                 x = start_x + i * (bw + gap)
 
                 if style == "circle":
