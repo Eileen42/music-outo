@@ -444,10 +444,12 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
               const active = selectedChannel?.channel_id === ch.channel_id
               const us = ch.upload_settings
               return (
-                <button
+                <div
                   key={ch.channel_id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedChannel(active ? null : ch)}
-                  className={`text-left p-4 rounded-2xl border transition-all ${
+                  className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
                     active
                       ? 'bg-indigo-900/60 border-indigo-500 ring-1 ring-indigo-500'
                       : 'bg-gray-900 border-gray-800 hover:border-gray-600'
@@ -483,7 +485,7 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
                       ✏️ 수정
                     </button>
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
