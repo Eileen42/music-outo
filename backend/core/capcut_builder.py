@@ -582,7 +582,53 @@ class CapcutBuilder:
                 "segments": audio_segments,
             })
 
-        # ── 6. 이미지/로고 레이어 트랙 (타임라인 자동 배치) ──
+        # ── 6. 파형 비디오 레이어 (루프 반복) ──
+        waveform_config = layers.get("waveform_layer") or {}
+        if waveform_config.get("enabled", True) and project_dir:
+            wf_video = project_dir / "outputs" / "waveform_loop.mp4"
+            if not wf_video.exists():
+                wf_video = project_dir / "waveform_loop.mp4"
+            if wf_video.exists():
+                wf_id = _uuid()
+                wf_path = str(wf_video.resolve())
+                # 루프 길이 (5초 = 5_000_000 us)
+                loop_us = 5_000_000
+                materials["videos"].append({
+                    "id": wf_id,
+                    "path": wf_path,
+                    "type": "video",
+                    "width": 1920,
+                    "height": 200,
+                    "duration": loop_us,
+                })
+                # 전체 길이를 루프로 채우기
+                wf_segments = []
+                cursor = 0
+                while cursor < total_us:
+                    seg_dur = min(loop_us, total_us - cursor)
+                    wf_segments.append(_make_segment(
+                        wf_id, cursor, seg_dur, materials, track_type="video",
+                        render_index=1,
+                        clip={
+                            "alpha": waveform_config.get("opacity", 0.8),
+                            "flip": {"horizontal": False, "vertical": False},
+                            "rotation": 0.0,
+                            "scale": {"x": 1.0, "y": 0.185},  # 200/1080
+                            "transform": {
+                                "x": 0.0,
+                                "y": waveform_config.get("position_y", 0.3),
+                            },
+                        },
+                    ))
+                    cursor += loop_us
+                track_list.append({
+                    "type": "video",
+                    "attribute": 0, "flag": 0, "id": _uuid(),
+                    "is_default_name": True, "name": "waveform",
+                    "segments": wf_segments,
+                })
+
+        # ── 7. 이미지/로고 레이어 트랙 (타임라인 자동 배치) ──
         image_layers = layers.get("image_layers", [])
         for il in image_layers:
             img_path = il.get("stored_path", "")
