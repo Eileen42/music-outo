@@ -72,6 +72,21 @@ if not exist ".env" (
 )
 echo  ✓ 설치 준비 완료
 
+:: ── 2.5 FFmpeg 설치 (파형 애니메이션 생성에 필요) ────────────────
+echo [2.5/4] FFmpeg 확인 중...
+where ffmpeg >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo  - FFmpeg 설치 중...
+    winget install Gyan.FFmpeg --accept-package-agreements --accept-source-agreements >nul 2>&1
+    if %ERRORLEVEL% equ 0 (
+        echo  ✓ FFmpeg 설치 완료
+    ) else (
+        echo  ⚠ FFmpeg 자동 설치 실패. Docker 내장 FFmpeg를 사용합니다.
+    )
+) else (
+    echo  ✓ FFmpeg 이미 설치됨
+)
+
 :: ── 3. Docker 이미지 pull & 실행 ────────────────────────────────────
 echo [3/4] 프로그램 다운로드 및 실행...
 docker compose -f docker-compose.prod.yml pull
