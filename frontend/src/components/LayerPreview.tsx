@@ -391,7 +391,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
           {bgUrl ? <img src={bgUrl} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-sm">배경 이미지 없음</div>}
           {/* 효과 캔버스 제거 — CapCut에서 직접 추가 */}
           {wf.enabled && <>
-            <canvas ref={cvRef} width={CW} height={CH} className="absolute inset-0 pointer-events-none" />
+            <canvas ref={cvRef} width={CW} height={CH} className="absolute inset-0 pointer-events-none" style={{ width: CSS_W, height: CSS_H }} />
             {wf.style !== 'circle' && <div className="absolute border border-dashed border-white/20" style={{ left: wf.position_x * CSS_W - wfNW / 2, top: wf.position_y * CSS_H - wfNH / 2, width: wfNW, height: wfNH }}><div className="absolute inset-0 cursor-move" onMouseDown={startDrag('move-wf', 'wf')} />{['nw', 'ne', 'sw', 'se'].map(c => (<div key={c} className={`absolute w-2.5 h-2.5 bg-white/40 hover:bg-white/80 rounded-sm ${c.includes('n') ? 'top-0' : 'bottom-0'} ${c.includes('w') ? 'left-0' : 'right-0'} cursor-nwse-resize`} style={{ transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('resize-wf', 'wf')} />))}</div>}
             {wf.style === 'circle' && <div className="absolute w-6 h-6 cursor-move rounded-full border border-white/30 hover:border-white/60 bg-white/10 flex items-center justify-center" style={{ left: wf.position_x * CSS_W, top: wf.position_y * CSS_H, transform: 'translate(-50%,-50%)' }} onMouseDown={startDrag('move-wf', 'wf')}><span className="text-[7px] text-white/40">+</span></div>}
           </>}
