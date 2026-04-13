@@ -635,10 +635,10 @@ class CapcutBuilder:
                     "path": wf_path,
                     "type": "video",
                     "width": 1920,
-                    "height": 200,
+                    "height": 1080,
                     "duration": loop_us,
                 })
-                # 전체 길이를 루프로 채우기
+                # 전체 길이를 루프로 채우기 — 1920x1080 전체 프레임이므로 스케일/위치 변환 불필요
                 wf_segments = []
                 cursor = 0
                 while cursor < total_us:
@@ -647,14 +647,11 @@ class CapcutBuilder:
                         wf_id, cursor, seg_dur, materials, track_type="video",
                         render_index=1,
                         clip={
-                            "alpha": waveform_config.get("opacity", 0.8),
+                            "alpha": 1.0,  # 투명도는 MOV 내부 RGBA로 이미 처리됨
                             "flip": {"horizontal": False, "vertical": False},
                             "rotation": 0.0,
-                            "scale": {"x": 1.0, "y": 0.185},  # 200/1080
-                            "transform": {
-                                "x": 0.0,
-                                "y": waveform_config.get("position_y", 0.3),
-                            },
+                            "scale": {"x": 1.0, "y": 1.0},  # 1:1 (프론트 설정이 MOV에 이미 반영)
+                            "transform": {"x": 0.0, "y": 0.0},
                         },
                     ))
                     cursor += loop_us
