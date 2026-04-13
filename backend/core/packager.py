@@ -51,26 +51,11 @@ class Packager:
             else:
                 await audio_pipeline.merge_tracks(audio_paths, merged_audio)
 
-            # 2. 파형 생성 (PNG + 애니메이션 MP4)
-            report(30, "파형 생성 중...")
-            waveform_config = layers.get("waveform_layer") or {}
-            waveform_img = output_dir / "waveform.png"
-            waveform_video = output_dir / "waveform_loop.mp4"
-            if waveform_config.get("enabled", True):
-                wf_color = waveform_config.get("color", "#FFFFFF")
-                wf_style = waveform_config.get("style", "bar")
-                # PNG (MP4 빌드용)
-                await waveform_generator.generate_image(
-                    merged_audio, waveform_img, color=wf_color, style=wf_style,
-                )
-                # MP4 루프 (CapCut용)
-                report(35, "파형 애니메이션 생성 중...")
-                await waveform_generator.generate_video(
-                    merged_audio, waveform_video, color=wf_color, style=wf_style,
-                )
+            # 2. 파형은 사전 생성됨 (레이어 설정에서 "파형 만들기")
+            # capcut_builder가 assets/waveform_loop.mov를 자동으로 찾아서 반복 배치
 
             # 3. 배경 이미지 결정
-            report(40, "배경 설정 중...")
+            report(30, "배경 설정 중...")
             bg_path = images.get("background") or images.get("thumbnail")
 
             # 4. FFmpeg로 영상 합성
@@ -137,43 +122,7 @@ class Packager:
                     import logging
                     logging.getLogger(__name__).warning(f"오디오 병합 실패: {e}")
 
-            # 2. 파형 생성 (PNG + MP4)
-            waveform_config = layers.get("waveform_layer") or {}
-            if waveform_config.get("enabled", True) and merged_audio.exists():
-                report(30, "파형 생성 중...")
-                wf_color = waveform_config.get("color", "#FFFFFF")
-                wf_style = waveform_config.get("style", "bar")
-                try:
-                    await waveform_generator.generate_image(
-                        merged_audio, output_dir / "waveform.png", color=wf_color, style=wf_style,
-                    )
-                except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(f"파형 PNG 생성 실패: {e}")
-                # MP4 (FFmpeg 필요 — 없으면 건너뜀)
-                import shutil
-                ffmpeg_found = shutil.which("ffmpeg")
-                if not ffmpeg_found:
-                    from pathlib import Path as _P
-                    winget_dir = _P.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
-                    if winget_dir.exists():
-                        for _p in winget_dir.rglob("ffmpeg.exe"):
-                            ffmpeg_found = str(_p)
-                            break
-                if ffmpeg_found:
-                    report(45, "파형 애니메이션 생성 중...")
-                    try:
-                        await waveform_generator.generate_video(
-                            merged_audio, output_dir / "waveform_loop.mp4",
-                            color=wf_color, style=wf_style,
-                            waveform_config=waveform_config,
-                        )
-                    except Exception as e:
-                        import logging
-                        logging.getLogger(__name__).warning(f"파형 MP4 생성 실패: {e}")
-                else:
-                    import logging
-                    logging.getLogger(__name__).info("FFmpeg 없음 — 파형 MP4 건너뜀")
+            # 2. 파형은 사전 생성됨 (assets/waveform_loop.mov)
 
             # 3. CapCut 프로젝트 생성
             report(60, "CapCut 프로젝트 생성 중...")

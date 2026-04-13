@@ -142,12 +142,23 @@ export default function BuildDownload({ project, onRefresh }: Props) {
         }`}>
           {isProcessing && (
             <>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-yellow-400 font-semibold text-sm">⚙️ 빌드 진행 중...</span>
-                <span className="text-yellow-300 text-sm font-mono">{build.progress}%</span>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="inline-block w-5 h-5 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin shrink-0" />
+                <div className="flex-1">
+                  <span className="text-purple-300 font-semibold text-sm">빌드 진행 중</span>
+                  <span className="text-gray-500 text-xs ml-2">
+                    {build.progress <= 10 ? '오디오 병합 중...' :
+                     build.progress <= 30 ? '파형 생성 중...' :
+                     build.progress <= 45 ? '파형 애니메이션 렌더링 중...' :
+                     build.progress <= 60 ? 'CapCut 프로젝트 생성 중...' :
+                     build.progress <= 85 ? '에셋 복사 중...' :
+                     '마무리 중...'}
+                  </span>
+                </div>
+                <span className="text-purple-400 text-sm font-mono shrink-0">{build.progress}%</span>
               </div>
-              <div className="w-full bg-gray-800 rounded-full h-2.5">
-                <div className="bg-purple-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${build.progress}%` }} />
+              <div className="w-full bg-gray-800 rounded-full h-2">
+                <div className="bg-purple-500 h-2 rounded-full transition-all duration-700" style={{ width: `${build.progress}%` }} />
               </div>
             </>
           )}

@@ -175,6 +175,13 @@ export const api = {
     fix: (projectId: string) => http.post<{ fixed: number; message: string }>(`/api/projects/${projectId}/qa/fix`).then(r => r.data),
   },
 
+  waveform: {
+    create: (projectId: string, config: Record<string, unknown>) =>
+      http.post<{ status: string }>('/api/waveform/create', { project_id: projectId, ...config }).then(r => r.data),
+    status: (projectId: string) =>
+      http.get<{ ready: boolean; progress: number; file_size?: string; error?: string }>(`/api/waveform/status/${projectId}`).then(r => r.data),
+  },
+
   agents: {
     skills: () => http.get<{ composer: { id: string; name: string; summary: string }[]; lyricist: { id: string; name: string; summary: string }[] }>('/api/agents/skills').then(r => r.data),
     skillContent: (agent: string, skillId: string) => http.get<{ id: string; agent: string; content: string }>(`/api/agents/skills/${agent}/${skillId}`).then(r => r.data),

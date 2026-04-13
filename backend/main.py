@@ -230,6 +230,78 @@ async def set_google_oauth(body: dict):
 
 # ─── 에이전트 스킬 관리 ──────────────────────────────────────────────────────
 
+# ─── 파형 사전 생성 ──────────────────────────────────────────────────────────
+
+_wf_progress: dict[str, dict] = {}
+
+
+@app.post("/api/waveform/create")
+async def create_waveform(body: dict, background_tasks: BackgroundTasks):
+    """파형 MOV 사전 생성 (비동기)."""
+    pid = body.get("project_id", "")
+    state = state_manager.require(pid)
+    tracks = state.get("tracks", [])
+    if not tracks:
+        raise HTTPException(400, "트랙이 없습니다")
+
+    # 첫 번째 트랙 오디오 사용 (에너지 추출용)
+    audio_path = Path(tracks[0].get("stored_path", ""))
+    if not audio_path.exists():
+        raise HTTPException(400, "오디오 파일 없음")
+
+    assets_dir = settings.storage_dir / "projects" / pid / "assets"
+
+    _wf_progress[pid] = {"ready": False, "progress": 0}
+
+    def on_progress(pct: int):
+        _wf_progress[pid]["progress"] = pct
+
+    async def _task():
+        try:
+            from core.waveform_generator import waveform_generator
+            await waveform_generator.create_waveform_mov(
+                audio_path=audio_path,
+                output_dir=assets_dir,
+                duration=body.get("duration", 10),
+                fps=body.get("fps", 24),
+                bar_count=body.get("bar_count", 20),
+                bar_width=body.get("bar_width", 4),
+                bar_gap=body.get("bar_gap", 3),
+                uniformity=body.get("uniformity", 0.3),
+                color=body.get("color", "#FFFFFF"),
+                opacity=body.get("opacity", 0.8),
+                bar_height=body.get("bar_height", 120),
+                bar_align=body.get("bar_align", "center"),
+                scale=body.get("scale", 1.0),
+                position_x=body.get("position_x", 0.5),
+                position_y=body.get("position_y", 0.7),
+                style=body.get("style", "bar"),
+                progress_cb=on_progress,
+            )
+            mov = assets_dir / "waveform_loop.mov"
+            _wf_progress[pid] = {
+                "ready": True, "progress": 100,
+                "file_size": f"{mov.stat().st_size / 1024 / 1024:.1f}MB" if mov.exists() else "0",
+            }
+        except Exception as e:
+            _wf_progress[pid] = {"ready": False, "progress": 0, "error": str(e)}
+
+    background_tasks.add_task(_task)
+    return {"status": "creating", "project_id": pid}
+
+
+@app.get("/api/waveform/status/{project_id}")
+async def waveform_status(project_id: str):
+    """파형 생성 상태."""
+    if project_id in _wf_progress:
+        return _wf_progress[project_id]
+    # 이미 파일이 있는지 확인
+    mov = settings.storage_dir / "projects" / project_id / "assets" / "waveform_loop.mov"
+    if mov.exists():
+        return {"ready": True, "progress": 100, "file_size": f"{mov.stat().st_size / 1024 / 1024:.1f}MB"}
+    return {"ready": False, "progress": 0}
+
+
 # ─── QA 검수 ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/projects/{project_id}/qa")
