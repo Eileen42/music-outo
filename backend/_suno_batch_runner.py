@@ -155,11 +155,17 @@ async def main(project_id: str) -> None:
                "current_song": "", "round": 0, "errors": []}
 
     def save_fn(results):
+        # index/slot이 없는 항목 필터링
+        valid = [r for r in results if r.get("index") and r.get("slot")]
+        if not valid:
+            return
         cur = state_manager.get(project_id) or {}
         old = cur.get("suno_tracks") or []
-        keys = {(r.get("index"), r.get("slot")) for r in results}
+        # 기존에서도 index/slot 없는 것 제거
+        old = [t for t in old if t.get("index") and t.get("slot")]
+        keys = {(r["index"], r["slot"]) for r in valid}
         merged = [t for t in old if (t.get("index"), t.get("slot")) not in keys]
-        merged.extend(results)
+        merged.extend(valid)
         merged.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
         state_manager.update(project_id, {"suno_tracks": merged})
 
