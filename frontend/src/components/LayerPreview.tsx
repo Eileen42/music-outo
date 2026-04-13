@@ -260,7 +260,7 @@ export default function LayerPreview({ project, onRefresh }: Props) {
             <Sl label="너비" value={wf.bar_width} min={1} max={20} step={1} fmt={v => `${v}px`} onChange={v => setWf(w => ({ ...w, bar_width: v }))} />
             <Sl label="간격" value={wf.bar_gap} min={0} max={15} step={1} fmt={v => `${v}px`} onChange={v => setWf(w => ({ ...w, bar_gap: v }))} />
             <Sl label="높이" value={wf.bar_height} min={20} max={400} step={10} fmt={v => `${v}px`} onChange={v => setWf(w => ({ ...w, bar_height: v }))} />
-            <Sl label="편차" value={wf.bar_min ?? 0.1} min={0} max={0.95} step={0.05} fmt={v => v >= 0.9 ? '균일' : `${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, bar_min: v }))} />
+            <Sl label="균일도" value={wf.bar_min ?? 0.1} min={0} max={0.5} step={0.05} fmt={v => v <= 0.05 ? '편차 최대' : v >= 0.45 ? '거의 균일' : `최소높이 ${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, bar_min: v }))} />
             <Sl label="투명도" value={wf.opacity} min={0} max={1} step={0.05} fmt={v => `${Math.round(v * 100)}%`} onChange={v => setWf(w => ({ ...w, opacity: v }))} />
           </>}
         </Section>
