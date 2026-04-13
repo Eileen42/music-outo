@@ -17,6 +17,22 @@ from typing import Literal
 
 from pydub import AudioSegment
 
+# FFmpeg PATH 자동 설정
+import os as _os
+import shutil as _shutil
+
+def _setup_ffmpeg():
+    if _shutil.which("ffmpeg"):
+        return
+    winget_dir = Path.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
+    if winget_dir.exists():
+        for p in winget_dir.rglob("ffmpeg.exe"):
+            bin_dir = str(p.parent)
+            _os.environ["PATH"] = bin_dir + _os.pathsep + _os.environ.get("PATH", "")
+            return
+
+_setup_ffmpeg()
+
 WaveformStyle = Literal["bar", "line", "circle"]
 
 LOOP_DURATION = 5.0   # 루프 길이 (초)
@@ -228,8 +244,15 @@ class WaveformGenerator:
                 frame_path = tmp_dir / f"frame_{f_idx:05d}.png"
                 img.save(str(frame_path), "PNG")
 
-            # FFmpeg로 MP4 인코딩
+            # FFmpeg 찾기
             ffmpeg = shutil.which("ffmpeg")
+            if not ffmpeg:
+                # winget 설치 경로 탐색
+                winget_dir = Path.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
+                if winget_dir.exists():
+                    for p in winget_dir.rglob("ffmpeg.exe"):
+                        ffmpeg = str(p)
+                        break
             if not ffmpeg:
                 raise RuntimeError("FFmpeg를 찾을 수 없습니다")
 

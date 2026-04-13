@@ -299,7 +299,7 @@ class CapcutBuilder:
         # draft_content.json 생성
         draft_content = self._build_draft_content(
             state, tracks, images, layers, subtitle_entries, total_us, project_name, project_dir,
-            repeat_count=repeat_count,
+            repeat_count=repeat_count, output_dir=output_dir,
         )
         # draft_content.json은 에셋 복사 후 경로 업데이트 뒤에 저장 (아래에서)
 
@@ -415,7 +415,7 @@ class CapcutBuilder:
     def _build_draft_content(
         self, state: dict, tracks: list, images: dict, layers: dict,
         subtitle_entries: list, total_us: int, project_name: str,
-        project_dir: Path = None, repeat_count: int = 1,
+        project_dir: Path = None, repeat_count: int = 1, output_dir: Path = None,
     ) -> dict:
         """draft_content.json — 실제 작동하는 샘플 템플릿 기반."""
         assets_dir = Path(__file__).parent.parent / "assets"
@@ -615,7 +615,10 @@ class CapcutBuilder:
         # ── 6. 파형 비디오 레이어 (루프 반복) ──
         waveform_config = layers.get("waveform_layer") or {}
         if waveform_config.get("enabled", True) and project_dir:
-            wf_video = project_dir / "outputs" / "waveform_loop.mp4"
+            # output_dir(packager의 outputs 폴더)에서 파형 MP4 찾기
+            wf_video = output_dir / "waveform_loop.mp4" if output_dir else None
+            if not wf_video or not wf_video.exists():
+                wf_video = project_dir / "outputs" / "waveform_loop.mp4"
             if not wf_video.exists():
                 wf_video = project_dir / "waveform_loop.mp4"
             if wf_video.exists():
