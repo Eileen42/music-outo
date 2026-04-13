@@ -51,16 +51,22 @@ class Packager:
             else:
                 await audio_pipeline.merge_tracks(audio_paths, merged_audio)
 
-            # 2. 파형 이미지 생성
+            # 2. 파형 생성 (PNG + 애니메이션 MP4)
             report(30, "파형 생성 중...")
             waveform_config = layers.get("waveform_layer") or {}
             waveform_img = output_dir / "waveform.png"
+            waveform_video = output_dir / "waveform_loop.mp4"
             if waveform_config.get("enabled", True):
+                wf_color = waveform_config.get("color", "#FFFFFF")
+                wf_style = waveform_config.get("style", "bar")
+                # PNG (MP4 빌드용)
                 await waveform_generator.generate_image(
-                    merged_audio,
-                    waveform_img,
-                    color=waveform_config.get("color", "#FFFFFF"),
-                    style=waveform_config.get("style", "bar"),
+                    merged_audio, waveform_img, color=wf_color, style=wf_style,
+                )
+                # MP4 루프 (CapCut용)
+                report(35, "파형 애니메이션 생성 중...")
+                await waveform_generator.generate_video(
+                    merged_audio, waveform_video, color=wf_color, style=wf_style,
                 )
 
             # 3. 배경 이미지 결정
