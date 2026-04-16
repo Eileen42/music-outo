@@ -11,6 +11,7 @@ import YouTubeUpload from './components/YouTubeUpload'
 import RegisterForm from './components/RegisterForm'
 import PendingApproval from './components/PendingApproval'
 import SetupGuide from './components/SetupGuide'
+import ServerOffline from './components/ServerOffline'
 import AdminPage from './components/AdminPage'
 import GeminiSetup from './components/GeminiSetup'
 
@@ -95,6 +96,7 @@ export default function App() {
   const [showProjectList, setShowProjectList] = useState(() => !localStorage.getItem('projectId'))
   const [restored, setRestored] = useState(false)
   const [serverOnline, setServerOnline] = useState<boolean | null>(null) // null = 아직 확인 안 됨
+  const [deployMode, setDeployMode] = useState<'local' | 'cloud'>('local')
   const [authState, setAuthState] = useState<AuthState>('loading')
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '')
   const [userName, setUserName] = useState('')
@@ -147,6 +149,9 @@ export default function App() {
     checkAuth()
   }, [authToken, isLocal])
 
+  // 이전에 연결 성공한 적 있는지 확인
+  const connectedBefore = localStorage.getItem('connected_before') === 'true'
+
   // 서버 연결 상태 체크 (10초마다) — 승인된 사용자만
   useEffect(() => {
     if (authState !== 'approved') return
@@ -156,6 +161,12 @@ export default function App() {
         const res = await fetch(backendUrl + '/health')
         if (res.ok) {
           setServerOnline(true)
+          localStorage.setItem('connected_before', 'true')
+          // deploy_mode 감지
+          try {
+            const hData = await res.clone().json()
+            if (hData.deploy_mode) setDeployMode(hData.deploy_mode)
+          } catch { /* ignore */ }
           // Gemini 키 설정 여부 확인
           try {
             const gRes = await fetch(backendUrl + '/api/settings/gemini')
@@ -170,6 +181,7 @@ export default function App() {
         try {
           await fetch(backendUrl + '/health', { mode: 'no-cors' })
           setServerOnline(true)
+          localStorage.setItem('connected_before', 'true')
           return
         } catch {
           // 서버 미연결
@@ -320,11 +332,18 @@ export default function App() {
     )
   }
 
-  // 승인됨 + 백엔드 미연결 → 설치 가이드
+  // 승인됨 + 백엔드 미연결 → 상황에 따라 분기
+  // - 클라우드 모드 또는 이전 연결 이력 있음 → 재연결 안내 (ServerOffline)
+  // - 처음 접속 + 로컬 모드 → 설치 안내 (SetupGuide)
   if (authState === 'approved' && serverOnline === false) {
+    const showReconnect = connectedBefore || deployMode === 'cloud'
     return (
       <>
-        <SetupGuide backendUrl={backendUrl} onConnected={() => setServerOnline(true)} />
+        {showReconnect ? (
+          <ServerOffline backendUrl={backendUrl} onConnected={() => setServerOnline(true)} />
+        ) : (
+          <SetupGuide backendUrl={backendUrl} onConnected={() => setServerOnline(true)} />
+        )}
         <button
           onClick={() => setShowAdmin(true)}
           className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
@@ -377,8 +396,25 @@ export default function App() {
           </>
         )}
 
-        {/* 사용자 정보 + 로그아웃 */}
+        {/* 연결 상태 + 사용자 정보 + 로그아웃 */}
         <div className={`${activeProject && !showProjectList ? '' : 'ml-auto'} flex items-center gap-2`}>
+          {/* 서버 연결 상태 인디케이터 */}
+          <div className="flex items-center gap-1.5 mr-2" title={
+            serverOnline === true ? '로컬 서버 연결됨' :
+            serverOnline === null ? '연결 확인 중...' :
+            '로컬 서버 꺼짐'
+          }>
+            <span className={`w-2 h-2 rounded-full ${
+              serverOnline === true ? 'bg-green-500' :
+              serverOnline === null ? 'bg-yellow-500 animate-pulse' :
+              'bg-red-500'
+            }`} />
+            <span className="text-[11px] text-gray-500 hidden sm:inline">
+              {serverOnline === true ? '서버 연결됨' :
+               serverOnline === null ? '연결 중...' :
+               '서버 꺼짐'}
+            </span>
+          </div>
           {userName && (
             <span className="text-xs text-gray-500 hidden sm:inline">{userName}</span>
           )}

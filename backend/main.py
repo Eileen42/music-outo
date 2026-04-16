@@ -61,7 +61,7 @@ if _extra:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # 모든 Vercel 배포 URL 허용
+    allow_origin_regex=r"https://.*\.(vercel\.app|railway\.app)",  # Vercel + Railway 배포 URL 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -124,7 +124,7 @@ async def websocket_endpoint(ws: WebSocket, project_id: str):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "storage": str(settings.storage_path)}
+    return {"status": "ok", "storage": str(settings.storage_path), "deploy_mode": settings.deploy_mode}
 
 
 # ─── 버전 & 업데이트 ─────────────────────────────────────────────────────────
