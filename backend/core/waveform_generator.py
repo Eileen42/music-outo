@@ -64,9 +64,9 @@ class WaveformGenerator:
 
     def _extract_energy(self, audio_path: Path, duration: float, fps: int, bar_count: int) -> list[list[float]]:
         audio = AudioSegment.from_file(str(audio_path))
-        # 여분 프레임 2개 추가 — FFmpeg 인코딩 시 마지막 프레임 누락 방지 (루프 이음매 공백 제거)
-        n_frames = int(duration * fps) + 2
-        clip = audio[:int((n_frames / fps) * 1000)]
+        # 정확히 duration * fps 프레임 (여분 없음 — MOV 길이가 정확히 duration초여야 루프 이음매 없음)
+        n_frames = int(duration * fps)
+        clip = audio[:int(duration * 1000)]
         mono = clip.set_channels(1)
         raw = mono.get_array_of_samples()
         mx = float(2 ** (mono.sample_width * 8 - 1))
@@ -197,13 +197,36 @@ class WaveformGenerator:
         total_w = bar_count * (bw + gap)
         start_x = cx - total_w / 2
 
-        # 첫 프레임부터 바가 보이도록 초기값 세팅 (프론트도 랜덤 초기값 사용)
+        # 루프 이음매를 자연스럽게 하기 위해 2-pass:
+        # 1차: 전체 프레임을 한 번 돌려서 마지막 상태를 구함
+        # 2차: 마지막 상태를 초기값으로 사용해서 렌더링 → 마지막→첫 프레임이 자연스럽게 연결
         import random
-        random.seed(42)  # 재현성
-        prev_bars = [random.random() * (1 - uniformity) + uniformity for _ in range(bar_count)]
-        targ_bars = [random.random() * (1 - uniformity) + uniformity for _ in range(bar_count)]
-        tick = 0
         total_frames = len(frames_data)
+
+        def _simulate(init_prev, init_targ):
+            """프레임 시뮬레이션 — 최종 상태 반환."""
+            prev = list(init_prev)
+            targ = list(init_targ)
+            tk = 0
+            for energy_bars in frames_data:
+                tk += 1
+                if tk % 6 == 0:
+                    for i in range(bar_count):
+                        targ[i] = max(energy_bars[i] * (1 - uniformity) + uniformity, uniformity)
+                for i in range(bar_count):
+                    prev[i] += (targ[i] - prev[i]) * 0.08
+            return prev, targ
+
+        # 1차: 랜덤 초기값으로 시뮬레이션
+        random.seed(42)
+        init_prev = [random.random() * (1 - uniformity) + uniformity for _ in range(bar_count)]
+        init_targ = [random.random() * (1 - uniformity) + uniformity for _ in range(bar_count)]
+        end_prev, end_targ = _simulate(init_prev, init_targ)
+
+        # 2차: 마지막 상태를 초기값으로 → 루프 시 끊김 없음
+        prev_bars = list(end_prev)
+        targ_bars = list(end_targ)
+        tick = 0
 
         cmd = [
             ffmpeg, "-y",

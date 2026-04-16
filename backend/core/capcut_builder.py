@@ -625,15 +625,8 @@ class CapcutBuilder:
         if wf_mov:
             wf_id = _uuid()
             wf_path = str(wf_mov.resolve())
-            # MOV 파일의 실제 길이 (마이크로초)
-            loop_us = 10_000_000  # 10초 기본값
-            try:
-                from pydub.utils import mediainfo
-                info = mediainfo(str(wf_mov))
-                if info.get("duration"):
-                    loop_us = int(float(info["duration"]) * 1_000_000)
-            except Exception:
-                pass
+            # 파형 MOV는 항상 정확히 10초 (waveform_generator가 보장)
+            loop_us = 10_000_000
 
             materials["videos"].append({
                 "id": wf_id,
