@@ -337,68 +337,60 @@ async def _fill_metadata_browser(project_id: str):
             # ── 4. 썸네일 ──
             if thumb and Path(thumb).exists():
                 try:
-                    upload_btn = await page.query_selector('ytcp-thumbnail-uploader button:has-text("파일 업로드")')
-                    if not upload_btn:
-                        upload_btn = await page.query_selector('ytcp-video-custom-still-editor button:has-text("파일 업로드")')
-                    if upload_btn:
-                        async with page.expect_file_chooser(timeout=5000) as fc:
-                            await upload_btn.click()
-                        file_chooser = await fc.value
-                        await file_chooser.set_files(thumb)
+                    await dismiss_overlays()
+                    # hidden file input에 직접 파일 설정 (버튼 클릭 우회)
+                    fi = await page.query_selector("input#file-loader[type='file']")
+                    if not fi:
+                        fi = await page.query_selector("input[accept*='image'][type='file']")
+                    if fi:
+                        await fi.set_input_files(thumb)
                         await page.wait_for_timeout(3000)
                         steps_done.append("썸네일")
                         log.info("✓ 썸네일 업로드")
                     else:
-                        # fallback: hidden input
-                        fi = await page.query_selector("input[accept*='image']")
-                        if fi:
-                            await fi.set_input_files(thumb)
-                            await page.wait_for_timeout(2000)
-                            steps_done.append("썸네일(fallback)")
-                        else:
-                            steps_done.append("썸네일(버튼 못 찾음)")
+                        steps_done.append("썸네일(input 못 찾음)")
                 except Exception as e:
                     log.warning(f"썸네일 건너뜀: {e}")
                     steps_done.append("썸네일(실패-건너뜀)")
 
             # ── 5. 아동용 아님 ──
             await dismiss_overlays()
-            await page.evaluate("""
+            await page.evaluate("""() => {
                 const nfk = document.querySelector("#audience [name='VIDEO_MADE_FOR_KIDS_NOT_MFK']")
                     || document.querySelector("tp-yt-paper-radio-button[name='NOT_MADE_FOR_KIDS']");
                 if (nfk) nfk.click();
-            """)
+            }""")
             await page.wait_for_timeout(500)
             steps_done.append("아동용아님")
 
             # ── 6. 다음 버튼 (현재 페이지 확인 후 필요한 만큼만 클릭) ──
             for step in range(3):
                 await dismiss_overlays()
-                clicked = await page.evaluate("""
+                clicked = await page.evaluate("""() => {
                     const btn = document.querySelector("#next-button") || document.querySelector("ytcp-button#next-button");
                     if (btn) { btn.click(); return true; }
                     return false;
-                """)
+                }""")
                 if clicked:
                     await page.wait_for_timeout(2000)
                     steps_done.append(f"다음{step+1}")
 
             # ── 7. 공개 설정 ──
             await dismiss_overlays()
-            await page.evaluate("""
+            await page.evaluate("""() => {
                 const ul = document.querySelector("tp-yt-paper-radio-button[name='UNLISTED']");
                 if (ul) ul.click();
-            """)
+            }""")
             await page.wait_for_timeout(1000)
             steps_done.append("일부공개")
 
             # ── 8. 저장/게시 ──
             await dismiss_overlays()
-            clicked = await page.evaluate("""
+            clicked = await page.evaluate("""() => {
                 const btn = document.querySelector("#done-button") || document.querySelector("ytcp-button#done-button");
                 if (btn) { btn.click(); return true; }
                 return false;
-            """)
+            }""")
             if clicked:
                 await page.wait_for_timeout(3000)
                 steps_done.append("게시")
