@@ -13,30 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
-from routes import build, images, layers, metadata, projects, tracks, youtube
-from routes import benchmark, channels
+from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
+from routes import benchmark, channels, track_design, suno as suno_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Playwright 의존 라우터 — 없으면 건너뜀 (클라우드 배포 시 playwright 미설치)
-try:
-    from routes import flow_images
-except ImportError:
-    flow_images = None
-    logger.info("flow_images 라우터 비활성 (playwright 없음)")
-
-try:
-    from routes import track_design
-except Exception:
-    track_design = None
-    logger.info("track_design 라우터 비활성 (의존성 없음)")
-
-try:
-    from routes import suno as suno_routes
-except ImportError:
-    suno_routes = None
-    logger.info("suno 라우터 비활성 (playwright 없음)")
 
 
 @asynccontextmanager
@@ -80,7 +61,7 @@ if _extra:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https://.*\.(vercel\.app|railway\.app)",  # Vercel + Railway 배포 URL 허용
+    allow_origin_regex=r"https://.*\.vercel\.app",  # 모든 Vercel 배포 URL 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,15 +75,11 @@ app.include_router(metadata.router)
 app.include_router(layers.router)
 app.include_router(build.router)
 app.include_router(youtube.router)
+app.include_router(flow_images.router)
 app.include_router(channels.router)
 app.include_router(benchmark.router)
-# Playwright 의존 라우터 (클라우드에서는 비활성)
-if flow_images:
-    app.include_router(flow_images.router)
-if track_design:
-    app.include_router(track_design.router)
-if suno_routes:
-    app.include_router(suno_routes.router)
+app.include_router(track_design.router)
+app.include_router(suno_routes.router)
 
 # 정적 파일 서빙 (빌드된 영상 등)
 storage_static = settings.storage_dir
@@ -147,7 +124,7 @@ async def websocket_endpoint(ws: WebSocket, project_id: str):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "storage": str(settings.storage_path), "deploy_mode": settings.deploy_mode}
+    return {"status": "ok", "storage": str(settings.storage_path)}
 
 
 # ─── 버전 & 업데이트 ─────────────────────────────────────────────────────────

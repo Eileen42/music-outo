@@ -17,6 +17,6 @@ Pillow==11.1.0
 pydantic-settings==2.5.0
 redis==5.0.8
 numpy>=1.26.4
+playwright>=1.40.0
 aiohttp>=3.9.0
-# playwright>=1.40.0  -- 클라우드 배포 시 제외 (로컬에서만 pip install playwright)
 # pyjianying -- PyPI 미등록. 필요 시: pip install git+https://github.com/linyiLYi/PyJianYingDraft
