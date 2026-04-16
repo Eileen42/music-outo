@@ -171,25 +171,37 @@ class WaveformGenerator:
         color, opacity, bar_align, scale, pos_x, pos_y, style,
         fps, ffmpeg, progress_cb,
     ):
-        """프론트 drawWf()와 동일한 렌더링 → FFmpeg 파이프."""
+        """프론트 drawWf()와 100% 동일한 렌더링 → FFmpeg 파이프.
+
+        Canvas fillRect(x, y, w, h) 방식:
+          - x, y: 왼쪽 상단 시작
+          - w, h: 폭과 높이 (x+w는 포함 안 함)
+
+        PIL draw.rectangle([x1, y1, x2, y2]) 방식:
+          - x2, y2: 포함됨 → 실제 폭 = x2 - x1 + 1
+
+        따라서 Canvas fillRect(x, y, bw, h) == PIL rectangle([x, y, x+bw-1, y+h-1])
+        """
         from PIL import Image, ImageDraw
 
         r, g, b = self._hex_to_rgb(color)
         alpha = int(opacity * 255)
 
+        # 프론트와 동일한 계산 (보정 없이 순수 값 사용)
         sc = scale
-        # PIL rectangle는 [x1,y1,x2,y2]에서 x2를 포함 → 폭이 1px 늘어남
-        # Canvas fillRect(x,y,w,h)와 일치시키기 위해 -1 보정
-        bw = max(bar_width * sc - 1, 1)
-        gap = bar_gap * sc + 1  # bw가 줄어든 만큼 gap 보정으로 전체 간격 유지
+        bw = bar_width * sc       # Canvas fillRect의 w 값 그대로
+        gap = bar_gap * sc         # Canvas fillRect의 gap 그대로
         max_h = bar_height * sc
         cx = pos_x * width
         cy = pos_y * height
         total_w = bar_count * (bw + gap)
         start_x = cx - total_w / 2
 
-        prev_bars = [uniformity] * bar_count
-        targ_bars = [uniformity] * bar_count
+        # 첫 프레임부터 바가 보이도록 초기값 세팅 (프론트도 랜덤 초기값 사용)
+        import random
+        random.seed(42)  # 재현성
+        prev_bars = [random.random() * (1 - uniformity) + uniformity for _ in range(bar_count)]
+        targ_bars = [random.random() * (1 - uniformity) + uniformity for _ in range(bar_count)]
         tick = 0
         total_frames = len(frames_data)
 
@@ -216,8 +228,9 @@ class WaveformGenerator:
                 prev_bars[i] += (targ_bars[i] - prev_bars[i]) * 0.08
                 env = _bell(i, bar_count)
                 h = prev_bars[i] * max_h * env
-                if h < 1:
-                    continue
+                # 프론트 Canvas는 h < 1이어도 렌더링하므로 skip 조건 제거
+                # 다만 0 이하는 의미 없으므로 최소 1px 보장
+                h = max(h, 1)
                 x = start_x + i * (bw + gap)
 
                 if style == "circle":
@@ -230,12 +243,14 @@ class WaveformGenerator:
                     y2 = cy + math.sin(angle) * (cr + h)
                     draw.line([(x1, y1), (x2, y2)], fill=(r, g, b, alpha), width=max(int(cbw), 1))
                 else:
+                    # PIL rectangle: x2 = x + bw - 1 (Canvas fillRect과 동일 폭)
+                    x2 = x + bw - 1
                     if bar_align == "center":
-                        draw.rectangle([x, cy - h/2, x + bw, cy + h/2], fill=(r, g, b, alpha))
+                        draw.rectangle([x, cy - h/2, x2, cy + h/2 - 1], fill=(r, g, b, alpha))
                     elif bar_align == "top":
-                        draw.rectangle([x, cy, x + bw, cy + h], fill=(r, g, b, alpha))
+                        draw.rectangle([x, cy, x2, cy + h - 1], fill=(r, g, b, alpha))
                     else:
-                        draw.rectangle([x, cy - h, x + bw, cy], fill=(r, g, b, alpha))
+                        draw.rectangle([x, cy - h, x2, cy - 1], fill=(r, g, b, alpha))
 
             proc.stdin.write(img.tobytes())
 
