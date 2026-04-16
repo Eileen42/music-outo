@@ -239,6 +239,7 @@ class CapcutBuilder:
     def _build_project_folder(self, state: dict, output_dir: Path) -> Path:
         """CapCut 프로젝트 폴더 구조 생성."""
         import re
+        from config import settings as _settings
         assets_dir = Path(__file__).parent.parent / "assets"
         tracks = state.get("tracks", [])
         metadata = state.get("metadata", {})
@@ -250,9 +251,12 @@ class CapcutBuilder:
         # 안전한 폴더명
         safe_name = re.sub(r'[\\/:*?"<>|]', '_', project_name)[:60].strip() or "project"
 
+        # 클라우드 모드 감지
+        is_cloud = _settings.is_cloud
+
         # CapCut 프로젝트 폴더 (실제 CapCut이 인식하는 위치)
         capcut_root = Path.home() / "AppData" / "Local" / "CapCut" / "User Data" / "Projects" / "com.lveditor.draft"
-        if capcut_root.exists():
+        if not is_cloud and capcut_root.exists():
             project_dir = capcut_root / safe_name
         else:
             project_dir = output_dir / safe_name
@@ -299,7 +303,7 @@ class CapcutBuilder:
         # draft_content.json 생성
         draft_content = self._build_draft_content(
             state, tracks, images, layers, subtitle_entries, total_us, project_name, project_dir,
-            repeat_count=repeat_count, output_dir=output_dir,
+            repeat_count=repeat_count, output_dir=output_dir, is_cloud=is_cloud,
         )
         # draft_content.json은 에셋 복사 후 경로 업데이트 뒤에 저장 (아래에서)
 
@@ -353,8 +357,11 @@ class CapcutBuilder:
         resources_dir = project_dir / "Resources"
         resources_dir.mkdir(parents=True, exist_ok=True)
 
-        # draft_content.json의 절대경로 → Resources 내 상대경로로 변환
+        # draft_content.json의 절대경로 → Resources 내 경로로 변환
         path_map: dict[str, str] = {}  # 원본절대경로 → Resources 내 파일명
+
+        # 클라우드 모드: 플레이스홀더 경로 사용 (install_to_capcut.bat에서 치환)
+        _CAPCUT_PLACEHOLDER = "__CAPCUT_PROJECT_DIR__"
 
         def _copy_asset(src_path: str, prefix: str = "") -> str:
             """에셋을 Resources에 복사하고 새 경로 반환."""
@@ -365,7 +372,11 @@ class CapcutBuilder:
             dest = resources_dir / dest_name
             if not dest.exists():
                 shutil.copy(src, dest)
-            new_path = str(dest.resolve())
+            if is_cloud:
+                # 클라우드: 플레이스홀더 경로 (bat에서 실제 경로로 치환)
+                new_path = f"{_CAPCUT_PLACEHOLDER}/Resources/{dest_name}"
+            else:
+                new_path = str(dest.resolve())
             path_map[src_path] = new_path
             return new_path
 
@@ -401,9 +412,64 @@ class CapcutBuilder:
             if src.exists():
                 shutil.copy(src, project_dir / dst_name)
 
+        # 클라우드 모드: 파형 MOV를 Resources에도 복사 + install bat 생성
+        if is_cloud:
+            if wf_mov and wf_mov.exists():
+                dest = resources_dir / wf_mov.name
+                if not dest.exists():
+                    shutil.copy(wf_mov, dest)
+
+            # install_to_capcut.bat — ZIP 추출 후 실행하면 CapCut 폴더에 설치
+            bat_content = f'''@echo off
+chcp 65001 >nul
+echo.
+echo  CapCut 프로젝트 설치 중...
+echo.
+
+set "CAPCUT_ROOT=%LOCALAPPDATA%\\CapCut\\User Data\\Projects\\com.lveditor.draft"
+set "PROJECT_NAME={safe_name}"
+set "PROJECT_DIR=%CAPCUT_ROOT%\\%PROJECT_NAME%"
+
+if not exist "%CAPCUT_ROOT%" (
+    echo [!] CapCut 프로젝트 폴더를 찾을 수 없습니다.
+    echo     CapCut이 설치되어 있는지 확인해주세요.
+    echo     경로: %CAPCUT_ROOT%
+    pause
+    exit /b 1
+)
+
+:: 기존 프로젝트 폴더가 있으면 백업
+if exist "%PROJECT_DIR%" (
+    echo [!] 기존 프로젝트를 덮어씁니다.
+    rmdir /s /q "%PROJECT_DIR%" 2>nul
+)
+
+:: 프로젝트 폴더 복사 (bat 파일 자체는 제외)
+echo [1/2] 파일 복사 중...
+xcopy "%~dp0{safe_name}" "%PROJECT_DIR%" /E /I /Q /Y >nul
+
+:: draft_content.json 경로 치환
+echo [2/2] 미디어 경로 설정 중...
+set "ESCAPED_DIR=%PROJECT_DIR:\\=/%"
+powershell -Command "(Get-Content '%PROJECT_DIR%\\draft_content.json' -Raw -Encoding UTF8) -replace '__CAPCUT_PROJECT_DIR__', '%ESCAPED_DIR%' | Set-Content '%PROJECT_DIR%\\draft_content.json' -Encoding UTF8"
+
+echo.
+echo  [OK] 설치 완료! CapCut을 열면 프로젝트가 표시됩니다.
+echo       프로젝트: %PROJECT_NAME%
+echo.
+pause
+'''
+            (project_dir.parent / "install_to_capcut.bat").write_text(
+                bat_content, encoding="utf-8"
+            )
+
         # ZIP 생성 (Resources 폴더 포함)
         zip_path = output_dir / f"{safe_name}.zip"
-        shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
+        if is_cloud:
+            # 클라우드: bat 파일 + 프로젝트 폴더를 함께 ZIP
+            shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir.parent))
+        else:
+            shutil.make_archive(str(zip_path.with_suffix("")), "zip", str(project_dir))
 
         logger.info(f"CapCut project folder: {project_dir}")
         logger.info(f"CapCut ZIP: {zip_path}")
@@ -416,9 +482,11 @@ class CapcutBuilder:
         self, state: dict, tracks: list, images: dict, layers: dict,
         subtitle_entries: list, total_us: int, project_name: str,
         project_dir: Path = None, repeat_count: int = 1, output_dir: Path = None,
+        is_cloud: bool = False,
     ) -> dict:
         """draft_content.json — 실제 작동하는 샘플 템플릿 기반."""
         assets_dir = Path(__file__).parent.parent / "assets"
+        _CAPCUT_PLACEHOLDER = "__CAPCUT_PROJECT_DIR__"
 
         # 샘플에서 추출한 전체 템플릿 로드 (구조가 CapCut과 100% 동일)
         tpl_path = assets_dir / "capcut_draft_template.json"
@@ -442,9 +510,11 @@ class CapcutBuilder:
         bg_path = images.get("background") or images.get("thumbnail")
         if bg_path and Path(bg_path).exists():
             vid_id = _uuid()
+            bg_filename = Path(bg_path).name
+            bg_resolved = f"{_CAPCUT_PLACEHOLDER}/Resources/{bg_filename}" if is_cloud else str(Path(bg_path).resolve())
             materials["videos"].append({
                 "id": vid_id,
-                "path": str(Path(bg_path).resolve()),
+                "path": bg_resolved,
                 "type": "photo",
                 "width": 1920,
                 "height": 1080,
@@ -584,7 +654,8 @@ class CapcutBuilder:
             aud_id = _uuid()
             dur = track.get("duration", 0)
             dur_us = _us(dur)
-            res_path = str(Path(audio_path).resolve())
+            audio_filename = Path(audio_path).name
+            res_path = f"{_CAPCUT_PLACEHOLDER}/Resources/{audio_filename}" if is_cloud else str(Path(audio_path).resolve())
             aud_mat = _load_audio_mat_skeleton()
             aud_mat.update({
                 "id": aud_id,
@@ -624,7 +695,7 @@ class CapcutBuilder:
 
         if wf_mov:
             wf_id = _uuid()
-            wf_path = str(wf_mov.resolve())
+            wf_path = f"{_CAPCUT_PLACEHOLDER}/Resources/{wf_mov.name}" if is_cloud else str(wf_mov.resolve())
             # MOV 파일의 실제 길이 (마이크로초)
             loop_us = 10_000_000  # 10초 기본값
             try:
@@ -676,7 +747,8 @@ class CapcutBuilder:
             if not img_path or not Path(img_path).exists():
                 continue
             img_id = _uuid()
-            res_path = str(Path(img_path).resolve())
+            img_filename = Path(img_path).name
+            res_path = f"{_CAPCUT_PLACEHOLDER}/Resources/{img_filename}" if is_cloud else str(Path(img_path).resolve())
             materials["videos"].append({
                 "id": img_id,
                 "path": res_path,
