@@ -16,9 +16,6 @@ class Settings(BaseSettings):
     browser_headless: bool = True
     youtube_api_key: str = ""
 
-    # 배포 모드: "local" (로컬 PC) | "cloud" (Railway 등 클라우드)
-    deploy_mode: str = "local"
-
     # Google Flow 자동화
     chrome_download_dir: str = str(Path.home() / "Downloads")
     flow_prompts_suffix: str = (
@@ -29,10 +26,6 @@ class Settings(BaseSettings):
     flow_manual_timeout: int = 600       # 수동 fallback 대기 최대 초
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")
-
-    @property
-    def is_cloud(self) -> bool:
-        return self.deploy_mode.lower() == "cloud"
 
     @property
     def storage_dir(self) -> Path:

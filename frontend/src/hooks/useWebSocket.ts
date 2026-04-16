@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const BASE_WS = (localStorage.getItem('backend_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000')
-  .replace(/^https/, 'wss')
+const BASE_WS = (import.meta.env.VITE_API_URL || 'http://localhost:8000')
   .replace(/^http/, 'ws')
 
 interface WSMessage {
