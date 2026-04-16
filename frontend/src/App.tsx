@@ -147,7 +147,7 @@ export default function App() {
     checkAuth()
   }, [authToken, isLocal])
 
-  // 서버 연결 상태 체크 (10초마다) — 승인된 사용자만
+  // 서버 연결 상태 체크 (5초마다) — 승인된 사용자만
   useEffect(() => {
     if (authState !== 'approved') return
 
@@ -156,6 +156,7 @@ export default function App() {
         const res = await fetch(backendUrl + '/health')
         if (res.ok) {
           setServerOnline(true)
+          localStorage.setItem('connected_before', 'true')
           // Gemini 키 설정 여부 확인
           try {
             const gRes = await fetch(backendUrl + '/api/settings/gemini')
@@ -170,6 +171,7 @@ export default function App() {
         try {
           await fetch(backendUrl + '/health', { mode: 'no-cors' })
           setServerOnline(true)
+          localStorage.setItem('connected_before', 'true')
           return
         } catch {
           // 서버 미연결
@@ -178,7 +180,7 @@ export default function App() {
       setServerOnline(false)
     }
     check()
-    const id = setInterval(check, 10000)
+    const id = setInterval(check, 5000)
     return () => clearInterval(id)
   }, [authState, backendUrl])
 
@@ -308,20 +310,45 @@ export default function App() {
     )
   }
 
-  // 승인됨 + 서버 확인 중 → 로딩
+  // 승인됨 + 서버 확인 중 → 연결 중 화면
   if (authState === 'approved' && serverOnline === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <div className="text-gray-500 text-sm">서버 연결 확인 중...</div>
+          <div className="text-gray-400 text-sm">서버 연결 중...</div>
+          <div className="text-gray-600 text-xs mt-1">5초마다 자동 재시도</div>
         </div>
       </div>
     )
   }
 
-  // 승인됨 + 백엔드 미연결 → 설치 가이드
+  // 승인됨 + 백엔드 미연결
   if (authState === 'approved' && serverOnline === false) {
+    const connectedBefore = localStorage.getItem('connected_before') === 'true'
+    // 이전에 연결된 적 있음 → 서버 꺼짐 안내 + 5초 재시도
+    if (connectedBefore) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+          <div className="w-full max-w-md text-center">
+            <div className="w-12 h-12 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <h2 className="text-lg font-bold text-white mb-2">로컬 서버 연결 중...</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              서버가 아직 시작되지 않았습니다.<br />
+              자동 시작이 설정되어 있다면 잠시 기다려주세요.
+            </p>
+            <p className="text-gray-600 text-xs">5초마다 자동 재연결 시도 중</p>
+            <button
+              onClick={() => setShowAdmin(true)}
+              className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
+            >
+              관리자
+            </button>
+          </div>
+        </div>
+      )
+    }
+    // 처음 접속 → 기존 설치 가이드
     return (
       <>
         <SetupGuide backendUrl={backendUrl} onConnected={() => setServerOnline(true)} />
