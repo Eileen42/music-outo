@@ -13,5 +13,10 @@ If objExec.ExitCode = 1 Then
     WScript.Quit 0
 End If
 
-' 백엔드 실행 (창 없이)
-WshShell.Run "cmd /c ""cd /d " & strDir & "\backend && d:\coding\.venv\Scripts\uvicorn main:app --reload --port 8000 --host 0.0.0.0""", 0, False
+' 백엔드 실행 (창 없이) — 프로젝트 내부 venv 우선, 없으면 공유 venv
+Dim venvUvicorn
+venvUvicorn = strDir & "\backend\.venv\Scripts\uvicorn"
+If Not CreateObject("Scripting.FileSystemObject").FileExists(venvUvicorn & ".exe") Then
+    venvUvicorn = "d:\coding\.venv\Scripts\uvicorn"
+End If
+WshShell.Run "cmd /c ""cd /d " & strDir & "\backend && """ & venvUvicorn & """ main:app --reload --port 8000 --host 0.0.0.0""", 0, False

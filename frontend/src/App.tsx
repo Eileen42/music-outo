@@ -323,45 +323,34 @@ export default function App() {
     )
   }
 
-  // 승인됨 + 백엔드 미연결
+  // 승인됨 + 백엔드 미연결 → 로그인된 사용자는 항상 "연결 중..." 표시
+  // (로그인 자체가 등록된 사용자라는 증거 → 설치 안내 불필요)
   if (authState === 'approved' && serverOnline === false) {
-    // connected_before 또는 기존 사용 흔적(auth_token, projectId)이 있으면 기존 사용자
-    const connectedBefore = localStorage.getItem('connected_before') === 'true'
-      || !!localStorage.getItem('auth_token')
-      || !!localStorage.getItem('projectId')
-    // 이전에 연결된 적 있음 → 서버 꺼짐 안내 + 5초 재시도
-    if (connectedBefore) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
-          <div className="w-full max-w-md text-center">
-            <div className="w-12 h-12 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <h2 className="text-lg font-bold text-white mb-2">로컬 서버 연결 중...</h2>
-            <p className="text-gray-400 text-sm mb-4">
-              서버가 아직 시작되지 않았습니다.<br />
-              자동 시작이 설정되어 있다면 잠시 기다려주세요.
-            </p>
-            <p className="text-gray-600 text-xs">5초마다 자동 재연결 시도 중</p>
-            <button
-              onClick={() => setShowAdmin(true)}
-              className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
-            >
-              관리자
-            </button>
-          </div>
-        </div>
-      )
-    }
-    // 처음 접속 → 기존 설치 가이드
     return (
-      <>
-        <SetupGuide backendUrl={backendUrl} onConnected={() => setServerOnline(true)} />
-        <button
-          onClick={() => setShowAdmin(true)}
-          className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
-        >
-          관리자
-        </button>
-      </>
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="w-12 h-12 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-white mb-2">로컬 서버 연결 중...</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            서버가 아직 시작되지 않았습니다.<br />
+            자동 시작이 설정되어 있다면 잠시 기다려주세요.
+          </p>
+          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 text-left mb-4">
+            <p className="text-xs text-gray-500 mb-2">서버가 시작되지 않나요?</p>
+            <p className="text-xs text-gray-400">
+              프로젝트 폴더의 <code className="text-purple-300 bg-gray-800 px-1 rounded">start.bat</code>을 더블클릭하거나,<br />
+              <code className="text-purple-300 bg-gray-800 px-1 rounded">install_autostart.bat</code>으로 자동 시작을 등록하세요.
+            </p>
+          </div>
+          <p className="text-gray-600 text-xs">5초마다 자동 재연결 시도 중</p>
+          <button
+            onClick={() => setShowAdmin(true)}
+            className="fixed bottom-2 right-3 text-[10px] text-gray-700 hover:text-gray-500 transition-colors"
+          >
+            관리자
+          </button>
+        </div>
+      </div>
     )
   }
 
