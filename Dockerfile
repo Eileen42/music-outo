@@ -1,30 +1,31 @@
 FROM python:3.11-slim
 
-# 단일 RUN으로 레이어 최소화 + 캐시 완전 제거
+# FFmpeg + Playwright 최소 시스템 의존성만 설치 (브라우저 바이너리는 런타임에)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ffmpeg \
-        git \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+        ffmpeg git \
+        # Playwright Firefox 실행에 필요한 최소 시스템 라이브러리
+        libnss3 libnspr4 libdbus-1-3 libatk1.0-0t64 \
+        libatk-bridge2.0-0t64 libcups2t64 libxcomposite1 \
+        libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+        libpango-1.0-0 libcairo2 libasound2t64 \
+        libxkbcommon0 libatspi2.0-0t64 libgtk-3-0t64 \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man /tmp/*
 
 WORKDIR /app
 
-# 의존성 설치 (캐시 활용)
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache /tmp/*
 
-# Playwright: Chromium 대신 가벼운 Firefox만 + deps를 한 레이어에서 정리
-RUN playwright install firefox && \
-    playwright install-deps firefox && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
+# 브라우저 바이너리는 설치하지 않음 → 런타임 start.sh에서 설치 + 볼륨에 캐시
 
-# 백엔드 코드 복사 (backend/ → /app/)
 COPY backend/ .
-
-# Storage 디렉토리 생성
-RUN mkdir -p /app/storage/projects /app/storage/uploads /app/storage/outputs \
+COPY start_cloud.sh .
+RUN chmod +x start_cloud.sh && \
+    mkdir -p /app/storage/projects /app/storage/uploads /app/storage/outputs \
              /app/storage/browser_sessions
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./start_cloud.sh"]
