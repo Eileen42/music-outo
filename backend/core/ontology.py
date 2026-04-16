@@ -2,11 +2,15 @@
 온톨로지 엔진 — 채널/카테고리/무드 기반 속성 자동 결정.
 
 기존 코드 수정 없이 독립 모듈로 동작.
-나중에 각 모듈(track_designer, visual_generator, waveform_generator, metadata_generator)에서
+나중에 각 모듈(track_designer, visual_generator, metadata_generator)에서
 ontology.resolve(channel_profile) 호출하여 일관된 속성을 받아 사용.
 
 관계 구조:
-  Channel → genre(카테고리) → mood → {음악, 이미지, 파형, 자막} 속성
+  Channel → genre(카테고리) → mood → {음악, 이미지, 자막} 속성
+
+주의: 파형(waveform)은 온톨로지 영역이 아님.
+  파형은 사용자가 레이어 설정에서 직접 세팅하고, 프리뷰 = CapCut 결과가 100% 일치해야 함.
+  템플릿으로 저장하여 재활용.
 """
 from __future__ import annotations
 
@@ -41,19 +45,6 @@ class ImageAttributes:
 
 
 @dataclass
-class WaveformAttributes:
-    """파형 레이어 속성."""
-    color: str = "#FFFFFF"
-    opacity: float = 0.8
-    speed: str = "medium"              # slow | medium | fast
-    uniformity: float = 0.3
-    bar_height_range: tuple[int, int] = (80, 150)
-    bar_width: int = 4
-    bar_gap: int = 2
-    bar_align: str = "bottom"          # center | top | bottom
-
-
-@dataclass
 class SubtitleAttributes:
     """자막/텍스트 속성."""
     tone: str = "neutral"              # neutral | poetic | motivational | minimal
@@ -71,8 +62,8 @@ class ResolvedProfile:
     mood: str = ""
     music: MusicAttributes = field(default_factory=MusicAttributes)
     image: ImageAttributes = field(default_factory=ImageAttributes)
-    waveform: WaveformAttributes = field(default_factory=WaveformAttributes)
     subtitle: SubtitleAttributes = field(default_factory=SubtitleAttributes)
+    # 파형(waveform)은 사용자 정의 영역 — 레이어 설정에서 직접 세팅 + 템플릿 저장
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -128,7 +119,7 @@ GENRE_MOOD_MAP: dict[str, str] = {
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  무드 → 속성 프리셋
+#  무드 → 속성 프리셋 (음악 + 이미지 + 자막만)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 MOOD_PRESETS: dict[str, dict] = {
@@ -140,10 +131,6 @@ MOOD_PRESETS: dict[str, dict] = {
         "image": ImageAttributes(
             color_tone="warm", subject_keywords=["nature", "sunset", "forest", "lake"],
             lighting="golden", style="cinematic",
-        ),
-        "waveform": WaveformAttributes(
-            color="#E8D5B7", opacity=0.6, speed="slow", uniformity=0.5,
-            bar_height_range=(60, 100), bar_width=4, bar_gap=2, bar_align="bottom",
         ),
         "subtitle": SubtitleAttributes(
             tone="poetic", language_style="formal", font_weight="light",
@@ -159,10 +146,6 @@ MOOD_PRESETS: dict[str, dict] = {
             color_tone="warm", subject_keywords=["cafe", "cozy", "autumn", "books"],
             lighting="soft", style="cinematic",
         ),
-        "waveform": WaveformAttributes(
-            color="#FFE4C4", opacity=0.7, speed="medium", uniformity=0.3,
-            bar_height_range=(80, 130), bar_width=4, bar_gap=2, bar_align="bottom",
-        ),
         "subtitle": SubtitleAttributes(
             tone="neutral", language_style="casual", font_weight="regular",
             position="bottom", subtitle_type="affirmation",
@@ -176,10 +159,6 @@ MOOD_PRESETS: dict[str, dict] = {
         "image": ImageAttributes(
             color_tone="cool", subject_keywords=["city night", "rain", "neon", "window"],
             lighting="dim", style="cinematic",
-        ),
-        "waveform": WaveformAttributes(
-            color="#A0C4FF", opacity=0.7, speed="slow", uniformity=0.4,
-            bar_height_range=(70, 120), bar_width=5, bar_gap=2, bar_align="center",
         ),
         "subtitle": SubtitleAttributes(
             tone="minimal", language_style="casual", font_weight="light",
@@ -195,10 +174,6 @@ MOOD_PRESETS: dict[str, dict] = {
             color_tone="vivid", subject_keywords=["abstract", "geometric", "light trails"],
             lighting="bright", style="3d",
         ),
-        "waveform": WaveformAttributes(
-            color="#FF6B6B", opacity=0.9, speed="fast", uniformity=0.15,
-            bar_height_range=(100, 180), bar_width=3, bar_gap=2, bar_align="center",
-        ),
         "subtitle": SubtitleAttributes(
             tone="motivational", language_style="casual", font_weight="bold",
             position="center", subtitle_type="none",
@@ -212,10 +187,6 @@ MOOD_PRESETS: dict[str, dict] = {
         "image": ImageAttributes(
             color_tone="pastel", subject_keywords=["sky", "flower", "spring", "bright"],
             lighting="bright", style="cinematic",
-        ),
-        "waveform": WaveformAttributes(
-            color="#FFFFFF", opacity=0.8, speed="medium", uniformity=0.25,
-            bar_height_range=(90, 150), bar_width=4, bar_gap=2, bar_align="bottom",
         ),
         "subtitle": SubtitleAttributes(
             tone="neutral", language_style="formal", font_weight="regular",
@@ -231,10 +202,6 @@ MOOD_PRESETS: dict[str, dict] = {
             color_tone="dark", subject_keywords=["desk", "library", "minimal", "space"],
             lighting="dim", style="minimal",
         ),
-        "waveform": WaveformAttributes(
-            color="#C8B6FF", opacity=0.5, speed="slow", uniformity=0.6,
-            bar_height_range=(50, 90), bar_width=3, bar_gap=3, bar_align="center",
-        ),
         "subtitle": SubtitleAttributes(
             tone="minimal", language_style="formal", font_weight="light",
             position="bottom", subtitle_type="none",
@@ -249,10 +216,6 @@ MOOD_PRESETS: dict[str, dict] = {
             color_tone="cool", subject_keywords=["ocean", "sky", "solitude", "rain"],
             lighting="golden", style="cinematic",
         ),
-        "waveform": WaveformAttributes(
-            color="#D4A5FF", opacity=0.7, speed="medium", uniformity=0.3,
-            bar_height_range=(80, 140), bar_width=4, bar_gap=2, bar_align="bottom",
-        ),
         "subtitle": SubtitleAttributes(
             tone="poetic", language_style="poetic", font_weight="regular",
             position="bottom", subtitle_type="lyrics",
@@ -262,53 +225,29 @@ MOOD_PRESETS: dict[str, dict] = {
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  조합 규칙 (constraints) — 속성 간 자동 보정
+#  조합 규칙 (constraints) — 음악·이미지·자막 간 일관성 보정
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def _apply_constraints(profile: ResolvedProfile) -> None:
     """속성 간 일관성 규칙 적용 (in-place)."""
-    m, im, w, s = profile.music, profile.image, profile.waveform, profile.subtitle
+    m, im, s = profile.music, profile.image, profile.subtitle
 
-    # 1. energy_level "low" → 파형 느리게 + 높이 제한
-    if m.energy_level == "low":
-        w.speed = "slow"
-        w.bar_height_range = (min(w.bar_height_range[0], 80), min(w.bar_height_range[1], 110))
-        w.uniformity = max(w.uniformity, 0.4)
-
-    # 2. energy_level "high" → 이미지 밝게 + 파형 빠르게
+    # 1. energy_level "high" → 이미지 밝게
     if m.energy_level == "high":
         if im.lighting in ("dim", "soft"):
             im.lighting = "bright"
-        w.speed = "fast"
-        w.bar_height_range = (max(w.bar_height_range[0], 90), max(w.bar_height_range[1], 150))
-        w.uniformity = min(w.uniformity, 0.2)
 
-    # 3. color_tone "dark" → 파형은 밝은 색 (대비)
-    if im.color_tone == "dark":
-        # 어두운 배경에 어두운 파형은 안 보임
-        dark_colors = {"#000000", "#333333", "#1a1a1a"}
-        if w.color.lower() in dark_colors:
-            w.color = "#C8B6FF"
-        w.opacity = max(w.opacity, 0.7)
-
-    # 4. vocal_type "none" → 자막은 affirmation 또는 none만
+    # 2. vocal_type "none" → 자막은 lyrics 불가 (가사가 없으니까)
     if m.vocal_type == "none" and s.subtitle_type == "lyrics":
         s.subtitle_type = "affirmation"
 
-    # 5. tempo 기반 파형 속도 보정
-    avg_tempo = (m.tempo_range[0] + m.tempo_range[1]) / 2
-    if avg_tempo < 75:
-        w.speed = "slow"
-    elif avg_tempo > 120:
-        w.speed = "fast"
-
-    # 6. color_tone "pastel" → 파형 opacity 약간 낮게 (부드러움)
-    if im.color_tone == "pastel":
-        w.opacity = min(w.opacity, 0.7)
-
-    # 7. 자막 tone "poetic" → font_weight은 light이 어울림
+    # 3. 자막 tone "poetic" → font_weight bold는 부자연스러움
     if s.tone == "poetic" and s.font_weight == "bold":
         s.font_weight = "regular"
+
+    # 4. color_tone "pastel" + energy "high" → 부조화 보정
+    if im.color_tone == "pastel" and m.energy_level == "high":
+        im.color_tone = "vivid"
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -321,13 +260,12 @@ class OntologyEngine:
     def resolve(self, channel_profile: dict) -> ResolvedProfile:
         """
         채널 프로필(storage/channels/*.json)을 입력받아
-        모든 모듈이 사용할 통합 속성 세트를 반환.
+        음악·이미지·자막 속성 세트를 반환.
 
         사용법:
             from core.ontology import ontology
             profile = ontology.resolve(channel_data)
             # profile.music.tempo_range → (55, 80)
-            # profile.waveform.color → "#E8D5B7"
             # profile.image.style → "cinematic"
         """
         genres = channel_profile.get("genre", [])
@@ -346,7 +284,6 @@ class OntologyEngine:
             mood=mood,
             music=MusicAttributes(**asdict(preset["music"])),
             image=ImageAttributes(**asdict(preset["image"])),
-            waveform=WaveformAttributes(**asdict(preset["waveform"])),
             subtitle=SubtitleAttributes(**asdict(preset["subtitle"])),
         )
 
@@ -366,7 +303,6 @@ class OntologyEngine:
             mood=mood,
             music=MusicAttributes(**asdict(preset["music"])),
             image=ImageAttributes(**asdict(preset["image"])),
-            waveform=WaveformAttributes(**asdict(preset["waveform"])),
             subtitle=SubtitleAttributes(**asdict(preset["subtitle"])),
         )
         _apply_constraints(profile)
