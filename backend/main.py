@@ -28,7 +28,31 @@ async def lifespan(app: FastAPI):
         (settings.storage_dir / d).mkdir(parents=True, exist_ok=True)
     logger.info(f"Storage: {settings.storage_dir.absolute()}")
     logger.info(f"Gemini keys loaded: {len(settings.gemini_api_keys)}")
+    # 서버 재시작 시 stuck된 빌드 자동 초기화
+    _cleanup_stuck_builds()
     yield
+
+
+def _cleanup_stuck_builds():
+    """서버 종료로 중단된 processing 상태 빌드를 error로 전환."""
+    import json
+    projects_dir = settings.storage_dir / "projects"
+    if not projects_dir.exists():
+        return
+    for state_file in projects_dir.glob("*/state.json"):
+        try:
+            data = json.loads(state_file.read_text(encoding="utf-8"))
+            build = data.get("build", {})
+            if build.get("status") == "processing":
+                name = data.get("name", state_file.parent.name)
+                logger.info(f"Stuck build 초기화: {name} (progress={build.get('progress')})")
+                build["status"] = None
+                build["progress"] = 0
+                build["error"] = None
+                data["build"] = build
+                state_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"Stuck build cleanup failed for {state_file}: {e}")
 
 
 app = FastAPI(
