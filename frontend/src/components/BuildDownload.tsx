@@ -147,12 +147,10 @@ export default function BuildDownload({ project, onRefresh }: Props) {
                 <div className="flex-1">
                   <span className="text-purple-300 font-semibold text-sm">빌드 진행 중</span>
                   <span className="text-gray-500 text-xs ml-2">
-                    {build.progress <= 10 ? '오디오 병합 중...' :
-                     build.progress <= 30 ? '파형 생성 중...' :
-                     build.progress <= 45 ? '파형 애니메이션 렌더링 중...' :
-                     build.progress <= 60 ? 'CapCut 프로젝트 생성 중...' :
-                     build.progress <= 85 ? '에셋 복사 중...' :
-                     '마무리 중...'}
+                    {build.progress <= 15 ? '오디오 병합 중...' :
+                     build.progress <= 55 ? 'CapCut 프로젝트 생성 중...' :
+                     build.progress < 100 ? '에셋 복사 및 마무리 중...' :
+                     '완료!'}
                   </span>
                 </div>
                 <span className="text-purple-400 text-sm font-mono shrink-0">{build.progress}%</span>
