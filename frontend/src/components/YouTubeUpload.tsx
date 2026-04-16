@@ -137,67 +137,99 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
         )}
       </div>
 
-      {/* ── STEP 2: 영상 파일 준비 ── */}
-      {authorized && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 text-xs flex items-center justify-center font-bold shrink-0">2</span>
-            <h3 className="text-sm font-semibold text-gray-200">영상 파일 준비</h3>
+      {/* ── STEP 2: 브라우저 업로드 (Google 연결 불필요) ── */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 text-xs flex items-center justify-center font-bold shrink-0">2</span>
+          <h3 className="text-sm font-semibold text-gray-200">브라우저 업로드</h3>
+          <span className="text-[10px] text-green-400 bg-green-900/30 px-1.5 py-0.5 rounded ml-1">Google 연동 불필요</span>
+        </div>
+        <div className="ml-7 space-y-3">
+          <p className="text-xs text-gray-500">
+            YouTube Studio를 브라우저로 열어 직접 업로드합니다. 메타데이터(제목/설명/태그)는 자동 입력됩니다.
+          </p>
+
+          {/* 폴더 경로 */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-400">영상 파일 경로</span>
+              <div className="flex gap-2">
+                <button onClick={() => api.build.openFolder(project.id)}
+                  className="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-0.5 rounded">📂 폴더 열기</button>
+                <button onClick={() => navigator.clipboard.writeText(uploadFolder)}
+                  className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
+              </div>
+            </div>
+            <div className="text-xs text-gray-300 font-mono break-all select-all bg-gray-900 rounded-lg px-3 py-2">
+              {uploadFolder}
+            </div>
           </div>
-          <div className="ml-7 space-y-3">
-            <p className="text-xs text-gray-500">
-              CapCut에서 편집 완료한 영상(MP4)을 아래 폴더에 넣어주세요.
-              폴더에 MP4 파일이 있으면 업로드할 수 있습니다.
-            </p>
 
-            {/* 폴더 경로 */}
-            <div className="bg-gray-800 rounded-xl p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-400">영상 파일 경로</span>
-                <div className="flex gap-2">
-                  <button onClick={() => api.build.openFolder(project.id)}
-                    className="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-0.5 rounded">📂 폴더 열기</button>
-                  <button onClick={() => navigator.clipboard.writeText(uploadFolder)}
-                    className="text-[10px] text-indigo-400 hover:text-indigo-300">복사</button>
-                </div>
-              </div>
-              <div className="text-xs text-gray-300 font-mono break-all select-all bg-gray-900 rounded-lg px-3 py-2">
-                {uploadFolder}
+          {/* 브라우저 업로드 버튼 + 메타데이터 자동 입력 */}
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={async () => {
+              await api.youtube.openStudio(project.id)
+              alert('YouTube Studio + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 업로드 시작되면 "메타데이터 자동 입력" 클릭')
+            }}
+              className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+              🌐 YouTube Studio 열기
+            </button>
+            <button onClick={async () => {
+              setFillingMeta(true)
+              try {
+                await api.youtube.fillMetadata(project.id)
+                const poll = setInterval(async () => {
+                  try { await onRefresh() } catch {}
+                }, 15000)
+                setTimeout(() => clearInterval(poll), 600000)
+              } catch {} finally { setTimeout(() => setFillingMeta(false), 30000) }
+            }}
+              disabled={fillingMeta}
+              className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+              {fillingMeta ? '⏳ 입력 중...' : '✍️ 메타데이터 자동 입력'}
+            </button>
+          </div>
+          {fillingMeta && <p className="text-[10px] text-gray-500 text-center">브라우저에서 자동 입력 중입니다. 30초 정도 소요.</p>}
+
+          {/* 브라우저 업로드 상태 */}
+          {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled &&
+           !(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
+            <div className="bg-yellow-950/40 border border-yellow-800 rounded-xl p-3 flex items-center gap-3">
+              <span className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin shrink-0" />
+              <div>
+                <p className="text-xs text-yellow-300 font-semibold">영상 업로드 완료 대기 중...</p>
+                <p className="text-[10px] text-gray-500">YouTube에서 영상 처리가 끝나면 댓글이 자동으로 작성됩니다.</p>
               </div>
             </div>
-
-            <div className="bg-gray-800/50 rounded-xl p-3 space-y-1.5">
-              <p className="text-[10px] text-gray-500 font-semibold">워크플로우:</p>
-              <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                <span className="bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded">빌드</span>
-                <span>→</span>
-                <span className="bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded">CapCut에서 편집</span>
-                <span>→</span>
-                <span className="bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded">MP4 내보내기</span>
-                <span>→</span>
-                <span className="bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded">위 폴더에 넣기</span>
-                <span>→</span>
-                <span className="bg-red-900/50 text-red-300 px-1.5 py-0.5 rounded">업로드</span>
-              </div>
-              <p className="text-[10px] text-gray-600">파일명: <code className="bg-gray-900 px-1 rounded">output.mp4</code> 또는 아무 이름의 .mp4 파일</p>
+          )}
+          {(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
+            <div className="bg-green-950/40 border border-green-800 rounded-xl p-3">
+              <p className="text-xs text-green-400 font-semibold">✅ 댓글 작성 완료!</p>
             </div>
+          )}
 
-            {/* 현재 폴더 상태 */}
-            {buildDone ? (
-              <div className="text-xs text-green-400">✓ outputs 폴더 준비됨 — MP4 파일을 넣어주세요</div>
-            ) : (
-              <div className="text-xs text-yellow-500">⚠ 먼저 빌드 단계에서 CapCut 프로젝트를 빌드하세요</div>
-            )}
+          <div className="bg-gray-800/50 rounded-xl p-3 space-y-1.5">
+            <p className="text-[10px] text-gray-500 font-semibold">워크플로우:</p>
+            <div className="flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
+              <span className="bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded">CapCut에서 MP4 내보내기</span>
+              <span>→</span>
+              <span className="bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">YouTube Studio 열기</span>
+              <span>→</span>
+              <span className="bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">MP4 드래그</span>
+              <span>→</span>
+              <span className="bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded">메타데이터 자동 입력</span>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── STEP 3: 업로드 설정 ── */}
+      {/* ── STEP 3: API 자동 업로드 (Google 연결 필요) ── */}
       {authorized && (
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-1">
             <span className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 text-xs flex items-center justify-center font-bold shrink-0">3</span>
-            <h3 className="text-sm font-semibold text-gray-200">업로드 설정</h3>
+            <h3 className="text-sm font-semibold text-gray-200">API 자동 업로드</h3>
+            <span className="text-[10px] text-purple-400 bg-purple-900/30 px-1.5 py-0.5 rounded ml-1">Google 연동 필요</span>
           </div>
           <div className="ml-7 space-y-4">
             {/* 공개 범위 */}
@@ -205,8 +237,8 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
               <label className="block text-xs text-gray-500 mb-2">공개 범위</label>
               <div className="flex gap-2">
                 {([
-                  { value: 'private',  icon: '🔒', label: '비공개', desc: '나만 볼 수 있음 (댓글 불가)' },
-                  { value: 'unlisted', icon: '🔗', label: '일부공개', desc: '링크로만 접근 (댓글 가능)' },
+                  { value: 'private',  icon: '🔒', label: '비공개', desc: '나만 볼 수 있음' },
+                  { value: 'unlisted', icon: '🔗', label: '일부공개', desc: '링크로만 접근' },
                   { value: 'public',   icon: '🌍', label: '공개',   desc: '누구나 검색 가능' },
                 ] as const).map(v => (
                   <button key={v.value} onClick={() => setPrivacyStatus(v.value)}
@@ -242,58 +274,14 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
               <div className="text-xs text-yellow-500">⚠ 메타데이터(제목/설명/태그)를 먼저 생성하세요 (4단계)</div>
             )}
 
-            {/* 업로드 버튼 */}
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={handleUpload}
-                disabled={uploading || project.status === 'uploading' || !project.metadata?.title}
-                className="bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-2xl font-bold text-sm transition-colors">
-                {project.status === 'uploading' ? '⏳ API 업로드 중...' :
-                 yt.video_id                    ? '🔄 재업로드' :
-                                                  '🚀 API 업로드'}
-              </button>
-              <button onClick={async () => {
-                await api.youtube.openStudio(project.id)
-                alert('YouTube Studio + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 업로드 시작되면 아래 "메타데이터 자동 입력" 클릭')
-              }}
-                disabled={!project.metadata?.title}
-                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
-                🌐 브라우저 업로드 열기
-              </button>
-            </div>
-            {/* 메타데이터 자동 입력 (브라우저 업로드 후) */}
-            <button onClick={async () => {
-              setFillingMeta(true)
-              try {
-                await api.youtube.fillMetadata(project.id)
-                // 댓글 완료까지 폴링
-                const poll = setInterval(async () => {
-                  try { await onRefresh() } catch {}
-                }, 15000)
-                setTimeout(() => clearInterval(poll), 600000)
-              } catch {} finally { setTimeout(() => setFillingMeta(false), 30000) }
-            }}
-              disabled={fillingMeta}
-              className="w-full bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-              {fillingMeta ? '⏳ 입력 중... (제목→설명→태그→썸네일→공개설정)' : '✍️ 메타데이터 자동 입력 (브라우저에 파일 올린 후 클릭)'}
+            {/* API 업로드 버튼 */}
+            <button onClick={handleUpload}
+              disabled={uploading || project.status === 'uploading' || !project.metadata?.title}
+              className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+              {project.status === 'uploading' ? '⏳ API 업로드 중...' :
+               yt.video_id                    ? '🔄 재업로드' :
+                                                '🚀 API 자동 업로드'}
             </button>
-            {fillingMeta && <p className="text-[10px] text-gray-500 text-center">브라우저에서 자동 입력 중입니다. 30초 정도 소요. 중간에 막히면 다시 클릭하세요 — 완료된 항목은 건너뛰고 이어서 진행합니다.</p>}
-            {/* 브라우저 업로드 후 댓글 대기 안내 */}
-            {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled &&
-             !(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
-              <div className="bg-yellow-950/40 border border-yellow-800 rounded-xl p-3 flex items-center gap-3">
-                <span className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin shrink-0" />
-                <div>
-                  <p className="text-xs text-yellow-300 font-semibold">영상 업로드 완료 대기 중...</p>
-                  <p className="text-[10px] text-gray-500">YouTube에서 영상 처리가 끝나면 댓글이 자동으로 작성됩니다. 브라우저를 닫아도 됩니다.</p>
-                </div>
-              </div>
-            )}
-            {(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
-              <div className="bg-green-950/40 border border-green-800 rounded-xl p-3">
-                <p className="text-xs text-green-400 font-semibold">✅ 댓글 작성 완료!</p>
-              </div>
-            )}
-            <p className="text-[10px] text-gray-600 text-center mt-1">API: 자동 업로드 (느림) | 브라우저: 수동 업로드 (빠름, 메타데이터 자동 입력)</p>
 
             {project.status === 'uploading' && (
               <div className="space-y-2">
@@ -307,9 +295,10 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
                 <div className="w-full bg-gray-800 rounded-full h-2.5">
                   <div className="bg-red-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
                 </div>
-                <p className="text-[10px] text-gray-600 text-center">대용량 파일은 수 분~수십 분 소요될 수 있습니다</p>
               </div>
             )}
+
+            <p className="text-[10px] text-gray-600 text-center">API 업로드: 완전 자동 (OAuth 필요) | 대용량 파일은 수 분~수십 분 소요</p>
           </div>
         </div>
       )}
