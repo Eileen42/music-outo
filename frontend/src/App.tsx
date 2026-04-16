@@ -325,7 +325,10 @@ export default function App() {
 
   // 승인됨 + 백엔드 미연결
   if (authState === 'approved' && serverOnline === false) {
+    // connected_before 또는 기존 사용 흔적(auth_token, projectId)이 있으면 기존 사용자
     const connectedBefore = localStorage.getItem('connected_before') === 'true'
+      || !!localStorage.getItem('auth_token')
+      || !!localStorage.getItem('projectId')
     // 이전에 연결된 적 있음 → 서버 꺼짐 안내 + 5초 재시도
     if (connectedBefore) {
       return (
