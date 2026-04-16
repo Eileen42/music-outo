@@ -20,7 +20,10 @@ if ERRORLEVEL 1 (
 
 :: Backend (FastAPI)
 echo [1/1] 백엔드 시작 중... (http://localhost:8000)
-start "YPA-Backend" /MIN cmd /c "cd /d %~dp0backend && d:\coding\.venv\Scripts\uvicorn main:app --reload --port 8000 --host 0.0.0.0 2>&1"
+:: 프로젝트 내부 venv 우선, 없으면 공유 venv
+set "UVICORN=%~dp0backend\.venv\Scripts\uvicorn"
+if not exist "%UVICORN%.exe" set "UVICORN=d:\coding\.venv\Scripts\uvicorn"
+start "YPA-Backend" /MIN cmd /c "cd /d %~dp0backend && "%UVICORN%" main:app --reload --port 8000 --host 0.0.0.0 2>&1"
 timeout /t 4 /nobreak >nul
 
 :SKIP_START
