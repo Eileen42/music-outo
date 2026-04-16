@@ -64,11 +64,12 @@ class WaveformGenerator:
 
     def _extract_energy(self, audio_path: Path, duration: float, fps: int, bar_count: int) -> list[list[float]]:
         audio = AudioSegment.from_file(str(audio_path))
-        clip = audio[:int(duration * 1000)]
+        # 여분 프레임 2개 추가 — FFmpeg 인코딩 시 마지막 프레임 누락 방지 (루프 이음매 공백 제거)
+        n_frames = int(duration * fps) + 2
+        clip = audio[:int((n_frames / fps) * 1000)]
         mono = clip.set_channels(1)
         raw = mono.get_array_of_samples()
         mx = float(2 ** (mono.sample_width * 8 - 1))
-        n_frames = int(duration * fps)
         spf = max(len(raw) // n_frames, 1)
         frames = []
         for f in range(n_frames):
@@ -177,8 +178,10 @@ class WaveformGenerator:
         alpha = int(opacity * 255)
 
         sc = scale
-        bw = bar_width * sc
-        gap = bar_gap * sc
+        # PIL rectangle는 [x1,y1,x2,y2]에서 x2를 포함 → 폭이 1px 늘어남
+        # Canvas fillRect(x,y,w,h)와 일치시키기 위해 -1 보정
+        bw = max(bar_width * sc - 1, 1)
+        gap = bar_gap * sc + 1  # bw가 줄어든 만큼 gap 보정으로 전체 간격 유지
         max_h = bar_height * sc
         cx = pos_x * width
         cy = pos_y * height
