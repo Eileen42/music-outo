@@ -1,0 +1,25 @@
+{
+  "channel": "sunday_pop",
+  "channel_name": "Sunday Pop",
+  "generated_from": "sample",
+  "categories": {
+    "morning": {
+      "mood": ["fresh", "light", "hopeful"],
+      "music": {"tempo": [90, 115], "instruments": ["acoustic guitar", "piano", "bells", "light drums"], "energy": "medium", "vocal": "humming"},
+      "image": {"color_tone": "pastel", "subjects": ["morning light", "window", "garden", "breakfast"], "lighting": "bright", "style": "cinematic"},
+      "subtitle": {"tone": "motivational", "style": "affirmation"}
+    },
+    "drive": {
+      "mood": ["energetic", "fun", "groovy"],
+      "music": {"tempo": [110, 140], "instruments": ["synth", "bass", "drums", "electric guitar"], "energy": "high", "vocal": "vocal"},
+      "image": {"color_tone": "vivid", "subjects": ["road", "city", "sunset drive", "neon"], "lighting": "bright", "style": "cinematic"},
+      "subtitle": {"tone": "neutral", "style": "none"}
+    },
+    "evening": {
+      "mood": ["mellow", "reflective", "warm"],
+      "music": {"tempo": [70, 95], "instruments": ["piano", "cello", "acoustic guitar"], "energy": "low", "vocal": "humming"},
+      "image": {"color_tone": "warm", "subjects": ["sunset", "city evening", "candle", "window rain"], "lighting": "golden", "style": "cinematic"},
+      "subtitle": {"tone": "poetic", "style": "affirmation"}
+    }
+  }
+}
