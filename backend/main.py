@@ -8,11 +8,12 @@ from pathlib import Path
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
+from core.state_manager import state_manager
 from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
 from routes import benchmark, channels, track_design, suno as suno_routes
 
