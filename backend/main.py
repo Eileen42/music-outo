@@ -13,11 +13,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
-from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
-from routes import benchmark, channels, track_design, suno as suno_routes
+from routes import build, images, layers, metadata, projects, tracks, youtube
+from routes import benchmark, channels
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Playwright 의존 라우터 — 없으면 건너뜀 (클라우드 배포 시 playwright 미설치)
+try:
+    from routes import flow_images
+except ImportError:
+    flow_images = None
+    logger.info("flow_images 라우터 비활성 (playwright 없음)")
+
+try:
+    from routes import track_design
+except Exception:
+    track_design = None
+    logger.info("track_design 라우터 비활성 (의존성 없음)")
+
+try:
+    from routes import suno as suno_routes
+except ImportError:
+    suno_routes = None
+    logger.info("suno 라우터 비활성 (playwright 없음)")
 
 
 @asynccontextmanager
@@ -75,11 +94,15 @@ app.include_router(metadata.router)
 app.include_router(layers.router)
 app.include_router(build.router)
 app.include_router(youtube.router)
-app.include_router(flow_images.router)
 app.include_router(channels.router)
 app.include_router(benchmark.router)
-app.include_router(track_design.router)
-app.include_router(suno_routes.router)
+# Playwright 의존 라우터 (클라우드에서는 비활성)
+if flow_images:
+    app.include_router(flow_images.router)
+if track_design:
+    app.include_router(track_design.router)
+if suno_routes:
+    app.include_router(suno_routes.router)
 
 # 정적 파일 서빙 (빌드된 영상 등)
 storage_static = settings.storage_dir

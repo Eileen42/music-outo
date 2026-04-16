@@ -1,18 +1,15 @@
 FROM python:3.11-slim
 
 # FFmpeg 설치
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /tmp/*
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Playwright Firefox 바이너리 설치
-RUN playwright install firefox && playwright install-deps firefox
+RUN pip install --no-cache-dir -r requirements.txt && rm -rf /root/.cache
 
 COPY . .
 
