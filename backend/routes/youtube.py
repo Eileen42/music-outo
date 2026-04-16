@@ -260,24 +260,25 @@ async def _fill_metadata_browser(project_id: str):
                 """)
                 await page.wait_for_timeout(300)
 
-            # 헬퍼: JS로 직접 텍스트 입력 (click 차단 우회)
+            # 헬퍼: JS로 직접 텍스트 입력 (오버레이 우회)
             async def paste_text(selector, text):
-                el = await page.query_selector(selector)
-                if not el:
-                    return False
                 await dismiss_overlays()
-                # JS로 직접 포커스 + 텍스트 설정 (오버레이 무시)
-                await page.evaluate(f"""(selector) => {{
-                    const el = document.querySelector(selector);
-                    if (!el) return;
-                    el.focus();
-                    el.textContent = '';
-                    document.execCommand('selectAll', false, null);
-                    document.execCommand('insertText', false, {json.dumps(text)});
-                    el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                }}""", selector)
+                success = await page.evaluate(
+                    """([sel, txt]) => {
+                        document.querySelectorAll('tp-yt-iron-overlay-backdrop').forEach(o => o.remove());
+                        const el = document.querySelector(sel);
+                        if (!el) return false;
+                        el.focus();
+                        el.textContent = '';
+                        document.execCommand('selectAll', false, null);
+                        document.execCommand('insertText', false, txt);
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        return true;
+                    }""",
+                    [selector, text]
+                )
                 await page.wait_for_timeout(800)
-                return True
+                return success
 
             # 헬퍼: 요소 텍스트 읽기
             async def get_text(selector):
@@ -313,25 +314,25 @@ async def _fill_metadata_browser(project_id: str):
 
             if tags:
                 await dismiss_overlays()
-                tag_input = await page.query_selector("input[aria-label*='태그'], #tags-container input")
-                if tag_input:
-                    current_tags = await tag_input.input_value()
-                    if not current_tags:
-                        tag_str = ', '.join(tags)
-                        await page.evaluate(f"""() => {{
-                            const inp = document.querySelector("input[aria-label*='태그'], #tags-container input");
+                # 태그를 하나씩 입력 (YouTube는 Enter로 태그 구분)
+                for tag in tags[:30]:
+                    await page.evaluate(
+                        """(tag) => {
+                            document.querySelectorAll('tp-yt-iron-overlay-backdrop').forEach(o => o.remove());
+                            const inp = document.querySelector('ytcp-chip-bar #text-input')
+                                || document.querySelector("input[aria-label*='태그']")
+                                || document.querySelector('#tags-container input');
                             if (!inp) return;
                             inp.focus();
-                            inp.value = {json.dumps(tag_str)};
-                            inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            inp.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            inp.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', keyCode: 13, bubbles: true }}));
-                        }}""")
-                        await page.wait_for_timeout(800)
-                        steps_done.append("태그")
-                        log.info("✓ 태그 입력")
-                    else:
-                        steps_done.append("태그(이미 입력됨)")
+                            inp.value = tag;
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                            inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+                        }""",
+                        tag.strip()
+                    )
+                    await page.wait_for_timeout(300)
+                steps_done.append(f"태그({len(tags[:30])}개)")
+                log.info(f"✓ 태그 {len(tags[:30])}개 입력")
 
             # ── 4. 썸네일 ──
             if thumb and Path(thumb).exists():
