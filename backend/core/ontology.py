@@ -355,5 +355,135 @@ class OntologyEngine:
                 profile.music.energy_level = "low"
 
 
+    # ━━━ 채널 온톨로지 JSON 저장/로드/자동생성 ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    def _ontology_dir(self) -> "Path":
+        from config import settings
+        d = settings.storage_dir / "ontology"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def load_channel_ontology(self, channel_id: str) -> Optional[dict]:
+        """storage/ontology/{channel_id}.json 로드. 없으면 None."""
+        import json
+        from pathlib import Path
+        p = self._ontology_dir() / f"{channel_id}.json"
+        if not p.exists():
+            return None
+        return json.loads(p.read_text(encoding="utf-8"))
+
+    def save_channel_ontology(self, channel_id: str, data: dict) -> "Path":
+        """storage/ontology/{channel_id}.json 저장."""
+        import json
+        from pathlib import Path
+        p = self._ontology_dir() / f"{channel_id}.json"
+        p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        logger.info(f"Ontology saved: {p}")
+        return p
+
+    def generate_channel_ontology(self, channel_profile: dict) -> dict:
+        """
+        채널 프로필에서 온톨로지 JSON을 자동 생성.
+        채널의 장르 목록 각각을 카테고리로, 무드 프리셋 기반으로 속성 결정.
+        """
+        channel_id = channel_profile.get("channel_id", "unknown")
+        channel_name = channel_profile.get("name", "")
+        genres = channel_profile.get("genre", [])
+        has_lyrics = channel_profile.get("has_lyrics", False)
+        subtitle_type = channel_profile.get("subtitle_type", "none")
+
+        categories = {}
+        for genre in genres:
+            g_lower = genre.lower().strip()
+            mood_key = GENRE_MOOD_MAP.get(g_lower, "warm")
+            preset = MOOD_PRESETS.get(mood_key, MOOD_PRESETS["warm"])
+
+            music_attr = MusicAttributes(**asdict(preset["music"]))
+            image_attr = ImageAttributes(**asdict(preset["image"]))
+            subtitle_attr = SubtitleAttributes(**asdict(preset["subtitle"]))
+
+            # 채널 설정 반영
+            if subtitle_type:
+                subtitle_attr.subtitle_type = subtitle_type
+            if not has_lyrics and subtitle_attr.subtitle_type == "lyrics":
+                subtitle_attr.subtitle_type = "affirmation"
+
+            # 무드 키워드 추출
+            mood_words = [mood_key]
+            if mood_key == "calm":
+                mood_words += ["peaceful", "gentle"]
+            elif mood_key == "warm":
+                mood_words += ["cozy", "comforting"]
+            elif mood_key == "chill":
+                mood_words += ["relaxing", "laid-back"]
+            elif mood_key == "energetic":
+                mood_words += ["dynamic", "powerful"]
+            elif mood_key == "bright":
+                mood_words += ["cheerful", "upbeat"]
+            elif mood_key == "focused":
+                mood_words += ["concentrated", "minimal"]
+            elif mood_key == "emotional":
+                mood_words += ["touching", "deep"]
+
+            # 카테고리명: 장르명을 영어 키로 변환
+            cat_key = g_lower.replace(" ", "_")
+
+            categories[cat_key] = {
+                "mood": mood_words,
+                "music": {
+                    "tempo": list(music_attr.tempo_range),
+                    "instruments": music_attr.instruments,
+                    "energy": music_attr.energy_level,
+                    "vocal": music_attr.vocal_type,
+                },
+                "image": {
+                    "color_tone": image_attr.color_tone,
+                    "subjects": image_attr.subject_keywords,
+                    "lighting": image_attr.lighting,
+                    "style": image_attr.style,
+                },
+                "subtitle": {
+                    "tone": subtitle_attr.tone,
+                    "style": subtitle_attr.subtitle_type,
+                },
+            }
+
+        result = {
+            "channel": channel_id,
+            "channel_name": channel_name,
+            "generated_from": "auto",
+            "categories": categories,
+        }
+
+        # 자동 저장
+        self.save_channel_ontology(channel_id, result)
+        return result
+
+    def ensure_channel_ontology(self, channel_profile: dict) -> dict:
+        """온톨로지가 있으면 로드, 없으면 자동 생성."""
+        channel_id = channel_profile.get("channel_id", "")
+        existing = self.load_channel_ontology(channel_id)
+        if existing:
+            return existing
+        return self.generate_channel_ontology(channel_profile)
+
+    def list_channel_ontologies(self) -> list[dict]:
+        """저장된 모든 채널 온톨로지 목록."""
+        import json
+        results = []
+        for p in sorted(self._ontology_dir().glob("*.json")):
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                results.append({
+                    "channel": data.get("channel", p.stem),
+                    "channel_name": data.get("channel_name", ""),
+                    "categories": list(data.get("categories", {}).keys()),
+                    "generated_from": data.get("generated_from", "unknown"),
+                })
+            except Exception:
+                continue
+        return results
+
+
 # 싱글턴 인스턴스
 ontology = OntologyEngine()

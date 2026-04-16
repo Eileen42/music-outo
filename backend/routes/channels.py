@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from core.channel_profile import channel_profile, init_default_channels
+from core.ontology import ontology as _ontology
 
 router = APIRouter(prefix="/api/channels", tags=["channels"])
 
@@ -74,6 +75,8 @@ async def create_channel(body: ChannelCreate):
     # 업로드 설정 추가 저장
     profile["upload_settings"] = body.upload_settings.model_dump()
     channel_profile.save(body.channel_id, profile)
+    # 온톨로지 자동 생성
+    _ontology.generate_channel_ontology(profile)
     return profile
 
 
@@ -81,7 +84,10 @@ async def create_channel(body: ChannelCreate):
 async def update_channel(channel_id: str, body: dict):
     try:
         updates = {k: v for k, v in body.items() if v is not None}
-        return channel_profile.update(channel_id, updates)
+        result = channel_profile.update(channel_id, updates)
+        # 온톨로지 재생성 (채널 설정 변경 반영)
+        _ontology.generate_channel_ontology(result)
+        return result
     except FileNotFoundError:
         raise HTTPException(404, f"채널을 찾을 수 없습니다: {channel_id}")
 
