@@ -251,16 +251,32 @@ async def _fill_metadata_browser(project_id: str):
                 await browser.close()
                 return
 
-            # 헬퍼: 클립보드 붙여넣기
+            # 헬퍼: 오버레이 팝업 닫기 (YouTube 소셜 제안 등)
+            async def dismiss_overlays():
+                await page.evaluate("""
+                    document.querySelectorAll('tp-yt-iron-overlay-backdrop.opened').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                """)
+                await page.wait_for_timeout(300)
+
+            # 헬퍼: JS로 직접 텍스트 입력 (click 차단 우회)
             async def paste_text(selector, text):
                 el = await page.query_selector(selector)
                 if not el:
                     return False
-                await el.click()
-                await page.keyboard.press("Control+a")
-                await page.evaluate(f"navigator.clipboard.writeText({json.dumps(text)})")
-                await page.keyboard.press("Control+v")
-                await page.wait_for_timeout(500)
+                await dismiss_overlays()
+                # JS로 직접 포커스 + 텍스트 설정 (오버레이 무시)
+                await page.evaluate(f"""(selector) => {{
+                    const el = document.querySelector(selector);
+                    if (!el) return;
+                    el.focus();
+                    el.textContent = '';
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('insertText', false, {json.dumps(text)});
+                    el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}""", selector)
+                await page.wait_for_timeout(800)
                 return True
 
             # 헬퍼: 요소 텍스트 읽기
@@ -289,20 +305,29 @@ async def _fill_metadata_browser(project_id: str):
                 steps_done.append("설명(이미 입력됨)")
 
             # ── 3. 더보기 + 태그 ──
+            await dismiss_overlays()
             more_btn = await page.query_selector("button:has-text('더보기')")
             if more_btn:
-                await more_btn.click()
+                await page.evaluate("document.querySelector(\"button:has-text('더보기')\")?.click()")
                 await page.wait_for_timeout(1000)
 
             if tags:
+                await dismiss_overlays()
                 tag_input = await page.query_selector("input[aria-label*='태그'], #tags-container input")
                 if tag_input:
                     current_tags = await tag_input.input_value()
                     if not current_tags:
-                        await tag_input.click()
-                        await page.evaluate(f"navigator.clipboard.writeText({json.dumps(', '.join(tags))})")
-                        await page.keyboard.press("Control+v")
-                        await page.wait_for_timeout(500)
+                        tag_str = ', '.join(tags)
+                        await page.evaluate(f"""() => {{
+                            const inp = document.querySelector("input[aria-label*='태그'], #tags-container input");
+                            if (!inp) return;
+                            inp.focus();
+                            inp.value = {json.dumps(tag_str)};
+                            inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            inp.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            inp.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', keyCode: 13, bubbles: true }}));
+                        }}""")
+                        await page.wait_for_timeout(800)
                         steps_done.append("태그")
                         log.info("✓ 태그 입력")
                     else:
@@ -336,40 +361,44 @@ async def _fill_metadata_browser(project_id: str):
                     steps_done.append("썸네일(실패-건너뜀)")
 
             # ── 5. 아동용 아님 ──
-            not_for_kids = await page.query_selector("#audience [name='VIDEO_MADE_FOR_KIDS_NOT_MFK']")
-            if not not_for_kids:
-                not_for_kids = await page.query_selector("tp-yt-paper-radio-button[name='NOT_MADE_FOR_KIDS']")
-            if not_for_kids:
-                await not_for_kids.click()
-                await page.wait_for_timeout(500)
-                steps_done.append("아동용아님")
+            await dismiss_overlays()
+            await page.evaluate("""
+                const nfk = document.querySelector("#audience [name='VIDEO_MADE_FOR_KIDS_NOT_MFK']")
+                    || document.querySelector("tp-yt-paper-radio-button[name='NOT_MADE_FOR_KIDS']");
+                if (nfk) nfk.click();
+            """)
+            await page.wait_for_timeout(500)
+            steps_done.append("아동용아님")
 
             # ── 6. 다음 버튼 (현재 페이지 확인 후 필요한 만큼만 클릭) ──
             for step in range(3):
-                next_btn = await page.query_selector("#next-button")
-                if not next_btn:
-                    next_btn = await page.query_selector("ytcp-button#next-button")
-                if next_btn:
-                    await next_btn.click()
+                await dismiss_overlays()
+                clicked = await page.evaluate("""
+                    const btn = document.querySelector("#next-button") || document.querySelector("ytcp-button#next-button");
+                    if (btn) { btn.click(); return true; }
+                    return false;
+                """)
+                if clicked:
                     await page.wait_for_timeout(2000)
                     steps_done.append(f"다음{step+1}")
 
             # ── 7. 공개 설정 ──
-            # 현재 페이지가 공개설정 페이지인지 확인
-            unlisted = await page.query_selector("tp-yt-paper-radio-button[name='UNLISTED']")
-            if not unlisted:
-                unlisted = await page.query_selector("tp-yt-paper-radio-button:has-text('일부공개')")
-            if unlisted:
-                await unlisted.click()
-                await page.wait_for_timeout(1000)
-                steps_done.append("일부공개")
+            await dismiss_overlays()
+            await page.evaluate("""
+                const ul = document.querySelector("tp-yt-paper-radio-button[name='UNLISTED']");
+                if (ul) ul.click();
+            """)
+            await page.wait_for_timeout(1000)
+            steps_done.append("일부공개")
 
             # ── 8. 저장/게시 ──
-            save_btn = await page.query_selector("#done-button")
-            if not save_btn:
-                save_btn = await page.query_selector("ytcp-button#done-button")
-            if save_btn:
-                await save_btn.click()
+            await dismiss_overlays()
+            clicked = await page.evaluate("""
+                const btn = document.querySelector("#done-button") || document.querySelector("ytcp-button#done-button");
+                if (btn) { btn.click(); return true; }
+                return false;
+            """)
+            if clicked:
                 await page.wait_for_timeout(3000)
                 steps_done.append("게시")
 
