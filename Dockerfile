@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
-# FFmpeg 설치
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+# 단일 RUN으로 레이어 최소화 + 캐시 완전 제거
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        git \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /app
 
@@ -12,8 +13,10 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright Firefox 바이너리 설치
-RUN playwright install firefox && playwright install-deps firefox
+# Playwright: Chromium 대신 가벼운 Firefox만 + deps를 한 레이어에서 정리
+RUN playwright install firefox && \
+    playwright install-deps firefox && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
 
 # 백엔드 코드 복사 (backend/ → /app/)
 COPY backend/ .
