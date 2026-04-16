@@ -95,37 +95,61 @@ async def upload_video(
     return {"status": "업로드 시작됨"}
 
 
-@router.post("/open-studio/{project_id}", summary="YouTube Studio 브라우저 열기")
+@router.post("/open-studio/{project_id}", summary="YouTube 업로드 브라우저 열기")
 async def open_studio(project_id: str):
-    """Edge를 CDP 모드로 열어 YouTube Studio 업로드 페이지 + outputs 폴더."""
+    """Edge를 CDP 모드로 열어 YouTube 업로드 페이지 + outputs 폴더."""
     import subprocess, os
     state = state_manager.require(project_id)
-    metadata = state.get("metadata", {})
     project_dir = state_manager.project_dir(project_id)
     outputs_dir = project_dir / "outputs"
 
-    # 연결된 YouTube 채널 ID로 Studio URL 생성
+    # OAuth 연결 여부와 관계없이 업로드 페이지 열기
+    # youtube.com/upload는 로그인만 되어있으면 바로 업로드 화면
     channel_id = state.get("channel_id", "_default")
     yt_info = youtube_uploader.get_channel_info(channel_id)
     yt_channel_id = yt_info.get("youtube_channel_id", "")
-    studio_url = f"https://studio.youtube.com/channel/{yt_channel_id}/videos/upload?d=ud" if yt_channel_id else "https://studio.youtube.com"
+    if yt_channel_id:
+        upload_url = f"https://studio.youtube.com/channel/{yt_channel_id}/videos/upload?d=ud"
+    else:
+        upload_url = "https://www.youtube.com/upload"
 
-    # 기존 Edge 종료 후 CDP 포트로 재시작
-    os.system('taskkill /F /IM msedge.exe >nul 2>&1')
-    import time; time.sleep(2)
+    # 기존 Edge CDP 포트 충돌 방지 — CDP 포트가 이미 열려있으면 재사용
+    import time
+    cdp_alive = False
+    try:
+        import httpx
+        resp = httpx.get("http://localhost:9224/json/version", timeout=2)
+        cdp_alive = resp.status_code == 200
+    except Exception:
+        pass
 
-    subprocess.Popen([
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        "--remote-debugging-port=9224",
-        "--restore-last-session",
-        studio_url,
-    ])
+    if not cdp_alive:
+        # Edge를 CDP 모드로 새로 시작
+        os.system('taskkill /F /IM msedge.exe >nul 2>&1')
+        time.sleep(2)
+        subprocess.Popen([
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            "--remote-debugging-port=9224",
+            "--restore-last-session",
+            upload_url,
+        ])
+        time.sleep(3)  # Edge 시작 대기
+    else:
+        # 이미 열린 Edge에서 새 탭으로 업로드 페이지 열기
+        try:
+            import httpx
+            httpx.put(f"http://localhost:9224/json/new?{upload_url}", timeout=3)
+        except Exception:
+            subprocess.Popen([
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                upload_url,
+            ])
 
     # outputs 폴더 열기
     if outputs_dir.exists():
         os.startfile(str(outputs_dir))
 
-    return {"status": "opened", "cdp_port": 9224}
+    return {"status": "opened", "cdp_port": 9224, "url": upload_url}
 
 
 @router.post("/fill-metadata/{project_id}", summary="YouTube Studio에 메타데이터 자동 입력")
@@ -201,13 +225,29 @@ async def _fill_metadata_browser(project_id: str):
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp("http://localhost:9224")
             context = browser.contexts[0]
-            page = context.pages[0]
+
+            # 업로드 편집 페이지 찾기 — 여러 탭 중 studio/upload 탭 선택
+            page = None
+            for pg in context.pages:
+                if "studio.youtube.com" in pg.url or "youtube.com/upload" in pg.url:
+                    page = pg
+                    break
+            if not page:
+                page = context.pages[-1]  # fallback: 마지막 탭
+
             await page.wait_for_timeout(2000)
 
-            # 업로드 편집 페이지인지 확인 (제목 입력란이 있어야 함)
-            title_el_check = await page.query_selector("#title-textarea [contenteditable]")
+            # 업로드 편집 페이지 대기 (최대 30초 — 파일 드래그 후 페이지 전환 대기)
+            title_el_check = None
+            for _wait in range(15):
+                title_el_check = await page.query_selector("#title-textarea [contenteditable]")
+                if title_el_check:
+                    break
+                await page.wait_for_timeout(2000)
+
             if not title_el_check:
                 log.error(f"업로드 편집 페이지가 아닙니다. URL: {page.url}")
+                log.error("파일을 YouTube Studio에 먼저 드래그해주세요.")
                 await browser.close()
                 return
 

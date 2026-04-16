@@ -169,10 +169,10 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <button onClick={async () => {
               await api.youtube.openStudio(project.id)
-              alert('YouTube Studio + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 업로드 시작되면 "메타데이터 자동 입력" 클릭')
+              alert('YouTube 업로드 페이지 + 파일 폴더가 열렸습니다!\n\n1. 폴더에서 MP4를 YouTube에 드래그\n2. 업로드 시작되면 "메타데이터 자동 입력" 클릭')
             }}
               className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
-              🌐 YouTube Studio 열기
+              🌐 브라우저 업로드 열기
             </button>
             <button onClick={async () => {
               setFillingMeta(true)
