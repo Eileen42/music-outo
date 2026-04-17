@@ -54,8 +54,16 @@ export default function TrackEditor({ project, onRefresh }: Props) {
       return
     }
     if (audioRef.current) audioRef.current.pause()
-    const url = storedPath.startsWith('http') ? storedPath : `${API_BASE}/storage/${storedPath.split('storage/')[1] || storedPath}`
-    const audio = new Audio(url.replace(/\\/g, '/'))
+    // stored_path → 서버 URL 변환
+    // 절대경로: D:\coding\...\storage\projects\xxx\audio\yyy.mp3 → /storage/projects/xxx/audio/yyy.mp3
+    // 상대경로: storage/projects/xxx/audio/yyy.mp3 → /storage/projects/xxx/audio/yyy.mp3
+    let rel = storedPath.replace(/\\/g, '/')
+    const storageIdx = rel.indexOf('storage/')
+    if (storageIdx >= 0) {
+      rel = rel.substring(storageIdx)  // "storage/projects/..." 부터
+    }
+    const url = `${API_BASE}/${rel}`
+    const audio = new Audio(url)
     audio.onended = () => setPlayingId(null)
     audio.play().catch(() => {})
     audioRef.current = audio
