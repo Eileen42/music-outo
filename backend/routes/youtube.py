@@ -155,8 +155,13 @@ async def open_studio(project_id: str):
 @router.post("/fill-metadata/{project_id}", summary="YouTube Studio에 메타데이터 자동 입력")
 async def fill_metadata(project_id: str, background_tasks: BackgroundTasks):
     """CDP로 열려있는 YouTube Studio에 제목/설명 자동 입력."""
+    import logging
+    log = logging.getLogger(__name__)
+    log.info(f"[메타입력] 4. API 요청 수신: project_id={project_id}")
     state = state_manager.require(project_id)
+    log.info(f"[메타입력] 4a. 프로젝트 로드 완료, 메타 제목: {state.get('metadata',{}).get('title','')[:30]}")
     background_tasks.add_task(_fill_metadata_browser, project_id)
+    log.info(f"[메타입력] 4b. 백그라운드 태스크 등록됨")
     return {"status": "filling"}
 
 
@@ -209,6 +214,7 @@ async def _fill_metadata_browser(project_id: str):
     import logging
     log = logging.getLogger(__name__)
 
+    log.info(f"[메타입력] 5. Playwright 시작: project_id={project_id}")
     state = state_manager.get(project_id)
     meta = state.get("metadata", {})
     title = meta.get("title", "")
@@ -287,23 +293,21 @@ async def _fill_metadata_browser(project_id: str):
                     return (await el.inner_text()).strip()
                 return ""
 
-            # ── 1. 제목 ──
-            current_title = await get_text("#title-textarea [contenteditable]")
-            if not current_title or len(current_title) < 3:
-                if await paste_text("#title-textarea [contenteditable]", title[:100]):
-                    steps_done.append("제목")
-                    log.info("✓ 제목 입력")
+            # ── 1. 제목 (항상 덮어쓰기) ──
+            if await paste_text("#title-textarea [contenteditable]", title[:100]):
+                steps_done.append("제목")
+                log.info("[메타입력] ✓ 제목 입력")
             else:
-                steps_done.append("제목(이미 입력됨)")
+                steps_done.append("제목(실패)")
+                log.error("[메타입력] ✗ 제목 입력란 못 찾음")
 
-            # ── 2. 설명 ──
-            current_desc = await get_text("#description-textarea [contenteditable]")
-            if not current_desc or len(current_desc) < 10:
-                if await paste_text("#description-textarea [contenteditable]", desc[:5000]):
-                    steps_done.append("설명")
-                    log.info("✓ 설명 입력")
+            # ── 2. 설명 (항상 덮어쓰기) ──
+            if await paste_text("#description-textarea [contenteditable]", desc[:5000]):
+                steps_done.append("설명")
+                log.info("[메타입력] ✓ 설명 입력")
             else:
-                steps_done.append("설명(이미 입력됨)")
+                steps_done.append("설명(실패)")
+                log.error("[메타입력] ✗ 설명 입력란 못 찾음")
 
             # ── 3. 더보기 + 태그 ──
             await dismiss_overlays()
