@@ -63,14 +63,25 @@ class WaveformGenerator:
         return {"samples": self.samples, "peaks": peaks, "duration": len(audio) / 1000.0}
 
     def _extract_energy(self, audio_path: Path, duration: float, fps: int, bar_count: int) -> list[list[float]]:
+        """오디오 에너지 추출 — 곡 중반에서 추출 + 끝↔시작 크로스페이드로 무한 루프."""
         audio = AudioSegment.from_file(str(audio_path))
-        # 정확히 duration * fps 프레임 (여분 없음 — MOV 길이가 정확히 duration초여야 루프 이음매 없음)
+        audio_len_ms = len(audio)
         n_frames = int(duration * fps)
-        clip = audio[:int(duration * 1000)]
+
+        # 곡 중반에서 추출 (시작/끝은 보통 조용해서 루프에 부적합)
+        # 전체 길이의 25%~75% 구간 사용
+        mid_start_ms = max(0, audio_len_ms // 4)
+        mid_end_ms = min(audio_len_ms, mid_start_ms + int(duration * 1000))
+        if mid_end_ms > audio_len_ms:
+            mid_start_ms = max(0, audio_len_ms - int(duration * 1000))
+            mid_end_ms = audio_len_ms
+
+        clip = audio[mid_start_ms:mid_end_ms]
         mono = clip.set_channels(1)
         raw = mono.get_array_of_samples()
         mx = float(2 ** (mono.sample_width * 8 - 1))
         spf = max(len(raw) // n_frames, 1)
+
         frames = []
         for f in range(n_frames):
             fs, fe = f * spf, min((f + 1) * spf, len(raw))
@@ -83,6 +94,16 @@ class WaveformGenerator:
                 energy = min(sum(abs(v) for v in chunk) / len(chunk) / mx * 3.5, 1.0) if chunk else 0.0
                 bars.append(energy)
             frames.append(bars)
+
+        # 끝↔시작 크로스페이드 (마지막 1초 = 24프레임)
+        fade_len = min(fps, n_frames // 3)  # 최대 1초, 전체의 1/3 이하
+        for f in range(fade_len):
+            alpha = f / fade_len  # 0→1 (시작에 가까울수록 끝 데이터 비중 높음)
+            tail_idx = n_frames - fade_len + f
+            for b in range(bar_count):
+                frames[f][b] = frames[f][b] * alpha + frames[tail_idx][b] * (1 - alpha)
+                frames[tail_idx][b] = frames[f][b]  # 대칭 블렌딩
+
         return frames
 
     # ── PNG (정적) ───────────────────────────────────────────────
@@ -147,6 +168,14 @@ class WaveformGenerator:
             progress_cb(10)
         frames_data = await asyncio.to_thread(
             self._extract_energy, audio_path, duration, fps, bar_count
+        )
+
+        # 에너지 데이터 JSON 저장 (프론트 프리뷰에서 동일 데이터로 렌더링용)
+        import json as _json
+        energy_json = output_dir / "waveform_energy.json"
+        energy_json.write_text(
+            _json.dumps({"fps": fps, "bar_count": bar_count, "frames": frames_data}),
+            encoding="utf-8",
         )
 
         # PIL 렌더링 + FFmpeg 파이프

@@ -329,6 +329,16 @@ async def waveform_status(project_id: str):
     return {"ready": False, "progress": 0}
 
 
+@app.get("/api/waveform/energy/{project_id}")
+async def waveform_energy(project_id: str):
+    """파형 에너지 데이터 (프론트 프리뷰용)."""
+    import json as _json
+    energy_file = settings.storage_dir / "projects" / project_id / "assets" / "waveform_energy.json"
+    if not energy_file.exists():
+        raise HTTPException(404, "에너지 데이터 없음 — 파형을 먼저 생성하세요")
+    return _json.loads(energy_file.read_text(encoding="utf-8"))
+
+
 # ─── QA 검수 ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/projects/{project_id}/qa")
