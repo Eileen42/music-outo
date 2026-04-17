@@ -3,17 +3,76 @@
   "channel_name": "탑오브쏭",
   "generated_from": "auto",
   "categories": {
-    "cafe": {
-      "mood": ["cozy", "warm", "relaxing"],
-      "music": {"tempo": [75, 105], "instruments": ["acoustic guitar", "piano", "ukulele", "light percussion"], "energy": "medium", "vocal": "humming"},
-      "image": {"color_tone": "warm", "subjects": ["cafe interior", "coffee", "autumn street", "bookshelf"], "lighting": "soft", "style": "cinematic"},
-      "subtitle": {"tone": "neutral", "style": "none"}
+    "카페음악": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "none"
+      }
     },
     "pop": {
-      "mood": ["bright", "cheerful", "upbeat"],
-      "music": {"tempo": [95, 130], "instruments": ["piano", "synth", "strings", "clap"], "energy": "medium", "vocal": "humming"},
-      "image": {"color_tone": "pastel", "subjects": ["sky", "flower", "spring", "colorful"], "lighting": "bright", "style": "cinematic"},
-      "subtitle": {"tone": "neutral", "style": "none"}
+      "mood": [
+        "bright",
+        "cheerful",
+        "upbeat"
+      ],
+      "music": {
+        "tempo": [
+          95,
+          130
+        ],
+        "instruments": [
+          "piano",
+          "strings",
+          "synth",
+          "clap"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "pastel",
+        "subjects": [
+          "sky",
+          "flower",
+          "spring",
+          "bright"
+        ],
+        "lighting": "bright",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "none"
+      }
     }
   }
 }
