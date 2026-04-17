@@ -641,16 +641,51 @@ export default function SongMaker({ project, onRefresh }: Props) {
                         {!allComplete && (
                           <button
                             onClick={async () => {
-                              setScanningStr('다운로드 중...')
+                              console.log('[다운로드] 1. 버튼 클릭')
+                              setScanningStr('📡 Suno 피드 조회 중...')
                               try {
-                                await api.trackDesign.scanSiblings(project.id)
-                                setTimeout(async () => {
-                                  const r = await api.trackDesign.sunoTracks(project.id)
-                                  setSunoTracks(r.tracks)
-                                  api.qa.verify(project.id).then(setQaStatus).catch(() => {})
-                                  setScanningStr('')
-                                }, 15000)
-                              } catch { setScanningStr('') }
+                                console.log('[다운로드] 2. API 호출')
+                                const res = await api.trackDesign.scanSiblings(project.id)
+                                console.log('[다운로드] 3. API 응답:', res)
+                                setScanningStr(`📥 ${(res as { missing_count?: number }).missing_count || '?'}곡 다운로드 중...`)
+
+                                // 5초마다 폴링 — 다운 완료될 때까지
+                                let prevCount = sunoTracks.filter(t => t.status === 'completed').length
+                                const poll = setInterval(async () => {
+                                  try {
+                                    const r = await api.trackDesign.sunoTracks(project.id)
+                                    const nowCount = r.tracks.filter((t: { status: string }) => t.status === 'completed').length
+                                    setSunoTracks(r.tracks)
+                                    console.log(`[다운로드] 폴링: ${nowCount}곡 완료`)
+                                    setScanningStr(`📥 다운로드 중... (${nowCount}곡 완료)`)
+
+                                    if (nowCount > prevCount) prevCount = nowCount
+
+                                    // QA도 갱신
+                                    const qa = await api.qa.verify(project.id)
+                                    setQaStatus(qa)
+                                    const complete = qa.tracks?.filter((t: { status: string }) => t.status === 'complete').length || 0
+                                    if (complete >= tracks.length) {
+                                      clearInterval(poll)
+                                      setScanningStr(`✅ ${complete}곡 다운로드 완료!`)
+                                      setTimeout(() => setScanningStr(''), 3000)
+                                    }
+                                  } catch { /* ignore */ }
+                                }, 5000)
+
+                                // 최대 3분 후 자동 종료
+                                setTimeout(() => {
+                                  clearInterval(poll)
+                                  if (scanningStr.includes('다운로드 중')) {
+                                    setScanningStr('⏱ 시간 초과 — 새로고침 후 확인')
+                                    setTimeout(() => setScanningStr(''), 5000)
+                                  }
+                                }, 180000)
+                              } catch (err) {
+                                console.error('[다운로드] 에러:', err)
+                                setScanningStr('❌ 다운로드 실패')
+                                setTimeout(() => setScanningStr(''), 3000)
+                              }
                             }}
                             disabled={isRunning || !!scanningStr}
                             className="bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
