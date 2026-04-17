@@ -208,11 +208,19 @@ async def _post_comment_when_ready(project_id: str, comment: str):
         logging.getLogger(__name__).error(f"댓글 작성 실패: {e}")
 
 
+_fill_meta_lock = False  # 중복 실행 방지
+
 async def _fill_metadata_browser(project_id: str):
     """CDP로 YouTube Studio 메타데이터 입력 — 각 단계를 확인하고 미완료분만 실행."""
+    global _fill_meta_lock
     import asyncio
     import logging
     log = logging.getLogger(__name__)
+
+    if _fill_meta_lock:
+        log.warning("[메타입력] 이미 실행 중 — 스킵")
+        return
+    _fill_meta_lock = True
 
     log.info(f"[메타입력] 5. Playwright 시작: project_id={project_id}")
     state = state_manager.get(project_id)
@@ -409,6 +417,8 @@ async def _fill_metadata_browser(project_id: str):
 
     except Exception as e:
         log.error(f"메타데이터 입력 실패 (완료: {steps_done}): {e}")
+    finally:
+        _fill_meta_lock = False
 
 
 @router.get("/upload/{project_id}/status", summary="업로드 상태 확인")
