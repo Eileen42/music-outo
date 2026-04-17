@@ -48,6 +48,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
     errors?: string[];
   } | null>(null)
   const [expandIdx, setExpandIdx] = useState<number | null>(null)
+  const [dragTrackIdx, setDragTrackIdx] = useState<number | null>(null)
+  const [dragOverTrackIdx, setDragOverTrackIdx] = useState<number | null>(null)
   const [showBenchmarks, setShowBenchmarks] = useState(false)
   const [editingBenchmarkIdx, setEditingBenchmarkIdx] = useState(-1)
   const [editingBenchmarkUrl, setEditingBenchmarkUrl] = useState('')
@@ -883,18 +885,41 @@ export default function SongMaker({ project, onRefresh }: Props) {
                 </div>
               )}
 
-              {/* 곡 카드 목록 */}
+              {/* 곡 카드 목록 (드래그 순서 변경) */}
               <div className="space-y-2">
                 {tracks.map((t, idx) => (
                   <div
                     key={idx}
-                    className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden"
+                    draggable
+                    onDragStart={() => setDragTrackIdx(idx)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverTrackIdx(idx) }}
+                    onDragEnd={async () => {
+                      if (dragTrackIdx !== null && dragOverTrackIdx !== null && dragTrackIdx !== dragOverTrackIdx) {
+                        const newTracks = [...tracks]
+                        const [moved] = newTracks.splice(dragTrackIdx, 1)
+                        newTracks.splice(dragOverTrackIdx, 0, moved)
+                        // index 재할당
+                        const reindexed = newTracks.map((tr, i) => ({ ...tr, index: i + 1 }))
+                        setTracks(reindexed)
+                        // 백엔드 저장
+                        try {
+                          await api.projects.update(project.id, { designed_tracks: reindexed } as Partial<Pick<Project, 'name' | 'playlist_title' | 'status' | 'channel_id'>>)
+                        } catch { /* ignore */ }
+                      }
+                      setDragTrackIdx(null)
+                      setDragOverTrackIdx(null)
+                    }}
+                    onDrop={() => {}}
+                    className={`bg-gray-900 border rounded-xl overflow-hidden transition-all ${
+                      dragOverTrackIdx === idx ? 'border-purple-500 ring-1 ring-purple-500' : 'border-gray-800'
+                    }`}
                   >
                     {/* 카드 헤더 */}
                     <div
                       className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-800/50 transition-colors"
                       onClick={() => setExpandIdx(expandIdx === idx ? null : idx)}
                     >
+                      <span className="text-gray-500 cursor-grab active:cursor-grabbing mr-1 select-none" title="드래그하여 순서 변경">⠿</span>
                       <span className="text-gray-600 text-xs w-5 text-center shrink-0">{t.index}</span>
                       {/* 생성 중 로딩 / QA 상태 표시 */}
                       {batchStatus?.status === 'running' && batchStatus?.current_song === t.title ? (
