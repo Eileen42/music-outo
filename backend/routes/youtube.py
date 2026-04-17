@@ -153,15 +153,21 @@ async def open_studio(project_id: str):
 
 
 @router.post("/fill-metadata/{project_id}", summary="YouTube Studio에 메타데이터 자동 입력")
-async def fill_metadata(project_id: str, background_tasks: BackgroundTasks):
+async def fill_metadata(project_id: str):
     """CDP로 열려있는 YouTube Studio에 제목/설명 자동 입력."""
-    import logging
+    import logging, subprocess, sys
     log = logging.getLogger(__name__)
     log.info(f"[메타입력] 4. API 요청 수신: project_id={project_id}")
     state = state_manager.require(project_id)
-    log.info(f"[메타입력] 4a. 프로젝트 로드 완료, 메타 제목: {state.get('metadata',{}).get('title','')[:30]}")
-    background_tasks.add_task(_fill_metadata_browser, project_id)
-    log.info(f"[메타입력] 4b. 백그라운드 태스크 등록됨")
+    log.info(f"[메타입력] 4a. 프로젝트 로드 완료")
+
+    # 별도 프로세스로 실행 (이벤트 루프 충돌 방지)
+    script = Path(__file__).parent.parent / "routes" / "_fill_meta_worker.py"
+    subprocess.Popen(
+        [sys.executable, str(script), project_id],
+        cwd=str(Path(__file__).parent.parent),
+    )
+    log.info(f"[메타입력] 4b. 워커 프로세스 시작됨")
     return {"status": "filling"}
 
 
@@ -240,29 +246,28 @@ async def _fill_metadata_browser(project_id: str):
             browser = await p.chromium.connect_over_cdp("http://localhost:9224")
             context = browser.contexts[0]
 
-            # 업로드 편집 페이지 찾기 — 여러 탭 중 studio/upload 탭 선택
+            # 업로드 편집 페이지 찾기 — 모든 탭에서 #title-textarea가 있는 탭 탐색
             page = None
-            for pg in context.pages:
-                if "studio.youtube.com" in pg.url or "youtube.com/upload" in pg.url:
-                    page = pg
+            for _attempt in range(10):
+                for pg in context.pages:
+                    try:
+                        has_title = await pg.evaluate('!!document.querySelector("#title-textarea [contenteditable]")')
+                        if has_title:
+                            page = pg
+                            log.info(f"[메타입력] 업로드 탭 발견: {pg.url[:60]}")
+                            break
+                    except Exception:
+                        continue
+                if page:
                     break
+                await asyncio.sleep(3)
+
             if not page:
-                page = context.pages[-1]  # fallback: 마지막 탭
-
-            await page.wait_for_timeout(2000)
-
-            # 업로드 편집 페이지 대기 (최대 30초 — 파일 드래그 후 페이지 전환 대기)
-            title_el_check = None
-            for _wait in range(15):
-                title_el_check = await page.query_selector("#title-textarea [contenteditable]")
-                if title_el_check:
-                    break
-                await page.wait_for_timeout(2000)
-
-            if not title_el_check:
-                log.error(f"업로드 편집 페이지가 아닙니다. URL: {page.url}")
-                log.error("파일을 YouTube Studio에 먼저 드래그해주세요.")
+                log.error(f"[메타입력] 업로드 편집 페이지를 찾을 수 없습니다. 탭 {len(context.pages)}개 탐색함")
+                for pg in context.pages:
+                    log.error(f"  탭: {pg.url[:60]}")
                 await browser.close()
+                _fill_meta_lock = False
                 return
 
             # 헬퍼: 오버레이 팝업 닫기 (YouTube 소셜 제안 등)
