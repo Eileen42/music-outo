@@ -149,8 +149,13 @@ class SunoAPIClient:
             return False
 
     def _cookie_header(self) -> str:
-        """쿠키를 HTTP 헤더 형식으로."""
-        return "; ".join(f"{k}={v}" for k, v in self._cookies.items())
+        """Suno API에 필요한 쿠키만 전송 (전체 쿠키 전송 시 431 헤더 초과)."""
+        essential = ["__session", "__client", "__client_uat", "sessionid",
+                      "suno_device_id", "ajs_anonymous_id", "statsig_stable_id"]
+        return "; ".join(
+            f"{k}={v}" for k, v in self._cookies.items()
+            if k in essential
+        )
 
     # ━━━ API 캡처 (1회) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
