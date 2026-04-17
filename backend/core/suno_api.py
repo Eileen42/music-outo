@@ -382,23 +382,27 @@ class SunoAPIClient:
             await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
 
-            # 쿠키 동의 배너 닫기
-            cookie_btn = await page.query_selector("button:has-text('Accept All Cookies')")
-            if not cookie_btn:
-                cookie_btn = await page.query_selector("button:has-text('Reject All')")
-            if cookie_btn:
-                await cookie_btn.click()
-                await page.wait_for_timeout(1000)
-                logger.info("쿠키 배너 닫기 완료")
+            # 쿠키 동의 배너 닫기 (JS — click 차단 방지)
+            await page.evaluate("""() => {
+                const btns = [...document.querySelectorAll('button')];
+                const accept = btns.find(b => b.textContent.includes('Accept All'));
+                if (accept) { accept.click(); return 'accepted'; }
+                const reject = btns.find(b => b.textContent.includes('Reject All'));
+                if (reject) { reject.click(); return 'rejected'; }
+                return 'no_banner';
+            }""")
+            await page.wait_for_timeout(1000)
+            logger.info("쿠키 배너 처리 완료")
 
-            # Advanced 모드 전환
-            adv = await page.query_selector("button:has-text('Advanced')")
-            if adv:
-                await adv.click()
-                await page.wait_for_timeout(2000)
-                logger.info("Advanced 모드 전환 완료")
-            else:
-                logger.info("Advanced 버튼 없음 (이미 Advanced 모드)")
+            # Advanced 모드 전환 (JS)
+            result = await page.evaluate("""() => {
+                const btns = [...document.querySelectorAll('button')];
+                const adv = btns.find(b => b.textContent.trim() === 'Advanced');
+                if (adv) { adv.click(); return 'clicked'; }
+                return 'not_found';
+            }""")
+            await page.wait_for_timeout(2000)
+            logger.info(f"Advanced 전환: {result}")
 
             # 입력: 레시피 기반 (녹화된 셀렉터 사용)
             # 1. 가사 (Instrumental이면 비움)
@@ -414,19 +418,16 @@ class SunoAPIClient:
             await page.wait_for_timeout(500)
             logger.info("가사 입력 완료")
 
-            # 2. Instrumental 체크 (aria-label로 찾기)
+            # 2. Instrumental 체크 (JS)
             if instrumental:
-                inst_btn = await page.query_selector("[aria-label*='Instrumental']")
-                if inst_btn:
-                    # 이미 체크되어 있는지 확인
-                    is_checked = await page.evaluate("""() => {
-                        const btn = document.querySelector("[aria-label*='Instrumental']");
-                        return btn ? btn.getAttribute('data-state') === 'checked' || btn.getAttribute('aria-checked') === 'true' : false;
-                    }""")
-                    if not is_checked:
-                        await inst_btn.click()
-                        await page.wait_for_timeout(500)
-                        logger.info("Instrumental 체크")
+                await page.evaluate("""() => {
+                    const btn = document.querySelector("[aria-label*='Instrumental']");
+                    if (btn && btn.getAttribute('data-state') !== 'checked' && btn.getAttribute('aria-checked') !== 'true') {
+                        btn.click();
+                    }
+                }""")
+                await page.wait_for_timeout(500)
+                logger.info("Instrumental 체크")
 
             # 3. 스타일 프롬프트 (위치 기반 — 두 번째 textarea 또는 placeholder 없는 것)
             await page.evaluate(f"""() => {{
@@ -454,22 +455,21 @@ class SunoAPIClient:
             await page.wait_for_timeout(500)
             logger.info("제목 입력 완료")
 
-            # 5. Create 클릭
+            # 5. Create 클릭 (JS)
             await page.wait_for_timeout(1000)
-            create_btn = await page.query_selector("[aria-label='Create song']")
-            if not create_btn:
-                create_btn = await page.query_selector("button:has-text('Create'):not([disabled])")
-            if create_btn:
-                is_disabled = await create_btn.is_disabled()
-                if is_disabled:
-                    logger.error("Create 버튼이 disabled — 크레딧 부족 또는 입력 미완료")
-                    # 스크린샷 저장
-                    await page.screenshot(path=str(Path(__file__).parent.parent / "storage" / "dom_snapshots" / "create_disabled.png"))
-                else:
-                    await create_btn.click()
-                    logger.info("Create 클릭 완료")
-            else:
-                logger.error("Create 버튼을 찾을 수 없음")
+            create_result = await page.evaluate("""() => {
+                const btn = document.querySelector("[aria-label='Create song']");
+                if (!btn) return 'not_found';
+                if (btn.disabled) return 'disabled';
+                btn.click();
+                return 'clicked';
+            }""")
+            logger.info(f"Create: {create_result}")
+            if create_result == 'disabled':
+                await page.screenshot(path="storage/dom_snapshots/create_disabled.png")
+                logger.error("Create 버튼 disabled — 스크린샷 저장됨")
+            elif create_result == 'not_found':
+                logger.error("Create 버튼 없음")
 
             # clip 응답 대기 (최대 60초)
             for _ in range(30):
