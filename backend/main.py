@@ -349,10 +349,24 @@ async def suno_capture_api():
     return {"endpoints": len(result.get("endpoints", [])), "captured": result}
 
 
+@app.post("/api/suno/refresh-token")
+async def suno_refresh():
+    """Suno JWT 토큰 갱신 (Playwright headless)."""
+    from core.suno_api import suno_api
+    ok = await suno_api.refresh_token()
+    return {"refreshed": ok}
+
+
 @app.get("/api/suno/credits")
 async def suno_credits():
-    """Suno 크레딧 조회."""
+    """Suno 크레딧 조회 (토큰 만료 시 자동 갱신)."""
     from core.suno_api import suno_api
+    if not suno_api._cookies:
+        suno_api.load_session()
+    # 토큰 갱신 후 조회
+    auth = await suno_api._get_auth_token()
+    if not auth:
+        return {"error": "토큰 갱신 실패"}
     return await suno_api.get_credits()
 
 

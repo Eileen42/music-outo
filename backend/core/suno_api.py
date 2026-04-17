@@ -26,10 +26,15 @@ logger = logging.getLogger(__name__)
 _SESSION_DIR = Path(__file__).parent.parent / "storage" / "browser_sessions"
 _CAPTURE_DIR = Path(__file__).parent.parent / "storage" / "suno_api_captures"
 
-# Suno 내부 API 엔드포인트
-BASE_URL = "https://studio-api.suno.ai"
+# Suno 내부 API 엔드포인트 (2026-04 캡처 기준)
+BASE_URL = "https://studio-api-prod.suno.com"
 CDN_URLS = ["https://cdn1.suno.ai", "https://cdn2.suno.ai"]
 WEB_URL = "https://suno.com"
+GENERATE_ENDPOINT = "/api/generate/v2-web/"
+FEED_ENDPOINT = "/api/feed/v3"
+CHECK_ENDPOINT = "/api/c/check"
+BILLING_ENDPOINT = "/api/billing/info/"
+SESSION_ENDPOINT = "/api/session/"
 
 
 class SunoAPIClient:
@@ -59,13 +64,11 @@ class SunoAPIClient:
             if name and value:
                 self._cookies[name] = value
 
-        # 필수 쿠키 확인
         has_session = "__session" in self._cookies or "sessionid" in self._cookies
         if not has_session:
-            logger.error("Suno 세션 쿠키 없음 (__session 또는 sessionid)")
+            logger.error("Suno 세션 쿠키 없음")
             return False
 
-        # 헤더 구성
         self._headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
             "Referer": "https://suno.com/",
@@ -75,6 +78,75 @@ class SunoAPIClient:
 
         logger.info(f"Suno 세션 로드: {len(self._cookies)}개 쿠키")
         return True
+
+    async def refresh_token(self) -> bool:
+        """
+        Playwright로 Suno에 접속하여 JWT 토큰 갱신.
+        저장된 세션 쿠키로 로그인 → 새 __session JWT 발급 → 저장.
+        """
+        sp = _SESSION_DIR / "suno_context.json"
+        if not sp.exists():
+            logger.error("세션 파일 없음 — 먼저 Suno 로그인 필요")
+            return False
+
+        try:
+            from playwright.async_api import async_playwright
+
+            exe = None
+            for p in [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            ]:
+                if Path(p).exists():
+                    exe = p
+                    break
+
+            pw = await async_playwright().start()
+            browser = await pw.chromium.launch(
+                executable_path=exe,
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled", "--no-first-run"],
+            )
+            context = await browser.new_context(
+                storage_state=str(sp),
+                user_agent=self._headers.get("User-Agent", ""),
+            )
+            page = await context.new_page()
+
+            logger.info("토큰 갱신: Suno 접속 중...")
+            await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(5000)
+
+            # 갱신된 쿠키 저장
+            cookies = await context.cookies("https://suno.com")
+            storage = await context.storage_state()
+
+            # suno_context.json 업데이트
+            sp.write_text(json.dumps(storage, ensure_ascii=False), encoding="utf-8")
+
+            # 메모리에도 반영
+            self._cookies = {}
+            for c in cookies:
+                self._cookies[c["name"]] = c["value"]
+
+            # 토큰 캐시
+            self._bearer_token = None
+            for c in cookies:
+                if c["name"] == "__session":
+                    self._bearer_token = f"Bearer {c['value']}"
+                    exp = c.get("expires", 0)
+                    self._token_expires = exp
+                    logger.info(f"토큰 갱신 성공 (만료: {exp})")
+                    break
+
+            await browser.close()
+            await pw.stop()
+
+            return self._bearer_token is not None
+
+        except Exception as e:
+            logger.error(f"토큰 갱신 실패: {e}")
+            return False
 
     def _cookie_header(self) -> str:
         """쿠키를 HTTP 헤더 형식으로."""
@@ -181,80 +253,115 @@ class SunoAPIClient:
             if not self.load_session():
                 raise RuntimeError("Suno 세션 없음")
 
-        # 저장된 캡처에서 API 엔드포인트 로드
-        endpoint = await self._get_generate_endpoint()
+        endpoint = f"{BASE_URL}{GENERATE_ENDPOINT}"
 
+        # 캡처된 실제 payload 형식에 맞춤
         payload = {
-            "prompt": prompt if not lyrics else "",
-            "generation_type": "TEXT" if lyrics else "MUSIC",
-            "tags": prompt,
+            "token": None,
+            "generation_type": "TEXT",
             "title": title,
-            "make_instrumental": instrumental,
+            "tags": prompt,  # style/genre/mood 프롬프트는 tags 필드
         }
         if lyrics:
             payload["prompt"] = lyrics
+            payload["generation_type"] = "TEXT"
+        else:
+            payload["prompt"] = ""
+            payload["make_instrumental"] = True
 
         headers = {**self._headers, "Cookie": self._cookie_header()}
 
-        # Authorization 토큰 (캡처에서 가져오기)
         auth = await self._get_auth_token()
         if auth:
             headers["Authorization"] = auth
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    clips = data.get("clips", data.get("data", []))
-                    logger.info(f"곡 생성 요청 성공: {len(clips)}개 clip, title={title}")
-                    return clips
-                else:
+        # 생성 전 체크 (captcha/rate limit)
+        await self._pre_generate_check(headers)
+
+        for attempt in range(2):
+            async with aiohttp.ClientSession() as session:
+                async with session.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        clips = data.get("clips", data.get("data", []))
+                        logger.info(f"곡 생성 성공: {len(clips)}개 clip, title={title}")
+                        return clips
+                    elif resp.status == 401 and attempt == 0:
+                        logger.info("401 — 토큰 갱신 후 재시도")
+                        if await self.refresh_token():
+                            headers["Authorization"] = self._bearer_token
+                            headers["Cookie"] = self._cookie_header()
+                            continue
                     text = await resp.text()
                     logger.error(f"곡 생성 실패: HTTP {resp.status} — {text[:200]}")
                     raise RuntimeError(f"Suno API 에러: {resp.status}")
+        raise RuntimeError("Suno API: 재시도 실패")
 
-    async def _get_generate_endpoint(self) -> str:
-        """캡처된 API 엔드포인트 로드 또는 기본값."""
-        # 캡처 파일에서 generate 엔드포인트 찾기
-        if _CAPTURE_DIR.exists():
-            for f in sorted(_CAPTURE_DIR.glob("capture_*.json"), reverse=True):
-                data = json.loads(f.read_text(encoding="utf-8"))
-                for ep in data.get("endpoints", []):
-                    if "generate" in ep.get("url", "") and ep.get("method") == "POST":
-                        return ep["url"]
-
-        # 기본값 (알려진 Suno API 패턴)
-        return f"{BASE_URL}/api/generate/v2/"
+    async def _pre_generate_check(self, headers: dict) -> None:
+        """생성 전 captcha/rate-limit 체크."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{BASE_URL}{CHECK_ENDPOINT}",
+                    json={"ctype": "generation"},
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status == 200:
+                        logger.debug("pre-check OK")
+                    else:
+                        text = await resp.text()
+                        logger.warning(f"pre-check: HTTP {resp.status} — {text[:100]}")
+        except Exception as e:
+            logger.warning(f"pre-check 실패 (무시): {e}")
 
     async def _get_auth_token(self) -> Optional[str]:
-        """캡처된 Authorization 헤더."""
-        if _CAPTURE_DIR.exists():
-            for f in sorted(_CAPTURE_DIR.glob("capture_*.json"), reverse=True):
-                data = json.loads(f.read_text(encoding="utf-8"))
-                auth = data.get("headers", {}).get("Authorization")
-                if auth:
-                    return auth
-        return self._cookies.get("__session", "")
+        """Bearer 토큰 반환. 만료 시 자동 갱신."""
+        # 캐시된 토큰이 있고 유효하면 바로 반환
+        if hasattr(self, '_bearer_token') and self._bearer_token:
+            if self._token_expires == 0 or time.time() < self._token_expires - 60:
+                return self._bearer_token
+
+        # __session 쿠키에서 토큰 추출
+        token = self._cookies.get("__session", "")
+        if token:
+            self._bearer_token = f"Bearer {token}"
+            return self._bearer_token
+
+        # 토큰 없으면 갱신 시도
+        logger.info("토큰 만료 — 자동 갱신 시도")
+        if await self.refresh_token():
+            return self._bearer_token
+
+        return None
 
     # ━━━ 상태 확인 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def get_clip_status(self, clip_ids: list[str]) -> list[dict]:
-        """clip들의 현재 상태 조회."""
+        """clip들의 현재 상태 조회 (feed/v3 POST 방식)."""
         if not self._cookies:
             self.load_session()
 
-        ids_str = ",".join(clip_ids)
-        url = f"{BASE_URL}/api/feed/?ids={ids_str}"
+        url = f"{BASE_URL}{FEED_ENDPOINT}"
         headers = {**self._headers, "Cookie": self._cookie_header()}
         auth = await self._get_auth_token()
         if auth:
-            headers["Authorization"] = f"Bearer {auth}" if not auth.startswith("Bearer") else auth
+            headers["Authorization"] = auth
+
+        payload = {
+            "filters": {
+                "ids": {"presence": "True", "clipIds": clip_ids}
+            },
+            "limit": len(clip_ids),
+        }
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    return data if isinstance(data, list) else data.get("clips", data.get("data", []))
+                    # feed/v3 응답: {"clips": [...]} 또는 직접 리스트
+                    clips = data.get("clips", data) if isinstance(data, dict) else data
+                    return clips if isinstance(clips, list) else []
                 else:
                     logger.warning(f"상태 조회 실패: HTTP {resp.status}")
                     return []
@@ -400,11 +507,11 @@ class SunoAPIClient:
         if not self._cookies:
             self.load_session()
 
-        url = f"{BASE_URL}/api/billing/info/"
+        url = f"{BASE_URL}{BILLING_ENDPOINT}"
         headers = {**self._headers, "Cookie": self._cookie_header()}
         auth = await self._get_auth_token()
         if auth:
-            headers["Authorization"] = f"Bearer {auth}" if not auth.startswith("Bearer") else auth
+            headers["Authorization"] = auth
 
         async with aiohttp.ClientSession() as session:
             try:
