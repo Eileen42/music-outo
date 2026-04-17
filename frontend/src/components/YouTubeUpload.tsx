@@ -175,14 +175,19 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
               🌐 브라우저 업로드 열기
             </button>
             <button onClick={async () => {
+              console.log('[메타입력] 1. 버튼 클릭됨, projectId:', project.id)
               setFillingMeta(true)
               try {
-                await api.youtube.fillMetadata(project.id)
+                console.log('[메타입력] 2. API 호출: /api/youtube/fill-metadata/' + project.id)
+                const res = await api.youtube.fillMetadata(project.id)
+                console.log('[메타입력] 3. API 응답:', res)
                 const poll = setInterval(async () => {
                   try { await onRefresh() } catch {}
                 }, 15000)
                 setTimeout(() => clearInterval(poll), 600000)
-              } catch {} finally { setTimeout(() => setFillingMeta(false), 30000) }
+              } catch (err) {
+                console.error('[메타입력] 3. API 에러:', err)
+              } finally { setTimeout(() => setFillingMeta(false), 30000) }
             }}
               disabled={fillingMeta}
               className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
@@ -192,19 +197,12 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
           {fillingMeta && <p className="text-[10px] text-gray-500 text-center">브라우저에서 자동 입력 중입니다. 30초 정도 소요.</p>}
 
           {/* 브라우저 업로드 상태 */}
-          {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled &&
-           !(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
-            <div className="bg-yellow-950/40 border border-yellow-800 rounded-xl p-3 flex items-center gap-3">
-              <span className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin shrink-0" />
-              <div>
-                <p className="text-xs text-yellow-300 font-semibold">영상 업로드 완료 대기 중...</p>
-                <p className="text-[10px] text-gray-500">YouTube에서 영상 처리가 끝나면 댓글이 자동으로 작성됩니다.</p>
-              </div>
-            </div>
-          )}
-          {(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
+          {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled && (
             <div className="bg-green-950/40 border border-green-800 rounded-xl p-3">
-              <p className="text-xs text-green-400 font-semibold">✅ 댓글 작성 완료!</p>
+              <p className="text-xs text-green-400 font-semibold">✅ 메타데이터 입력 + 게시 완료!</p>
+              {(project as unknown as { browser_comment_posted?: boolean }).browser_comment_posted && (
+                <p className="text-xs text-green-400 mt-1">✅ 댓글도 작성됨</p>
+              )}
             </div>
           )}
 
