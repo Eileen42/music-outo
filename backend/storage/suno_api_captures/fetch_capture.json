@@ -1,0 +1,9 @@
+[
+  {
+    "time": 1776405009197,
+    "method": "POST",
+    "url": "https://browser-intake-datadoghq.com/api/v2/rum?ddsource=browser&dd-api-key=pub10f78ed0323b9a781178abb554da8d14&dd-evp-origin-version=6.21.2&dd-evp-origin=browser&dd-request-id=7f3dc82d-1e19-4a87-8a0d-08ca2d779dd6&batch_time=1776405009197&_dd.api=fetch-keepalive",
+    "body": "{\"type\":\"resource\",\"_dd\":{\"format_version\":2,\"drift\":0,\"configuration\":{\"session_sample_rate\":100,\"session_replay_sample_rate\":1,\"profiling_sample_rate\":0},\"sdk_name\":\"rum\",\"discarded\":false},\"application\":{\"id\":\"7a93e6e3-b528-480d-add2-ca8a7f724b84\"},\"date\":1776404979131,\"source\":\"browser\",\"view\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5",
+    "headers": {}
+  }
+]

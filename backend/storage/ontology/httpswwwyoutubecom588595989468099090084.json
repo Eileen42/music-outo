@@ -1,0 +1,42 @@
+{
+  "channel": "httpswwwyoutubecom588595989468099090084",
+  "channel_name": "경제롱폼",
+  "generated_from": "auto",
+  "categories": {
+    "경제롱폼": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "none"
+      }
+    }
+  }
+}

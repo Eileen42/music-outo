@@ -1,0 +1,597 @@
+[
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/initialize?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client&sv=3.25.5&t=1776405342634&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&se=1",
+    "body": "==Qf9xGb15mOiwmcVt2YhJGbsFmZiwiIwQmMiBTN0U2NxQzYtETY2IWLxMTZ00SOyMGOtYjZkRGZ0ATYiojIElkbvl2czV2ciwiIzIDMwEjM5YGNmZ2NtYTY5gTLlZjZ00iM4QGMtQWZkdzYxMjZiojIElUZsJWY0NnIsICduVWasNWL0BXayN2chZXYqJiOiUGc5R1akNnIsISNuUjMuMjI6Iibvl2cyVmVrR2cisnOiEGdhRWY0VWTnl2c0FGdzJCLsxWdupjItV3crNWZoN2XsxWdmJCLlNHbhZmOiQWZ0NXZ1FXZSV2cu9GczVmUzFGdsVGZiwiIyImakJiOig2chhmIs0Xfi42bpR3Y1R2byBnI6IicllGdisnOiQnbl1mbvJXa25WRnl2c0FGdzJCL9JCcvR3azVGZiojIlBXe09VZjlmdlR2XiV2diwSZzxWYmpjIwlmdfNXaiwiIlVmcmJiOikXZr9lbhxGcfJXZzVnIsICN2EjL5kTMuAzNuIzNxIiOiM3clJHZkF2XwlmIsISM0IiOi42bpdWZy9VeyRnb192YiwiIht2b1tWdGJiOikHdpNmIsIiM1EDNuAzMxIiOiUGZ1RXan52bsJCLiMTO5UjLzMjI6ISZkVHdpRXYsJCLiczMwATLyEDOiojIlR2bj9FbhR3cvBnI7pjIt9GdzV3YiwSfiQjNx4SO5EjLwcjLycTMiojIzNXZyRGZBBCUJJCLiEDNiojIu9WanVmUgknc05WdvNkIsISYr9WdrVnRiojI5RXaDJCLiITNxQjLwMTMiojIlRWd0l2Zu9GTiwiIzkTO14yMzIiOiUGZ1RXa0FGTiwiI3MDMw0iMxgjI6ISZk92QgwWY0N3bQJCLiIGOzkzYkVDZycTNm1CMilDOtQ2NwQTL5YGZ10iNkFDO3YTMiJiOiQUSgMXdv1Weu9mbBJye6IycElUbvR3c1NmIsIiULJiOiknc05WdvNmI7pjIyV2c1Jye"
+  },
+  {
+    "method": "GET",
+    "url": "https://suno.com/api/cms",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/rgstr?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405342917&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&ec=23",
+    "body": "{\"events\":[{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Address\":\"172.70.199.164\"},\"custom\":{\"postal_code\":\"812-0037\",\"latitude\":\"33.5993\",\"longitude\":\"130.4152\",\"city\":\"Fukuoka\",\"country_region\":\"41\",\"ip_address\":\"172.70.199.164\",\"user_plan_key\":\"free\",\"is_vip\":false,\"web_device_type\":\"desktop\"},\"statsigEnvironment\":{\"tier\":\"production\"}},\"value\":null,\"metadata\":{\"gate\":\"web-sw-enabled\",\"gateValue\":\"false\",\"ruleID\":\"\",\"reason\":\"Loading:Unrecognized\"},\"secondaryExposures\":[],\"time\":1776405342663,\"statsigMetadata\":{\"currentPage\":\"https://suno.com/create\"}},{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Add"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/initialize?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405342918&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&se=1",
+    "body": "==Qf9xGb15mOiwmcVt2YhJGbsFmZiwiIwQmMiBTN0U2NxQzYtETY2IWLxMTZ00SOyMGOtYjZkRGZ0ATYiojIElkbvl2czV2ciwiIzIDMwEjM5YGNmZ2NtYTY5gTLlZjZ00iM4QGMtQWZkdzYxMjZiojIElUZsJWY0NnIsICdjFWZy1CduVWasNWL0BXayN2chZXYqJiOiUGc5R1akNnIsISNuUjMuMjI6Iibvl2cyVmVrR2cisnOiEGdhRWY0VWTnl2c0FGdzJCLsxWdupjItV3crNWZoN2XsxWdmJCLlNHbhZmOiQWZ0NXZ1FXZSV2cu9GczVmUzFGdsVGZiwiIyImakJiOig2chhmIs0Xfi42bpR3Y1R2byBnI6IicllGdisnOiQnbl1mbvJXa25WRnl2c0FGdzJCL9JCcvR3azVGZiojIlBXe09VZjlmdlR2XiV2diwSZzxWYmpjIwlmdfNXaiwiIlVmcmJiOikXZr9lbhxGcfJXZzVnIsICN2EjL5kTMuAzNuIzNxIiOiM3clJHZkF2XwlmIsISM0IiOi42bpdWZy9VeyRnb192YiwiIht2b1tWdGJiOikHdpNmIsIiM1EDNuAzMxIiOiUGZ1RXan52bsJCLiMTO5UjLzMjI6ISZkVHdpRXYsJCLiczMwATLyEDOiojIlR2bj9FbhR3cvBnI7pjIt9GdzV3YiwSfiQjNx4SO5EjLwcjLycTMiojIzNXZyRGZBBCUJJCLiEDNiojIu9WanVmUgknc05WdvNkIsISYr9WdrVnRiojI5RXaDJCLiITNxQjLwMTMiojIlRWd0l2Zu9GTiwiIzkTO14yMzIiOiUGZ1RXa0FGTiwiI3MDMw0iMxgjI6ISZk92QgwWY0N3bQJCLiIGOzkzYkVDZycTNm1CMilDOtQ2NwQTL5YGZ10iNkFDO3YTMiJiOiQUSgMXdv1Weu9mbBJye6IycElUbvR3c1NmIsIiULJiOiknc05WdvNmI7pjI"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/rgstr?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405342977&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&ec=25",
+    "body": "{\"events\":[{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Address\":\"172.70.199.164\"},\"custom\":{\"postal_code\":\"812-0037\",\"latitude\":\"33.5993\",\"longitude\":\"130.4152\",\"city\":\"Fukuoka\",\"country_region\":\"41\",\"ip_address\":\"172.70.199.164\",\"user_plan_key\":\"free\",\"is_vip\":false,\"web_device_type\":\"desktop\"},\"statsigEnvironment\":{\"tier\":\"production\"}},\"value\":null,\"metadata\":{\"gate\":\"web-sw-enabled\",\"gateValue\":\"false\",\"ruleID\":\"\",\"reason\":\"Loading:Unrecognized\"},\"secondaryExposures\":[],\"time\":1776405342803,\"statsigMetadata\":{\"currentPage\":\"https://suno.com/create\"}},{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Add"
+  },
+  {
+    "method": "POST",
+    "url": "https://suno.com/9i3s/ag/g/c?v=2&tid=G-7B0KEDD7XP&gtm=45g92e64f1v880699528z89194996250za20kzb9194996250zd9194996250&_p=1776405341647&_gaz=1&gcs=G111&gcd=13t3t3t3t5l1&npa=0&dma=0&gdid=dYzg1YT&_eu=AAAAAGQ&_uip=%3A%3A&are=1&cid=1402741141.1775548636&fp=1&frm=0&pscdl=noapi&rcb=0&sr=1280x900&uaa=x86&uab=64&uafvl=Microsoft%2520Edge%3B147.0.3912.60%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.56&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=ko&ur=KR-41&_gsid=cEF3fB3aBc6ZFCc9YKSTjo-4e8uedI7Krw&_s=1&tag_exp=0~115616985~115938466~115938469~117266401~117384405~117512543~118289195&sid=1776405343&sct=2&seg=0&dl=https%3A%2F%2Fsuno.com%2Fcreate%3F__clerk_handshake%3DeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJOREE0T1RNNUxDSmhkV1FpT2lKemRXNXZMV0Z3YVNJc0luTjFZaUk2SW5WelpYSmZNbnBEY2xGck5XVktVVU5xVEVGaGVWVnBia2hxUWxvM1pqWlhJaXdpWVhwd0lqb2lhSFIwY0hNNkx5OXpkVzV2TG1OdmJTSXNJbVoyWVNJNld6QXNMVEZkTENKcFlYUWlPakUzTnpZME1EVXpNemtzSW1semN5STZJbWgwZEhCek9pOHZZWFYwYUM1emRXNXZMbU52YlNJc0ltcHBkQ0k2SWpVMU1XSXhOak00TFdWaE5qWXRORGhqTUMxaU1ESmxMVGxrTW1WbU9UUTVOak13T0NJc0luWnBlaUk2Wm1Gc2MyVXNJbk4xYm04dVkyOXRMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJaXdpYUhSMGNITTZMeTl6ZFc1dkxtRnBMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJbjAuVWIwOEFNYy03c1dWX2FOald3YkVoUUlRaTdYZGRMdzVXd0NIcWFHejlxQkdVaVR4VXhKeWMxR1JJM2w0R3ZOeXFEM00xRUVQTGdpcUpYR3BIQXEyRVJ2ZHRmV1BCRGtUR2NQNGU3eTRQOXNKUHlQaXVmN3p6UHROUUg3bi0zWjhSQkw1aks5UUpEbmFfZ0huc2p5TUFsQ3ZQN054X2JoSnJzOWttTHlGaHhDVzZFbXFwOENfSl9BaXQyNWd6T0Z6OHp6RHE1Z1Bid0dERXFzSUNvRGJWZ3doQ05fVW4yV2dVSHVSMVRhT21yOGlDazBoYkxKQzQ0UDdxbmZFRVRGSjZjNWJld0c0R0dkLTVuajlFQjlTTFlaOWNKLWxHRHJaTkM2bEtvNjdkVzJ5MXJTalFHNGZUSjJ0anViSU9tMWNBUlhuOUNVZ3VkSXY0YUUtaW9UY1ZROyBEb21haW49c3Vuby5jb207IGV4cGlyZXM9RnJpLCAxNyBBcHIgMjAyNiAwNjo1NTozOSBHTVQ7IFNhbWVTaXRlPUxheDsgU2VjdXJlIiwiX19jbGllbnRfdWF0PTE3NzU1NDg2OTI7IERvbWFpbj1zdW5vLmNvbTsgTWF4LUFnZT0zMTUzNjAwMDsgU2FtZVNpdGU9TGF4OyBTZWN1cmUiLCJfX2NsZXJrX2hhbmRzaGFrZT07IGV4cGlyZXM9VGh1LCAwMSBKYW4gMTk3MCAwMDowMDowMCBHTVQ7IEh0dHBPbmx5OyBNYXgtQWdlPTA7IFNhbWVTaXRlPUxheDsgU2VjdXJlIl19.HNpGMRvTq_gN0xyEgUkSAmJ0mpyHUl13RMSp5dA1jsNEmATwrkqjQIlNj3GymTpU2eCPRjcxHoA0fwXE4XncWjXMAH1t49DddH0JuFJZFlBbS0aU7MM7B1Qs62dch2chvvkdqoCLrrFz0BLbe1UchSczLOpO5paRAxqVqxdAo6Aw7suqXTal6boKZ9AkTPlM8fEs-mOi96sMv3NNllZyhzN69WEhPCHy8j3GBjxJxZ-CydXFioW26E5BLgTgk_SKKtkcBDGjMQxkY6Yue50FNu28O3qjZxqWPAFKRNaHHsmzkD4DXidEfrlny5DwNwvd40XVWG7i38ZeIIKYHb70-Q&dt=Suno%20%7C%20AI%20Music&tfd=2544",
+    "body": "en=page_view&_ss=1&gap.gtb=1"
+  },
+  {
+    "method": "POST",
+    "url": "https://stats.g.doubleclick.net/g/collect?v=2&tid=G-7B0KEDD7XP&cid=1402741141.1775548636&gtm=45g92e64f1v880699528z89194996250za20kzb9194996250zd9194996250&rcb=0&aip=1&dma=0&gcs=G111&gcd=13t3t3t3t5l1&npa=0&frm=0&tag_exp=0~115616985~115938466~115938469~117266401~117384405~117512543~118289195",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://sdk-api-v1.singular.net/api/v1/event?current_device_time=1776405343&event_id=f585f4f2-3dfb-49f0-b943-0ab39426d629&conversion_event=true&k=SDID&a=suno_47466688&p=Web&i=com.suno&screen_height=900&screen_width=1280&sdk=WebSDK-v1.4.10&singular_instance_id=bd877efc-1caa-4911-85d8-1d219935bbf0&sdid=6a07356b-336e-4825-a29f-97bb5a7c904d&storage_type=local&timezone=GMT%2B0900&touchpoint_timestamp=1776405343&u=6a07356b-336e-4825-a29f-97bb5a7c904d&n=__PAGE_VISIT__&is_revenue_event=false&first=true&is_after_conversion_event=false&s=d411cacf-834b-4d12-88a5-b9f14bfb1fa9&web_page_url=https%3A%2F%2Fsuno.com%2Fcreate%3F__clerk_handshake%3DeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJOREE0T1RNNUxDSmhkV1FpT2lKemRXNXZMV0Z3YVNJc0luTjFZaUk2SW5WelpYSmZNbnBEY2xGck5XVktVVU5xVEVGaGVWVnBia2hxUWxvM1pqWlhJaXdpWVhwd0lqb2lhSFIwY0hNNkx5OXpkVzV2TG1OdmJTSXNJbVoyWVNJNld6QXNMVEZkTENKcFlYUWlPakUzTnpZME1EVXpNemtzSW1semN5STZJbWgwZEhCek9pOHZZWFYwYUM1emRXNXZMbU52YlNJc0ltcHBkQ0k2SWpVMU1XSXhOak00TFdWaE5qWXRORGhqTUMxaU1ESmxMVGxrTW1WbU9UUTVOak13T0NJc0luWnBlaUk2Wm1Gc2MyVXNJbk4xYm04dVkyOXRMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJaXdpYUhSMGNITTZMeTl6ZFc1dkxtRnBMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJbjAuVWIwOEFNYy03c1dWX2FOald3YkVoUUlRaTdYZGRMdzVXd0NIcWFHejlxQkdVaVR4VXhKeWMxR1JJM2w0R3ZOeXFEM00xRUVQTGdpcUpYR3BIQXEyRVJ2ZHRmV1BCRGtUR2NQNGU3eTRQOXNKUHlQaXVmN3p6UHROUUg3bi0zWjhSQkw1aks5UUpEbmFfZ0huc2p5TUFsQ3ZQN054X2JoSnJzOWttTHlGaHhDVzZFbXFwOENfSl9BaXQyNWd6T0Z6OHp6RHE1Z1Bid0dERXFzSUNvRGJWZ3doQ05fVW4yV2dVSHVSMVRhT21yOGlDazBoYkxKQzQ0UDdxbmZFRVRGSjZjNWJld0c0R0dkLTVuajlFQjlTTFlaOWNKLWxHRHJaTkM2bEtvNjdkVzJ5MXJTalFHNGZUSjJ0anViSU9tMWNBUlhuOUNVZ3VkSXY0YUUtaW9UY1ZROyBEb21haW49c3Vuby5jb207IGV4cGlyZXM9RnJpLCAxNyBBcHIgMjAyNiAwNjo1NTozOSBHTVQ7IFNhbWVTaXRlPUxheDsgU2VjdXJlIiwiX19jbGllbnRfdWF0PTE3NzU1NDg2OTI7IERvbWFpbj1zdW5vLmNvbTsgTWF4LUFnZT0zMTUzNjAwMDsgU2FtZVNpdGU9TGF4OyBTZWN1cmUiLCJfX2NsZXJrX2hhbmRzaGFrZT07IGV4cGlyZXM9VGh1LCAwMSBKYW4gMTk3MCAwMDowMDowMCBHTVQ7IEh0dHBPbmx5OyBNYXgtQWdlPTA7IFNhbWVTaXRlPUxheDsgU2VjdXJlIl19.HNpGMRvTq_gN0xyEgUkSAmJ0mpyHUl13RMSp5dA1jsNEmATwrkqjQIlNj3GymTpU2eCPRjcxHoA0fwXE4XncWjXMAH1t49DddH0JuFJZFlBbS0aU7MM7B1Qs62dch2chvvkdqoCLrrFz0BLbe1UchSczLOpO5paRAxqVqxdAo6Aw7suqXTal6boKZ9AkTPlM8fEs-mOi96sMv3NNllZyhzN69WEhPCHy8j3GBjxJxZ-CydXFioW26E5BLgTgk_SKKtkcBDGjMQxkY6Yue50FNu28O3qjZxqWPAFKRNaHHsmzkD4DXidEfrlny5DwNwvd40XVWG7i38ZeIIKYHb70-Q&is_first_visit=true&is_page_refreshed=false&sdid_persist_mode=auto&is_first_page_visit_in_session=true&ecid=6a07356b-336e-4825-a29f-97bb5a7c904d&os=Windows&lag=0&h=e8fb6ef6f18ba3bf25b11e296560d41bbff4dc28",
+    "body": "{\"payload\":\"{\\\"device_user_agent\\\":\\\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0\\\",\\\"web_url\\\":\\\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJOREE0T1RNNUxDSmhkV1FpT2lKemRXNXZMV0Z3YVNJc0luTjFZaUk2SW5WelpYSmZNbnBEY2xGck5XVktVVU5xVEVGaGVWVnBia2hxUWxvM1pqWlhJaXdpWVhwd0lqb2lhSFIwY0hNNkx5OXpkVzV2TG1OdmJTSXNJbVoyWVNJNld6QXNMVEZkTENKcFlYUWlPakUzTnpZME1EVXpNemtzSW1semN5"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics-ipv6.tiktokw.us/ipv6/enrich_ipv6",
+    "body": "{\"event\":\"EnrichIpv6\",\"event_id\":\"\",\"message_id\":\"messageId-1776405343750-5903071502860-CT67HURC77UB52N3JFBG#source=2\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.750Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklp"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel",
+    "body": "{\"event\":\"LandingPageView\",\"event_id\":\"\",\"message_id\":\"messageId-1776405343754-7224145674767-CT67HURC77UB52N3JFBG\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.754Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2la"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel",
+    "body": "{\"event\":\"Pageview\",\"event_id\":\"\",\"message_id\":\"messageId-1776405343750-5903071502860-CT67HURC77UB52N3JFBG\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.750Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWp"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343763-5740185201562\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.763Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343765-3235858736019\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.765Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343767-7609158259555\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.767Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343769-5620945670090\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.769Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343771-5511411492319\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.771Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343767-7609158259555\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.767Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343769-5620945670090\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.769Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343771-5511411492319\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.771Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://cloudflareinsights.com/cdn-cgi/rum",
+    "body": "{\"memory\":{\"totalJSHeapSize\":102553845,\"usedJSHeapSize\":71984381,\"jsHeapSizeLimit\":4294967296},\"resources\":[],\"referrer\":\"\",\"eventType\":1,\"firstPaint\":1276,\"firstContentfulPaint\":1276,\"startTime\":1776405340504.3,\"versions\":{\"js\":\"2026.2.0\",\"timings\":2},\"pageloadId\":\"6ddb32e6-72f6-4c5d-a4a6-46c8da5061c2\",\"location\":\"https://suno.com/create\",\"timingsV2\":{\"nextHopProtocol\":\"h2\",\"domainLookupStart\":472,\"domainLookupEnd\":472,\"connectStart\":472,\"connectEnd\":472,\"requestStart\":474,\"responseStart\":1114.2000000476837,\"responseEnd\":1116.9000000953674,\"domInteractive\":1195.2000000476837,\"domComplete\":2076,\"loadEventStart\":2076.100000143051,\"loadEventEnd\":2076.100000143051,\"finalResponseHeadersStart\":1114.2000000476837,\"firstInterimResponseStart\":0,\"transferSize\":13579,\"decodedBodySize\":101252},\"dt\":\"\",\"siteToken\":\"ab1dff532cc64f0da79eb9c4070ee1e7\",\"st\":2}"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405344049-8732404721082\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:44.049Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/modals",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/statsig/experiment/forked-onboarding",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/contests/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/user/get_user_session_id/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-descriptions/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/personalization/settings",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel",
+    "body": "{\"event\":\"EngagedSession\",\"event_id\":\"\",\"message_id\":\"messageId-1776405344088-3040854176700-CT67HURC77UB52N3JFBG\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:44.088Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIy"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel",
+    "body": "{\"event\":\"Pageview\",\"event_id\":\"\",\"message_id\":\"messageId-1776405344088-8692160114259-CT67HURC77UB52N3JFBG\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:44.088Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibD"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/rgstr?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405344148&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&ec=33",
+    "body": "{\"events\":[{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Address\":\"172.70.199.164\"},\"custom\":{\"postal_code\":\"812-0037\",\"latitude\":\"33.5993\",\"longitude\":\"130.4152\",\"city\":\"Fukuoka\",\"country_region\":\"41\",\"ip_address\":\"172.70.199.164\",\"user_plan_key\":\"free\",\"is_vip\":false,\"web_device_type\":\"desktop\"},\"statsigEnvironment\":{\"tier\":\"production\"}},\"value\":null,\"metadata\":{\"gate\":\"storage_full_popup\",\"gateValue\":\"false\",\"ruleID\":\"\",\"reason\":\"Loading:Unrecognized\"},\"secondaryExposures\":[],\"time\":1776405343152,\"statsigMetadata\":{\"currentPage\":\"https://suno.com/create\"}},{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/initialize?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405344150&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&se=1",
+    "body": "==Qf9xGb15mOiwmcVt2YhJGbsFmZiwiIwQmMiBTN0U2NxQzYtETY2IWLxMTZ00SOyMGOtYjZkRGZ0ATYiojIElkbvl2czV2ciwiIzIDMwEjM5YGNmZ2NtYTY5gTLlZjZ00iM4QGMtQWZkdzYxMjZiojIElUZsJWY0NnIsICdjFWZy1CduVWasNWL0BXayN2chZXYqJiOiUGc5R1akNnIsISNuUjMuMjI6Iibvl2cyVmVrR2cisnOiEGdhRWY0VWTnl2c0FGdzJCLsxWdupjItV3crNWZoN2XsxWdmJCLlNHbhZmOiQWZ0NXZ1FXZSV2cu9GczVmUzFGdsVGZiwiIyImakJiOig2chhmIs0Xfi42bpR3Y1R2byBnI6IicllGdisnOiQnbl1mbvJXa25WRnl2c0FGdzJCL9JCcvR3azVGZiojIlBXe09VZjlmdlR2XiV2diwSZzxWYmpjIwlmdfNXaiwiIlVmcmJiOikXZr9lbhxGcfJXZzVnIsICN2EjL5kTMuAzNuIzNxIiOiM3clJHZkF2XwlmIsISM0IiOi42bpdWZy9VeyRnb192YiwiIht2b1tWdGJiOikHdpNmIsIiM1EDNuAzMxIiOiUGZ1RXan52bsJCLiMTO5UjLzMjI6ISZkVHdpRXYsJCLiczMwATLyEDOiojIlR2bj9FbhR3cvBnI7pjIt9GdzV3YiwSfiQjNx4SO5EjLwcjLycTMiojIzNXZyRGZBBCUJJCLiEDNiojIu9WanVmUgknc05WdvNkIsISYr9WdrVnRiojI5RXaDJCLiITNxQjLwMTMiojIlRWd0l2Zu9GTiwiIzkTO14yMzIiOiUGZ1RXa0FGTiwiI3MDMw0iMxgjI6ISZk92QgwWY0N3bQJCLiIGOzkzYkVDZycTNm1CMilDOtQ2NwQTL5YGZ10iNkFDO3YTMiJiOiQUSgMXdv1Weu9mbBJye6IycElUbvR3c1NmIsIiULJiOiknc05WdvNmIsIiZ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/notification/v2/badge-count",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/user/tos_acceptance",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/statsig/experiment/",
+    "body": "{\"layer_name\":\"creation-layer\",\"parameter_name\":\"orpheus_group\",\"parameter_type\":\"string\",\"parameter_default\":\"CONTROL\"}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/statsig/experiment/",
+    "body": "{\"layer_name\":\"onboarding-layer\",\"parameters\":[{\"name\":\"orpheus_is_enabled\",\"type\":\"boolean\",\"default\":false},{\"name\":\"orpheus_is_auto_mode\",\"type\":\"boolean\",\"default\":false},{\"name\":\"orpheus_is_canvas_enabled\",\"type\":\"boolean\",\"default\":false},{\"name\":\"orpheus_default_to_chat\",\"type\":\"boolean\",\"default\":false}]}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/video_gen/pending_batches",
+    "body": "{}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/session/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343767-7609158259555\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.767Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343769-5620945670090\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.769Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343771-5511411492319\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.771Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://hcaptcha-endpoint-prod.suno.com/checksiteconfig?v=3b51cea83ce6dead3aa67ad1ba6db0cc5379ddfa&host=suno.com&sitekey=d65453de-3f1a-4aac-9366-a0f06e52b2ce&sc=1&swa=1&spst=1",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/80362670:1776402458:KAYYwc2XqtDebX5TbujpwY0RzQwJUStQtW1ZnxWLfpM/9ed92eb3b998ea1b/IoBBhJ.KMj0DmUY34Jic2OCobuCc1wN3GUSRuI0sGMQ-1776405343-1.2.1.1-PDEtlbmHha16t4fSsBStrZ6vMlmk77uxw3jmqHYqJyubNedQN.nR9J3zD19CwPlF",
+    "body": "ow3FcO8iOJOyedcmjHKXXKmHq2NVUvCsilpDZZFWvfC2Rrq18EUm3608XZgn8hmQOCI2Hmlu63IlOV1bURqxRRrq8QLF$8XDwAANsuI7yTkvGqRpm05PUpIMO25V2HSWV$BJZh2FR-mMaiEbiQHsC7A8v55D2z0vP0Kvy5Gs65yLOhEo6B73L7dgmm410Xvd$g0z5VmmuCAra-YErQq4u7d2SRzcaqhEZh5Vymr3BjyoN5hbFL3hy6ns7QgXAlshRLrohbL3mNiSbvVZJaRjtWa37PGe4tRojKKZlbos11pWx3Klce6Zj449z8vXMh14aQPYx1J-fOOI0EAHBqglldGgUgIfr11aRfjDueh1h4MY2PIt0FAl$RWu8JhQFaslKh6K-$NGVt4CF3R6eNhmuJU92kUOetz0WPU0pnNTeH6gsJh-Yn9K9ndv8mXS1ycwqjDuoDpaeBdki-c4QOHvnLggHIJYXZQ83Zy3oKlBate9HU-AXTfKaKcNfVBSCxOa$sDSdgP9GtJBE-yUkWlCbfK5BHjk8aB6q8vpi7Z9-IeFW4g2gscVo71tqoyOZ2$NLJeuzV2AsDRr-XOnFHJlFg7ELz2dQK0FMkiGIdG9ZMWPMCjg2yfTjN1IgYHtWh68VNcDzbwr0W4-R1hUdlazZZrXwUPBrkdC7VqAnijaoutL9B5AiC4Q$lfKsnFcsK7X-Pb2yio9tvfCI431piTmABYheN$Tpqv5aY9HCKRo6RMcwepq1$Y7ruwtfEROGRFnWm-HOUwnkBIAaj5olak7jZTYWBbBa2oMlbE4ibRcExEbchVP7zVQfafwIMmMXZXQNdsO9JAjvx2F0eMoXSsEhXze6ee$tHpR685GCZA1ijjtnFhcbGe3uiBHytqj4PqKDoY0Z$NSuxGtJQbxnPHm5PO9P4dTseTC6gPVp0YPuw3EXhL$ad5vhOTFNgA2J4StFLnvVL2LOV0u8tPzMxJv0hgStY3BrgEWNe8KxbtI"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/act",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405344423-4215420078230\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:44.423Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405343771-5511411492319\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:43.771Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJO"
+  },
+  {
+    "method": "POST",
+    "url": "https://sdk.iad-07.braze.com/api/v3/data/",
+    "body": "{\"respond_with\":{\"triggers\":true,\"user_id\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"config\":{\"config_time\":0}},\"events\":[{\"name\":\"se\",\"time\":1775548697.226,\"data\":{\"d\":1},\"session_id\":\"141259ec-3fdf-458a-b41a-02875c3f5a48\",\"user_id\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\"},{\"name\":\"ss\",\"time\":1776405344.636,\"data\":{},\"session_id\":\"cbca0c55-bbc2-4b49-a3cc-558137432310\",\"user_id\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\"}],\"device\":{\"browser\":\"Edge\",\"browser_version\":\"147\",\"os_version\":\"Windows\",\"locale\":\"ko\",\"time_zone\":\"Asia/Seoul\",\"user_agent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0\"},\"api_key\":\"b67099e5-3183-4de8-8f8f-fdea9ac93d15\",\"time\":1776405344,\"sdk_metadata\":[\"npm\"],\"sdk_version\":\"6.4.0\",\"device_id\":\"451333bf-d9c7-4541-9700-80e566db9f0b\"}"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/rgstr?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405344664&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&ec=59",
+    "body": "{\"events\":[{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"userID\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Address\":\"172.70.199.164\"},\"custom\":{\"postal_code\":\"812-0037\",\"latitude\":\"33.5993\",\"longitude\":\"130.4152\",\"city\":\"Fukuoka\",\"country_region\":\"41\",\"ip_address\":\"172.70.199.164\",\"user_plan_key\":\"free\",\"is_vip\":false,\"web_device_type\":\"desktop\"},\"statsigEnvironment\":{\"tier\":\"production\"}},\"value\":null,\"metadata\":{\"gate\":\"web-sw-enabled\",\"gateValue\":\"false\",\"ruleID\":\"\",\"reason\":\"Loading:Unrecognized\"},\"secondaryExposures\":[],\"time\":1776405344115,\"statsigMetadata\":{\"currentPage\":\"https://suno.com/create\"}},{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"userID\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/initialize?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405344665&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&se=1",
+    "body": "=0XfsxWdupjIsJXVrNWYixGbhZmIsICMkJjYwUDNldTM0MWLxEmNi1SMzUGNtkjMjhTL2YGZkRGNwEmI6ICRJ52bpN3clNnIsIyMyADMxITOmRjZmdTL2EWO40SZ2YGNtIDOkBTLkVGZ3MWMzYmI6ICRJVGbiFGdzJCLiQ3YhVmctQnbllGbj1CdwlmcjNXY2FmaiojIlBXeUtGZzJCLiUjL1IjLzIiOi42bpNnclZ1akNnI7pjIhRXYkFGdl10ZpNHdhR3ciwiN1cDO0YjMwQjN3cTM6ISZtlGVlNmbpNFajRXYNJXZzVFbhlGdyFGciwSf7pjIzRGbllmRkVmdpJXZENXdvlmdlJHciwCM6ISZtlGVlNmbpNnIsISNxEDO3IDN2IzMiojItV3crNWZoN2XsxWdmJCLlVnc0pjIkVGdzVWdxVmUlNnbvB3clJ1chRHblRmIsIiMipGZiojIoNXYoJCL91nIu9Wa0NWdk9mcwJiOiIXZpRnI7pjI05WZt52bylmduV0ZpNHdhR3ciwSfiA3b0t2clRmI6ISZwlHdfV2YpZXZk9lYldnIsU2csFmZ6ICcpZ3XzlmIsICN1gzM4gTN0ITM1cTMiojIlRXYk9FZl5WavpmIsISZlJnZiojI5V2af5WYsB3XyV2c1JCLiQjNx4SO5EjLwcjLycTMiojIzNXZyRGZh9FcpJCLiEDNiojIu9WanVmcflnc05WdvNmIsISYr9WdrVnRiojI5RXajJCLiITNxQjLwMTMiojIlRWd0l2Zu9GbiwiIzkTO14yMzIiOiUGZ1RXa0FGbiwiI3MDMw0iMxgjI6ISZk92YfxWY0N3bwJye6ISbvR3c1NmIs0nI0YTMukTOx4CM34iM3EjI6IyczVmckRWQgAVSiwiIxQjI6Iibvl2ZlJFI5JHduV3bDJCLiE2avV3a1ZkI6ISe0l2QiwiIyUTM04CMzEjI6ISZkVHdpdmbvxkIsIyM5kTNuMzMiojI"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/notification/v2",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/info/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-web-table-comparison/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-faq/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/profiles/pinned-clips",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/profiles/tofha42.22/info",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/prompts/?page=0&per_page=100&filter_prompt_type=lyrics",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/prompts/?page=0&per_page=100&filter_prompt_type=tags",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/user/metadata",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/project/me?page=1&sort=max_created_at_last_updated_clip&show_trashed=false&exclude_shared=false",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/prompts/suggestions",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/project/default",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/challenge/progress",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/feed/v3",
+    "body": "{\"cursor\":null,\"limit\":20,\"filters\":{\"disliked\":\"False\",\"trashed\":\"False\",\"fromStudioProject\":{\"presence\":\"False\"},\"stem\":{\"presence\":\"False\"},\"workspace\":{\"presence\":\"True\",\"workspaceId\":\"default\"}}}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/project/default/pinned-clips",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://m-stratovibe.prod.suno.com/agg-receiver-service/v1/events/t",
+    "body": "{\"timestamp\":\"2026-04-17T05:55:44.683Z\",\"integrations\":{\"Segment.io\":true},\"event\":\"Web-Heartbeat-Event\",\"type\":\"track\",\"properties\":{\"isForegrounded\":true,\"hasContentPlaying\":false,\"userId\":null,\"featureSessionId\":null,\"featureSessionType\":null,\"sessionId\":\"84996f94ee3157e991a88cd43cc0c37f76d30038df9034912da4d3281f8d7ce3\"},\"context\":{\"page\":{\"path\":\"/create\",\"referrer\":\"\",\"search\":\"\",\"title\":\"Suno | AI Music\",\"url\":\"https://suno.com/\"},\"userAgent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0\",\"userAgentData\":{\"brands\":[{\"brand\":\"Microsoft Edge\",\"version\":\"147\"},{\"brand\":\"Not.A/Brand\",\"version\":\"8\"},{\"brand\":\"Chromium\",\"version\":\"147\"}],\"mobile\":false,\"platform\":\"Windows\"},\"locale\":\"ko\",\"library\":{\"name\":\"analytics.js\",\"version\":\"npm:next-1.81.1\"},\"timezone\":\"Asia/Seoul\"},\"messageId\":\"ajs-next-1776405344683-6322af3a-8be4-4a06-bdca-a9775f3cac99\",\"anonymousId\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"writeKey\":\"suno\",\"userId\":null,\"sentAt\":\""
+  },
+  {
+    "method": "POST",
+    "url": "https://m-stratovibe.prod.suno.com/agg-receiver-service/v1/events/t",
+    "body": "{\"timestamp\":\"2026-04-17T05:55:44.694Z\",\"integrations\":{\"Segment.io\":true},\"event\":\"Web-Heartbeat-Event\",\"type\":\"track\",\"properties\":{\"isForegrounded\":true,\"hasContentPlaying\":false,\"userId\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"featureSessionId\":null,\"featureSessionType\":null,\"sessionId\":\"84996f94ee3157e991a88cd43cc0c37f76d30038df9034912da4d3281f8d7ce3\"},\"context\":{\"page\":{\"path\":\"/create\",\"referrer\":\"\",\"search\":\"\",\"title\":\"Suno | AI Music\",\"url\":\"https://suno.com/\"},\"userAgent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0\",\"userAgentData\":{\"brands\":[{\"brand\":\"Microsoft Edge\",\"version\":\"147\"},{\"brand\":\"Not.A/Brand\",\"version\":\"8\"},{\"brand\":\"Chromium\",\"version\":\"147\"}],\"mobile\":false,\"platform\":\"Windows\"},\"locale\":\"ko\",\"library\":{\"name\":\"analytics.js\",\"version\":\"npm:next-1.81.1\"},\"timezone\":\"Asia/Seoul\"},\"messageId\":\"ajs-next-1776405344694-ba063dca-a977-4f3c-ac99-76774a6fc6ca\",\"anonymousId\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"writeKe"
+  },
+  {
+    "method": "POST",
+    "url": "https://suno.com/9i3s/ag/g/c?v=2&tid=G-7B0KEDD7XP&gtm=45g92e64f1v880699528za20kzb9194996250zd9194996250&_p=1776405341647&gcs=G111&gcd=13t3t3t3t5l1&npa=0&dma=0&gdid=dYzg1YT.dNzQzZD&_eu=AEAAAGQ&_uip=%3A%3A&ae=a&are=1&cid=1402741141.1775548636&fp=1&frm=0&pscdl=noapi&rcb=0&sr=1280x900&uaa=x86&uab=64&uafvl=Microsoft%2520Edge%3B147.0.3912.60%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.56&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=ko&ur=KR-41&_gsid=cEF3fB3aBc6ZFCc9YKSTjo-4e8uedI7Krw&_s=2&tag_exp=0~115616985~115938466~115938469~117266401~117384405~117512543~118289195&sid=1776405343&sct=2&seg=0&dl=https%3A%2F%2Fsuno.com%2Fcreate%3F__clerk_handshake%3DeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJOREE0T1RNNUxDSmhkV1FpT2lKemRXNXZMV0Z3YVNJc0luTjFZaUk2SW5WelpYSmZNbnBEY2xGck5XVktVVU5xVEVGaGVWVnBia2hxUWxvM1pqWlhJaXdpWVhwd0lqb2lhSFIwY0hNNkx5OXpkVzV2TG1OdmJTSXNJbVoyWVNJNld6QXNMVEZkTENKcFlYUWlPakUzTnpZME1EVXpNemtzSW1semN5STZJbWgwZEhCek9pOHZZWFYwYUM1emRXNXZMbU52YlNJc0ltcHBkQ0k2SWpVMU1XSXhOak00TFdWaE5qWXRORGhqTUMxaU1ESmxMVGxrTW1WbU9UUTVOak13T0NJc0luWnBlaUk2Wm1Gc2MyVXNJbk4xYm04dVkyOXRMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJaXdpYUhSMGNITTZMeTl6ZFc1dkxtRnBMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJbjAuVWIwOEFNYy03c1dWX2FOald3YkVoUUlRaTdYZGRMdzVXd0NIcWFHejlxQkdVaVR4VXhKeWMxR1JJM2w0R3ZOeXFEM00xRUVQTGdpcUpYR3BIQXEyRVJ2ZHRmV1BCRGtUR2NQNGU3eTRQOXNKUHlQaXVmN3p6UHROUUg3bi0zWjhSQkw1aks5UUpEbmFfZ0huc2p5TUFsQ3ZQN054X2JoSnJzOWttTHlGaHhDVzZFbXFwOENfSl9BaXQyNWd6T0Z6OHp6RHE1Z1Bid0dERXFzSUNvRGJWZ3doQ05fVW4yV2dVSHVSMVRhT21yOGlDazBoYkxKQzQ0UDdxbmZFRVRGSjZjNWJld0c0R0dkLTVuajlFQjlTTFlaOWNKLWxHRHJaTkM2bEtvNjdkVzJ5MXJTalFHNGZUSjJ0anViSU9tMWNBUlhuOUNVZ3VkSXY0YUUtaW9UY1ZROyBEb21haW49c3Vuby5jb207IGV4cGlyZXM9RnJpLCAxNyBBcHIgMjAyNiAwNjo1NTozOSBHTVQ7IFNhbWVTaXRlPUxheDsgU2VjdXJlIiwiX19jbGllbnRfdWF0PTE3NzU1NDg2OTI7IERvbWFpbj1zdW5vLmNvbTsgTWF4LUFnZT0zMTUzNjAwMDsgU2FtZVNpdGU9TGF4OyBTZWN1cmUiLCJfX2NsZXJrX2hhbmRzaGFrZT07IGV4cGlyZXM9VGh1LCAwMSBKYW4gMTk3MCAwMDowMDowMCBHTVQ7IEh0dHBPbmx5OyBNYXgtQWdlPTA7IFNhbWVTaXRlPUxheDsgU2VjdXJlIl19.HNpGMRvTq_gN0xyEgUkSAmJ0mpyHUl13RMSp5dA1jsNEmATwrkqjQIlNj3GymTpU2eCPRjcxHoA0fwXE4XncWjXMAH1t49DddH0JuFJZFlBbS0aU7MM7B1Qs62dch2chvvkdqoCLrrFz0BLbe1UchSczLOpO5paRAxqVqxdAo6Aw7suqXTal6boKZ9AkTPlM8fEs-mOi96sMv3NNllZyhzN69WEhPCHy8j3GBjxJxZ-CydXFioW26E5BLgTgk_SKKtkcBDGjMQxkY6Yue50FNu28O3qjZxqWPAFKRNaHHsmzkD4DXidEfrlny5DwNwvd40XVWG7i38ZeIIKYHb70-Q&dt=Suno%20%7C%20AI%20Music&_tu=CA&tfd=4559",
+    "body": "en=scroll&gap.gtb=1&epn.percent_scrolled=90&_et=142"
+  },
+  {
+    "method": "POST",
+    "url": "https://suno.com/9i3s/d/pagead/form-data/16548013531?gtm=45g92e64f1v880699528za20kzb9194996250zd9194996250xec&gcs=G111&gcd=13t3t3t3t5l1&dma=0&tag_exp=0~115616985~115938466~115938469~117266401~117384405~117512543~118289195&rcb=0&did=dYzg1YT%2CdYWJhMj&gdid=dYzg1YT.dYWJhMj.dNzQzZD&npa=0&frm=0&pscdl=noapi&ae=a&auid=2130574510.1775548634&uaa=x86&uab=64&uafvl=Microsoft%2520Edge%3B147.0.3912.60%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.56&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&gap.gtb=2",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://suno.com/9i3s/d/ccm/form-data/16548013531?gtm=45g92e64f1phv880699528za20kzb9194996250zd9194996250xec&gcs=G111&gcd=13t3t3t3t5l1&dma=0&tag_exp=0~115616985~115938466~115938469~117266401~117384405~117512543~118289195&rcb=0&did=dYzg1YT%2CdYWJhMj&gdid=dYzg1YT.dYWJhMj.dNzQzZD&npa=0&frm=0&ae=a&pscdl=noapi&auid=2130574510.1775548634&uaa=x86&uab=64&uafvl=Microsoft%2520Edge%3B147.0.3912.60%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.56&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&ec_mode=a&gap.gtb=2&eme=tv.1~&_uip=%3A%3A",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://sdk.iad-07.braze.com/api/v3/feature_flags/sync",
+    "body": "{\"api_key\":\"b67099e5-3183-4de8-8f8f-fdea9ac93d15\",\"time\":1776405345,\"sdk_version\":\"6.4.0\",\"device_id\":\"451333bf-d9c7-4541-9700-80e566db9f0b\",\"user_id\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\"}"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/rgstr?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405345466&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&ec=49",
+    "body": "{\"events\":[{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"userID\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"email\":\"tofha42.22@gmail.com\",\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Address\":\"172.70.199.164\"},\"custom\":{\"postal_code\":\"812-0037\",\"latitude\":\"33.5993\",\"longitude\":\"130.4152\",\"city\":\"Fukuoka\",\"country_region\":\"41\",\"ip_address\":\"172.70.199.164\",\"user_plan_key\":\"free\",\"joined_date\":\"1751245883854\",\"is_vip\":false,\"web_device_type\":\"desktop\"},\"statsigEnvironment\":{\"tier\":\"production\"}},\"value\":null,\"metadata\":{\"gate\":\"web-sw-enabled\",\"gateValue\":\"true\",\"ruleID\":\"6pSvvZ7qep7mJbsifGniw0\",\"reason\":\"Network:Recognized\",\"lcut\":\"1776402648756\",\"receivedAt\":\"1776405344428\"},\"secondaryExposures\":[],\"time\":1776405344653,\"statsigMetadata\":{\"currentPage\":\"https://suno.com/create\"}},{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"userID\":\"e3d5bb6"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/initialize?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405345467&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&se=1",
+    "body": "==Qf9xGb15mOiwmcVt2YhJGbsFmZiwiIwQmMiBTN0U2NxQzYtETY2IWLxMTZ00SOyMGOtYjZkRGZ0ATYiojIElkbvl2czV2ciwiIzIDMwEjM5YGNmZ2NtYTY5gTLlZjZ00iM4QGMtQWZkdzYxMjZiojIElUZsJWY0NnIsICdjFWZy1CduVWasNWL0BXayN2chZXYqJiOiUGc5R1akNnIsISNuUjMuMjI6Iibvl2cyVmVrR2cisnOiEGdhRWY0VWTnl2c0FGdzJCL2UzN4QjNyADN2czNxojIl1WaUV2Yul2UoNGdh1kclNXVsFWa0JXYwJCL9tnOiMHZsVWaGRWZ2lmclR0c19Wa2VmcwJCLwojIl1WaUV2Yul2ciwiIyUTNxkzNwgjNzIiOi0Wdzt2Ylh2YfxGb1ZmIsUWdyRnOiQWZ0NXZ1FXZSV2cu9GczVmUzFGdsVGZiwiIyImakJiOig2chhmIs0Xfi42bpR3Y1R2byBnI6IicllGdisnOiQnbl1mbvJXa25WRnl2c0FGdzJCL9JCcvR3azVGZiojIlBXe09VZjlmdlR2XiV2diwSZzxWYmpjIwlmdfNXaiwiI0UDOzgDO1QjMxUzNxIiOiUGdhR2XkVmbp9maiwiIvJHciojI5V2af5WYsB3XyV2c1JCLiQjNx4SO5EjLwcjLycTMiojIzNXZyRGZh9FcpJCLiEDNiojIu9WanVmcflnc05WdvNmIsISYr9WdrVnRiojI5RXajJCLiITNxQjLwMTMiojIlRWd0l2Zu9GbiwiIzkTO14yMzIiOiUGZ1RXa0FGbiwiI3MDMw0iMxgjI6ISZk92YfxWY0N3bwJye6ISbvR3c1NmIs0nI0YTMukTOx4CM34iM3EjI6IyczVmckRWQgAVSiwiIxQjI6Iibvl2ZlJFI5JHduV3bDJCLiE2avV3a1ZkI6ISe0l2QiwiIyUTM04CMzEjI6ISZkVHdpdmbvxkIsIyM5kTNuMzMiojI"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/personalization/memory",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/user/user_config/",
+    "body": "{}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/eligible-discounts",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405345512-7638833058268\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:45.512Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/info/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-web-table-comparison/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-faq/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/user/user_config/",
+    "body": "{}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/custom-model/pending/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/feed/v3",
+    "body": "{\"cursor\":\"787cdb3f-047b-4a11-93e7-bea93dacb509\",\"limit\":20,\"filters\":{\"disliked\":\"False\",\"trashed\":\"False\",\"fromStudioProject\":{\"presence\":\"False\"},\"stem\":{\"presence\":\"False\"},\"workspace\":{\"presence\":\"True\",\"workspaceId\":\"default\"}}}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/80362670:1776402458:KAYYwc2XqtDebX5TbujpwY0RzQwJUStQtW1ZnxWLfpM/9ed92eb3b998ea1b/IoBBhJ.KMj0DmUY34Jic2OCobuCc1wN3GUSRuI0sGMQ-1776405343-1.2.1.1-PDEtlbmHha16t4fSsBStrZ6vMlmk77uxw3jmqHYqJyubNedQN.nR9J3zD19CwPlF",
+    "body": "ow3FcO8iOJOyedcmjHKXXKmHq2NVUvCsilpDZZFWvfC2Rrq18EUm3608XZgn8hmQOCI2Hmlu63IlOV1bURqxRRrq8QLF$8XDwAANsuI7yTkvGqRpm05PUpIMO25V2HSWV$BJZh2FR-mMaiEbiQHsC7A8v55D2z0vP0Kvy5Gs65yLgC3x5Q23cheesCXhAhmWVY-Fd2FK3hJqItL7s4YTQX8bQa0IhE5QTXxbnP2L$wKyMxMUZ3ulwzjBP-xN3IVOjYbIY7WwBCY7AfVoMuNpvSHySw3ISWZqnY7q2GGu8G$0LSIRBbnSRfMgmkGPEwwWokkLvt1tz2uUIqwXqCVodFGcEC4esUoz0nWogXXpyAC8U9Qc1x1E2$VnyI9Kl5x7qMViqJC8yQiv$HmEb0E0X6G6-BJFm3zkiHR-dJfTWf2gi$K2ceuxzlTM3tTkGGfoQ7-vf0kRn7ESXI863bHteY2oo5szD32-O8dtkdKdO3rvnF6$f7ZhBmU6FdNQEi3PBFpXBtj7jl7TYmmIXUivVowCIhmvIMFCBR3LbHl6IpkQDKYEym5OveZQAN0oSfXzV6ORE0uGB2vQ7AUh-qKj$BIhckutmGKN7fJVTYsn0rL6dIGsWEQocAgKTxhnz$7BMq9RXfFie6pt874uISh2AZmDolpv-xKvbAAiSSxj8qYpQip5rP9RAQgUE8IBdHVsWhWllqFfLlToAYOkVDmqgJFss9ZzJuWwzlM3aQyvsSDR0kaObJy6q9DnEuiFbQ-fpqm-oAGWtQhpsZWyqiC$XCjvOFlzoO9j2R5Z4yUZHoYdS1uDuUqLxxBuDVNw0X2o$DzvGGfbbbV$0myECj1r7hKCndNHrrrgEWr4IWhsWqBqwCOm$SSwyOGqXl3HBWjBLjB9QihVhmKLexCFBXvKmSL6wIrIq6AIOL4txfLOL4gbvLXnQDPAZ5ZrdOaBafXCObLxtZCRYEVnlKADyftdozbctPlj4Y8dTnU7OwNT"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405346306-7362445742846\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:46.306Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405346313-5502427583047\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:46.313Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "GET",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/turnstile/f/ov2/av0/rchE9v__ffDvQody25rJWp9__UKg3cw94mKJRtUSQ_5Xvs-1776405343-1.3.1.1-xjTU..Ow8LGkT99WNWt4sqhK8dgvoe.eBxKyHs0SYh4/sxpvv/0x4AAAAAAAFV93qQdS0ycilX/auto/fbE/api/normal?lang=auto",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/80362670:1776402458:KAYYwc2XqtDebX5TbujpwY0RzQwJUStQtW1ZnxWLfpM/9ed92ec31b83ea1b/KQMpduELv902cjZbl.WLTVgL6WE7xi.i1Vv1pwjL72I-1776405345-1.2.1.1-mbT9xUHmd_VVGspNGHaY83qmAyllZV.NSIgfyiROpIdlj17ZkZ1m4G08tUP1GDd8",
+    "body": "V-K7x080cyB-xQZm4FiUumpPCXzVrbhBmR6LzfBipb7bxisH$QnX0scDxLjs8Ov6PYDB5tD-4UZ4brjdbqdO$L0$TQoT3YPWwLoLWbdG5gscGRCc76Xiauz44NBjdutxr7YMqw8W$0Gr3qG2wFTtJ2w0y6Ud1FDejH6FPZP7BKwLorYc4P2VTLxeyXvUdmqhePc8tEs6FSwtM22fN61jPAkQ$LGzi5P0-9E$K34tztQEzUz6x32EvlehW10zW9xSKSlkres7sfeinJJy9glUSrKr$Y-wSENT-hQMb7wiMCoJPd8s2kQW0j$YCdM7ozdGlMqsv$4O1AddkquaCdEBIefo5bZcoMT5fKqk-70z4sgLgFsn0dXWamDFy9qYbQLex7eZMOM0By-qZqZwb3on9kA99uWeSun0c5HP0CfWP6HQAjhcLhAlTeHtIC7vjTtopMWeLvqXHRUgSR76EOvb2OEi2eSSPceDmeab5Q5f1$IeSYIR3gHix-7hx3SeOBFxiIzq4zGKcz1qi-u$FOrsp9tDMX82xJ7OVPvJJc0D-7FBFoOsiPmYcehLb4Wjxt2aWL$wVMSZgOm6HIkYQrgejgck4UjxJr1Q$u91aA3Oq9nl0TaKpy$3SsYfiHjY3GEWdtognO6hq$6IU0BLTdI4bGopQYg6cXRaj4PrxCfmIjBEGTnY3o4b2DRz76DtoXPmVstZ5ja5jkDjWhK3oyo8en3Wv7CoC31WSe9dXZcI$iib3W-VsOFtDpKhp8qXuvVohvtApY2OA3trSkX-o5ScJVJ9$LxTSGRwImGar0hqoYHUpQ28AT$Pr0W9M5OZx4oUcPKZrWeTlqwkFEx7SJOLJ7kl--2ucyAFhqlOMjeFvUk2ckEBeKe7CHAyXCQ5wPFJvJUJLPbj-N-ruXd0hGkpAf3tgFX4$jgUcLra4c00ArtIseJEKycbs39ITxKwPjiL94E9w5b6Jw1GUud6YgBqMsJio7Il7eK1WDeh-h3Q"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/act",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405347822-7840613910727\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:47.822Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/perf",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405347845-6191198357820\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:47.845Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/80362670:1776402458:KAYYwc2XqtDebX5TbujpwY0RzQwJUStQtW1ZnxWLfpM/9ed92ec31b83ea1b/KQMpduELv902cjZbl.WLTVgL6WE7xi.i1Vv1pwjL72I-1776405345-1.2.1.1-mbT9xUHmd_VVGspNGHaY83qmAyllZV.NSIgfyiROpIdlj17ZkZ1m4G08tUP1GDd8",
+    "body": "V-K7x080cyB-xQZm4FiUumpPCXzVrbhBmR6LzfBipb7bxisH$QnX0scDxLjs8Ov6PYDB5tD-4UZ4brjdbqdO$L0$TQoT3YPWwLoLWbdG5gscGRCc76Xiauz44NBjdutxr7YMqw8W$0Gr3qG2wFTtJ2w0y6Ud1FDejH6FPZP7BKwS$vXQc0phXncDhLKKoPj9qoN5FnjtGV$ebkkXpQFqckeDTwXQE5GDGXy-95TqTrpgZeEwd0f877qeTj3ZynSWC8KrmFHT$zaFVbfxNLvQQ2jtYoWIH72a5qbVNuPKLThyl2LM3tb5LqVEHEpJ0LEDUZ4xIbg0TT21kZpbr7XVrKYZXBOu0VLba1jz8dgcZIMJM2Y$u$-0mi1gnva97zG2w5wXrkOTpjl$ITSV0f-Je8KpJJ9QDQFP2ldZ6fB31urwpODlWa9rBGOXrcg4Nlj$jcu6o3lyLVOhAGB9MdDFCnB4WImF8dkukTdDTbLUW-bmjgqs3h$kBxJMXscColedRE9mRAspVjBiUKpaKHsKAXViUCxd7hUXq0-pWE939s0E$xiV64f3TQXGzJ$rB63ugVOcY-7tCOxvVyTqTts6vzggGZZarRASg7L$T-Zur-FGtbopmVxHctSR6fqEVX1znbyU$$2EaVzOvtXmAYXO43LxRi0MSWRGPvRpMFZcFG59$q5u3UnmTi0MH5JaWtWOonGKFuYchHlKNmbbGRihHtGgJByVQsf4vCYs3pkr8MwYQsSN30pCfaYYwIgAPg3AMq8oAKz4Ler9zl8vzAVnbz6ZRB16q026veqLJffPT8Gi-olScyrpxG5Y6EMtf3Da8w-yr0jA1Cz$KjAtb90JsfEYjuyt8X9TkyH0SXBWUE1SA5mOU$nOH$YKbeu0VITlY8xgbC0lU4wfZxdYJi1NDe91N0iYtHQUPm6CpDPU9xYm4WEUeODb2SdTNOpUCI2UMibA45gwL2Mdnezf9eE9pWy9j2sFgPkuMe$fD$gk"
+  },
+  {
+    "method": "GET",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/turnstile/f/ov2/av0/rchU4v36sUVZ5zxINzgdoljNQCD5GlEMuqF6ZmQ4_nGh0o-1776405345-1.3.1.1-zXDUChuD4CpjcN6Og2hfZEnknSlFPVMMA._4TEbrQUM/sxpvv/0x4AAAAAAAFV93qQdS0ycilX/auto/fbE/api/normal?lang=auto",
+    "body": ""
+  },
+  {
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/80362670:1776402458:KAYYwc2XqtDebX5TbujpwY0RzQwJUStQtW1ZnxWLfpM/9ed92ece9905ea1b/rG1Vq4zEkRcf5VFUJDnX27693aPZcx70SqSY3Kl27oM-1776405347-1.2.1.1-49nP9O2uTywrg9pgghnEiItF2Kx7T4Rtc.tyVAdKJ8sQRaxfW83o016oWeDkmy2e",
+    "body": "mC2vsgXfAaEtnwTYhG6q8AK5UjrE5jmGUVkhGSgutkXpxJfRgrgjtEKYHcNvjMCv5AIsK8t3xt1BeoH25UZGKS22wPzOFy0m$IvaT1qhZ7E-aaAaLljqlQ7w0tu7gHXegR1iIG7$6lxVeMDoJN8dloC7DGYimZ2u8KssTZRTk-uLRy0luevw$O1SS3fDSYY3cUp0Q$V7cZ1KNtOtLJrP-u78ZP7xuK8AvLZKkdvOd3usu7wlOc4mB6UcVsfofcydj$7NZtb$CnBFQGrGqDaBtWMvSjsR-4wXhNlw358IKJK9t9IJPRHnfUQiCSnStRGiTQXklSuzpRrnq$UV9BpHV8fvHzpwRgtqiQ$Hh9$XfnmoD5ONbpPPuwIc9EwlAamVpObkI-aohtV2XBvFGaQxGC9zm7lU$kPfxFsbgq2rBmAYtEXSEtioL4RkTojfYK7w9t1ZxS4aEJTJI9RXjr6ifo68y0zwJ--d5OSbF4m6RfilfvLz-13GvTSd9nnBbQJg8wuGHhUTDmThBvl3MrTuqEycNe9U-KsHaIzS9Eyy3faSu5SzRrXUOtJ0lnr7OxspDsmlqQgai9JLA0$9TmYp7bx-Efev36RmdwbyV9LYMrM0dr1gkE1BoJedolICkXwjnEQBlaZdyaY8kRWfh1rI$wITUvIeJpJJmvvEtqnuc0YeOPXYqKXimOABjQfE7wmj3HZ-CmluXH-An17QhVGPMwCRJHqZwsDZpKMfUBSjAi$DToxcHNsTSCQP71QeLKF35zoP1dvGvU8rVVMA6zjhomhqjYeuSEpeUuek-k3OsvVgXj0sir-vv4AgZrkbzKbTa0aNVQMy7mTDkVvk6w9bhbief$Rvp19KdMQOAxSIvcOGZ$RI$Ytqu3WdsGZQr6j0ZEa0ojlK6pkuXXO71WQSmxwJD$YcWpw8H6sHNH0LBv20MI$hy3Qi2T$4JYEpkIeX7CB$ufQO-NSDVfCm6KofyYEGFCbL2hvvXbvHMMcT"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/cms/nudges/share-nudge",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/cms/nudges/publish-nudge",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/share/stats?content_type=song",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://suno.com/9i3s/ag/g/c?v=2&tid=G-7B0KEDD7XP&gtm=45g92e64f1v880699528za20kzb9194996250zd9194996250&_p=1776405341647&gcs=G111&gcd=13t3t3t3t5l1&npa=0&dma=0&gdid=dYzg1YT.dYWJhMj.dNzQzZD&_eu=AEAAAGQ&_uip=%3A%3A&ae=a&are=1&cid=1402741141.1775548636&fp=1&frm=0&pscdl=noapi&rcb=0&sr=1280x900&uaa=x86&uab=64&uafvl=Microsoft%2520Edge%3B147.0.3912.60%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.56&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=ko&ur=KR-41&_gsid=cEF3fB3aBc6ZFCc9YKSTjo-4e8uedI7Krw&_s=3&tag_exp=0~115616985~115938466~115938469~117266401~117384405~117512543~118289195&dl=https%3A%2F%2Fsuno.com%2Fcreate&dr=https%3A%2F%2Fsuno.com%2Fcreate%3F__clerk_handshake%3DeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbElqb2lZV05qWlhOeklpd2laWGh3SWpveE56YzJOREE0T1RNNUxDSmhkV1FpT2lKemRXNXZMV0Z3YVNJc0luTjFZaUk2SW5WelpYSmZNbnBEY2xGck5XVktVVU5xVEVGaGVWVnBia2hxUWxvM1pqWlhJaXdpWVhwd0lqb2lhSFIwY0hNNkx5OXpkVzV2TG1OdmJTSXNJbVoyWVNJNld6QXNMVEZkTENKcFlYUWlPakUzTnpZME1EVXpNemtzSW1semN5STZJbWgwZEhCek9pOHZZWFYwYUM1emRXNXZMbU52YlNJc0ltcHBkQ0k2SWpVMU1XSXhOak00TFdWaE5qWXRORGhqTUMxaU1ESmxMVGxrTW1WbU9UUTVOak13T0NJc0luWnBlaUk2Wm1Gc2MyVXNJbk4xYm04dVkyOXRMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJaXdpYUhSMGNITTZMeTl6ZFc1dkxtRnBMMk5zWVdsdGN5OWxiV0ZwYkNJNkluUnZabWhoTkRJdU1qSkFaMjFoYVd3dVkyOXRJbjAuVWIwOEFNYy03c1dWX2FOald3YkVoUUlRaTdYZGRMdzVXd0NIcWFHejlxQkdVaVR4VXhKeWMxR1JJM2w0R3ZOeXFEM00xRUVQTGdpcUpYR3BIQXEyRVJ2ZHRmV1BCRGtUR2NQNGU3eTRQOXNKUHlQaXVmN3p6UHROUUg3bi0zWjhSQkw1aks5UUpEbmFfZ0huc2p5TUFsQ3ZQN054X2JoSnJzOWttTHlGaHhDVzZFbXFwOENfSl9BaXQyNWd6T0Z6OHp6RHE1Z1Bid0dERXFzSUNvRGJWZ3doQ05fVW4yV2dVSHVSMVRhT21yOGlDazBoYkxKQzQ0UDdxbmZFRVRGSjZjNWJld0c0R0dkLTVuajlFQjlTTFlaOWNKLWxHRHJaTkM2bEtvNjdkVzJ5MXJTalFHNGZUSjJ0anViSU9tMWNBUlhuOUNVZ3VkSXY0YUUtaW9UY1ZROyBEb21haW49c3Vuby5jb207IGV4cGlyZXM9RnJpLCAxNyBBcHIgMjAyNiAwNjo1NTozOSBHTVQ7IFNhbWVTaXRlPUxheDsgU2VjdXJlIiwiX19jbGllbnRfdWF0PTE3NzU1NDg2OTI7IERvbWFpbj1zdW5vLmNvbTsgTWF4LUFnZT0zMTUzNjAwMDsgU2FtZVNpdGU9TGF4OyBTZWN1cmUiLCJfX2NsZXJrX2hhbmRzaGFrZT07IGV4cGlyZXM9VGh1LCAwMSBKYW4gMTk3MCAwMDowMDowMCBHTVQ7IEh0dHBPbmx5OyBNYXgtQWdlPTA7IFNhbWVTaXRlPUxheDsgU2VjdXJlIl19.HNpGMRvTq_gN0xyEgUkSAmJ0mpyHUl13RMSp5dA1jsNEmATwrkqjQIlNj3GymTpU2eCPRjcxHoA0fwXE4XncWjXMAH1t49DddH0JuFJZFlBbS0aU7MM7B1Qs62dch2chvvkdqoCLrrFz0BLbe1UchSczLOpO5paRAxqVqxdAo6Aw7suqXTal6boKZ9AkTPlM8fEs-mOi96sMv3NNllZyhzN69WEhPCHy8j3GBjxJxZ-CydXFioW26E5BLgTgk_SKKtkcBDGjMQxkY6Yue50FNu28O3qjZxqWPAFKRNaHHsmzkD4DXidEfrlny5DwNwvd40XVWG7i38ZeIIKYHb70-Q&sid=1776405343&sct=2&seg=1&dt=Suno%20%7C%20AI%20Music&tfd=9562",
+    "body": "en=page_view&gap.gtb=2&_et=1870"
+  },
+  {
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/80362670:1776402458:KAYYwc2XqtDebX5TbujpwY0RzQwJUStQtW1ZnxWLfpM/9ed92ece9905ea1b/rG1Vq4zEkRcf5VFUJDnX27693aPZcx70SqSY3Kl27oM-1776405347-1.2.1.1-49nP9O2uTywrg9pgghnEiItF2Kx7T4Rtc.tyVAdKJ8sQRaxfW83o016oWeDkmy2e",
+    "body": "mC2vsgXfAaEtnwTYhG6q8AK5UjrE5jmGUVkhGSgutkXpxJfRgrgjtEKYHcNvjMCv5AIsK8t3xt1BeoH25UZGKS22wPzOFy0m$IvaT1qhZ7E-aaAaLljqlQ7w0tu7gHXegR1iIG7$6lxVeMDoJN8dloC7DGYimZ2u8KssTZRTk-uaiuJtKW5gWCiLnLpLNRILF2Y0ovYbJJGzBLuRz8pHXDJiducc$9wnf-B6LxlirURZNe5p4T0aoXt4VM2gmtBp-i1RoLt8ACcGKi-OgOMtICW2NYzoT$zwT81bAsxw$b3CyLrz5Zlhb-jqXPpJ9uWmUFxFhc9Muo1cTbcOmYJD4-Ca4J-8dkLPSMNzk3Vs5$eplk5fcN4uEOSbdVqCiO4mwdHA9gckeygKUmIDsocrxtEah-7rngEtg-BahxThwJHoMS0UQ$vV8RjMFcI7NH0nwCKR0I0wLg0AJfuOXYMRj4C2oz7hmXUCwmk7SST6a3-3r02CMejHvXoVPj-ZpF9i$d2TV1aPM0VVIdsiG7uPntUh$R7uhnnmvJ4NLroZRFnA4FjI5YUmNW3bMuQ3yrSW$WZnMIuJYGjyaGPq-NbyGfIDbLa7KSsgx8cY4lvoceqW3HWUhDQxQ-z7aJ1SD7$X$YScCCb3wB99e9UeW$2Dkuk1zPQJspRua-kL4wz8P-Pwxg4CBz$mg4uN6vlq5PkJV5qg2QDI37Rvg$N0H2DKICa9xo41$h47hig6iAgToDyvOzC5rw24xNGefEIgvD1zdHijfUnSDnLK$r7p7dTbMLtXOgiBVi3YEnwAK0q7ekroPQ60SzoSqwgolutO$pMHsp$VKrSLhvfgmf4aMEhJUrNjya4eV$pW1hSMvkhupryC30N$MKVWANQGcqdAFcvDICJ7Ufal4mVbOuFJeAbe-vc-NZoSj5LD1nYo8tJUV-nkj$xj85qL-VDMZlze68zRpuqxLerfm-laRlx68qNRpINHaytVIHlsIx05wRiL"
+  },
+  {
+    "method": "POST",
+    "url": "https://auth.suno.com/v1/client/verify?__clerk_api_version=2025-11-10&_clerk_js_version=5.117.0",
+    "body": "captcha_error=600010%2C600010%2C600010&captcha_action=heartbeat"
+  },
+  {
+    "method": "POST",
+    "url": "https://s.prod.suno.com/v1/rgstr?k=client-DaZjubWc7zwnZ5o2EEJhqt4UYRzYRoUuHbTQcIH9Ybq&st=javascript-client-react&sv=3.25.5&t=1776405352638&sid=a04dddf6-8c29-4e31-b6a1-c417e450b2d0&ec=50",
+    "body": "{\"events\":[{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"userID\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"email\":\"tofha42.22@gmail.com\",\"country\":\"KR\",\"customIDs\":{\"Anonymous ID\":\"b16781d6-5df9-407d-89b0-f572d5dc938b\",\"Postal Code\":\"812-0037\",\"Latitude\":\"33.5993\",\"Longitude\":\"130.4152\",\"City\":\"Fukuoka\",\"Country Region\":\"41\",\"IP Address\":\"172.70.199.164\"},\"custom\":{\"postal_code\":\"812-0037\",\"latitude\":\"33.5993\",\"longitude\":\"130.4152\",\"city\":\"Fukuoka\",\"country_region\":\"41\",\"ip_address\":\"172.70.199.164\",\"user_plan_key\":\"pro\",\"joined_date\":\"1751245883854\",\"is_vip\":false,\"web_device_type\":\"desktop\"},\"statsigEnvironment\":{\"tier\":\"production\"}},\"value\":null,\"metadata\":{\"gate\":\"web-sw-enabled\",\"gateValue\":\"true\",\"ruleID\":\"6pSvvZ7qep7mJbsifGniw0\",\"reason\":\"Network:Recognized\",\"lcut\":\"1776402648756\",\"receivedAt\":\"1776405344976\"},\"secondaryExposures\":[],\"time\":1776405345402,\"statsigMetadata\":{\"currentPage\":\"https://suno.com/create\"}},{\"eventName\":\"statsig::gate_exposure\",\"user\":{\"userID\":\"e3d5bb6e"
+  },
+  {
+    "method": "POST",
+    "url": "https://m-stratovibe.prod.suno.com/agg-receiver-service/v1/events/b",
+    "body": "{\"writeKey\":\"suno\",\"batch\":[{\"timestamp\":\"2026-04-17T05:55:44.691Z\",\"integrations\":{\"Segment.io\":true},\"event\":\"Web-User-Event\",\"type\":\"track\",\"properties\":{\"actionName\":\"ServiceWorkerRegistration\",\"context\":{\"status\":\"ready\"},\"displayMode\":\"browser\",\"userId\":null,\"featureSessionId\":null,\"featureSessionType\":null,\"sessionId\":\"84996f94ee3157e991a88cd43cc0c37f76d30038df9034912da4d3281f8d7ce3\"},\"context\":{\"page\":{\"path\":\"/create\",\"referrer\":\"\",\"search\":\"\",\"title\":\"Suno | AI Music\",\"url\":\"https://suno.com/\"},\"userAgent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0\",\"userAgentData\":{\"brands\":[{\"brand\":\"Microsoft Edge\",\"version\":\"147\"},{\"brand\":\"Not.A/Brand\",\"version\":\"8\"},{\"brand\":\"Chromium\",\"version\":\"147\"}],\"mobile\":false,\"platform\":\"Windows\"},\"locale\":\"ko\",\"library\":{\"name\":\"analytics.js\",\"version\":\"npm:next-1.81.1\"},\"timezone\":\"Asia/Seoul\"},\"messageId\":\"ajs-next-1776405344691-af3a8be4-ba06-4dca-a977-5f3cac997677\",\"anonymousId\":\"b16781d6-5d"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/inter",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405353746-8895279455584\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:53.746Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel",
+    "body": "{\"event\":\"EngagedSession\",\"event_id\":\"\",\"message_id\":\"messageId-1776405353757-6914804981216-CT67HURC77UB52N3JFBG\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:55:53.757Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIy"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/inter",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405363746-4470165429643\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:56:03.746Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://analytics.tiktok.com/api/v2/pixel/act",
+    "body": "{\"event_id\":\"\",\"message_id\":\"messageId-1776405366706-9400317657460\",\"is_onsite\":false,\"timestamp\":\"2026-04-17T05:56:06.706Z\",\"context\":{\"ad\":{\"sdk_env\":\"external\",\"jsb_status\":2},\"device\":{\"platform\":\"pc\"},\"user\":{\"anonymous_id\":\"01KNKF48373DRERYN5MJ3GS4MF_.tt.1\"},\"pixel\":{\"code\":\"CT67HURC77UB52N3JFBG\",\"runtime\":\"1\",\"codes\":\"CT67HURC77UB52N3JFBG\"},\"page\":{\"url\":\"https://suno.com/create\",\"referrer\":\"https://suno.com/create?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdW5vLmNvbS9jbGFpbXMvdG9rZW5fdHlwZSI6ImhhbmRzaGFrZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5zdW5vLmNvbSIsImhhbmRzaGFrZSI6WyJfX3Nlc3Npb249ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluTjFibTh0WVhCcExYSnpNalUyTFd0bGVTMHhJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SnpkVzV2TG1OdmJTOWpiR0ZwYlhNdmRYTmxjbDlwWkNJNkltVXpaRFZpWWpabExXRTJOalV0TkdVeU1TMDVOR1EwTFRWaE1XRXlNREUzWkRBNFppSXNJbWgwZEhCek9pOHZjM1Z1Ynk1aGFTOWpiR0ZwYlhNdlkyeGxjbXRmYVdRaU9pSjFjMlZ5WHpKNlEzSlJhelZsU2xGRGFreEJZWGxWYVc1SWFrSmFOMlkyVnlJc0luTjFibTh1WTI5dEwyTnNZV2x0Y3k5MGIydGxibDkwZVhCbEl"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/c/check",
+    "body": "{\"ctype\":\"generation\"}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/generate/v2-web/",
+    "body": "{\"token\":null,\"generation_type\":\"TEXT\",\"title\":\"Subtle Current\",\"tags\":\"Genre: Jazz Mood: Bright, hopeful, uplifting, focused, positive, gentle, smooth, serene, subtle, powerful, flowing, mid-high energy Tempo: Medium, gentle groove, inviting Instrumentation: Piano, upright bass (engaging line maintaining momentum), gentle brush drums, subtle electric guitar (counter-melody), occasional light flute accents Sound Effects/Atmosphere: Clean, warm, airy, subtle reverb, inviting ambiance Additional Descriptors: A subtly powerful and flowing track, maintaining positive momentum through an engaging bass line and a delicate guitar counter-melody.\",\"negative_tags\":\"\",\"mv\":\"chirp-fenix\",\"prompt\":\"\",\"make_instrumental\":true,\"user_uploaded_images_b64\":null,\"metadata\":{\"web_client_pathname\":\"/create\",\"is_max_mode\":false,\"is_mumble\":false,\"create_mode\":\"custom\",\"user_tier\":\"3eaebef3-ef46-446a-931c-3d50cd1514f1\",\"create_session_token\":\"0eae80da-cb03-4ef1-a35c-8bcde567b172\",\"disable_volume_normalizati",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/info/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-web-table-comparison/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "GET",
+    "url": "https://studio-api-prod.suno.com/api/billing/usage-plan-faq/",
+    "body": "",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://m-stratovibe.prod.suno.com/agg-receiver-service/v1/events/t",
+    "body": "{\"timestamp\":\"2026-04-17T05:56:08.003Z\",\"integrations\":{\"Segment.io\":true},\"event\":\"Web-User-Event\",\"type\":\"track\",\"properties\":{\"actionName\":\"GenerationStartSuccessSingle\",\"context\":{\"clipIds\":[\"b4641886-7dfd-4396-9678-a158a4b28c24\",\"db5c451b-db16-4ad8-9392-ce734ba7e864\"],\"timeToShowMs\":782},\"transactionUuid\":\"e0455345-b538-480a-9b0c-c202c427aad3\",\"displayMode\":\"browser\",\"userId\":\"e3d5bb6e-a665-4e21-94d4-5a1a2017d08f\",\"featureSessionId\":\"7d481b33-a4c2-4dda-8250-a774ff8b27dd\",\"featureSessionType\":\"create\",\"sessionId\":\"84996f94ee3157e991a88cd43cc0c37f76d30038df9034912da4d3281f8d7ce3\"},\"context\":{\"page\":{\"path\":\"/create\",\"referrer\":\"\",\"search\":\"\",\"title\":\"Suno | AI Music\",\"url\":\"https://suno.com/\"},\"userAgent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Edg/136.0.0.0\",\"userAgentData\":{\"brands\":[{\"brand\":\"Microsoft Edge\",\"version\":\"147\"},{\"brand\":\"Not.A/Brand\",\"version\":\"8\"},{\"brand\":\"Chromium\",\"version\":\"147\"}],\"mobile\":false,\"platform\":\"Windows\"},\"loca"
+  },
+  {
+    "method": "POST",
+    "url": "https://studio-api-prod.suno.com/api/feed/v3",
+    "body": "{\"filters\":{\"ids\":{\"presence\":\"True\",\"clipIds\":[\"b4641886-7dfd-4396-9678-a158a4b28c24\",\"db5c451b-db16-4ad8-9392-ce734ba7e864\"]}},\"limit\":2}",
+    "auth": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InN1bm8tYXBpLXJzMjU2LWtleS0xIiwidHlwIjoiSldUIn0.eyJzdW5vLmNvbS9jbGFpbXMvdXNlcl9pZCI6ImUzZDViYjZlLWE2NjUtNGUyMS05NGQ"
+  },
+  {
+    "method": "POST",
+    "url": "https://suno.com/suno-prod-s8wir/58sj3ae84cd6",
+    "body": "{\"type\":\"s_beacon\",\"data\":{\"k\":\"J3Btlm8bDN0qWvj3CEhkNkZz/Wqd60pQNlheN4GS49EbzEnGebh+4PRKzHTrmvLcKMn6/ms7/FDUeWwnL+Zd1LMwlRuosqe+fFwqWVTjfGlJ4sxX9o2w4rBWxlzN79r2BPsanot4ayXELNREm+gpMsfTp8mJwNsTCMyPe6g48vfdjDm+5y7m4SDbVDxJXpaBkoVyWD8knpVS1/mlGTHqyjNgzxJeeBPKywhZMPIZZkrqnWBhJnZyx/6QXWs/F0OqS+wZWbbBmAV4JAuDwmGlJwe4yZmV2eP7RbmkrV7x7nlcLfPo6scXHIaIBdnvYJBoMxQksxeDIJsM84ovgwtFkA==\",\"i\":\"fxmWD1gSjDcunyMP\",\"c\":\"2CeVywjpWM/36dLNe4ws6BuUv+rmbRqseME3/+L1M2y/JVF9texzWQbMsezA2fIoeubKhTABa+wNdTu9o/pZpnk6fzSIVFk3Ino2FK3E34SAd85lIrl9JEylM1AOxOhrtQ3zmtQ7PvvcAyCwKRgCuJ4wIaOT3Aii/uKARlkfytqTT3fXXxNHGGAW+0MDcSw8Brw/wCcnBqUyhkYVmMXZmIy9ePMqN0XSEBkOmaYD9koEd65rilBQJXzQD6f9jfPcdh4iMWS8id2kQUumBOYH5ZGRjXMcf4yWBxn6GwzBBI83KEfOovTwZm8HJAlEwOTP82hJC9G0gUch9jH8F/eBFAGK2hogtcvld/H0JntkvWCx6U2PPZszQpBRCDMQN9KDlTVrCxVXM+vgkaV3kxXx9++cu3VwQEwUZD8EQZYIwFyKJMjF5RoXzrrWur80jW/qEQ6tKEmfEpqxP9eudXYRj+1EcLrFyRClRj6fg71DDETI39ejCdcnkbn18DEkgK1jgEq7YNfKSdt47yxF45dv5TvrfSE/Dlm0urH1hPdtCZmurgQD6rMTmmOPSuFrCcrYSxNnLUCw1FvLNjz4OI"
+  }
+]
