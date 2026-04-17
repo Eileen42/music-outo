@@ -197,9 +197,9 @@ async def main(project_id: str) -> None:
 
             if is_first and rnd == 1:
                 # ═══════════════════════════════
-                # 최초 생성: Creator 먼저 → Collector
+                # 최초 생성: Creator + Collector 병렬 실행
                 # ═══════════════════════════════
-                logger.info(f"[최초] Creator: {len(missing)}곡 생성")
+                logger.info(f"[최초] Creator: {len(missing)}곡 생성 + Collector 병렬 시작")
                 tracker["phase"] = "creating"
                 _w(project_id, tracker)
 
@@ -209,6 +209,12 @@ async def main(project_id: str) -> None:
                     "index": t.get("index", i+1),
                 } for i, t in enumerate(missing)]
 
+                # Collector를 병렬로 시작 (생성되는 즉시 다운로드)
+                collector_task = asyncio.create_task(
+                    _collector_loop(context, project_id, all_tracks, tdir, tracker, save_fn, stop_ev)
+                )
+
+                # Creator 실행 (곡 생성)
                 creator = SunoCreatorAgent(context)
                 await creator.create_all(
                     songs=songs,
@@ -219,10 +225,22 @@ async def main(project_id: str) -> None:
                     ) and None,
                 )
                 await creator.close()
+                logger.info("[최초] Creator 완료, Collector 수집 대기 중...")
 
-                # Creator 완료 → Collector 폴링 시작
-                logger.info("[최초] Creator 완료, Collector 폴링 시작")
-                await _collector_loop(context, project_id, all_tracks, tdir, tracker, save_fn, stop_ev)
+                # Creator 완료 후 Collector가 나머지 수집할 때까지 대기
+                if not collector_task.done():
+                    for _ in range(10):  # 최대 5분
+                        d, _ = _count(all_tracks, tdir)
+                        if d >= total:
+                            stop_ev.set()
+                            break
+                        await asyncio.sleep(30)
+                    stop_ev.set()
+
+                try:
+                    await asyncio.wait_for(collector_task, timeout=60)
+                except asyncio.TimeoutError:
+                    pass
 
             else:
                 # ═══════════════════════════════
