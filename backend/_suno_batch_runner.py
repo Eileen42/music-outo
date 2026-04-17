@@ -317,19 +317,25 @@ async def main(project_id: str) -> None:
         await asyncio.sleep(5)
 
     # 최종 검수 (중복/고아/빈파일 정리 + 연결 + 검증)
-    update(phase="verifying", current_song="최종 검수 중...")
-    final = suno_qa_agent.final_check(project_id)
-    c = len([t for t in final.get("tracks", []) if t["status"] == "complete"])
-    tracker.update(status="completed", phase="done", tracks_collected=final["total_files"],
-                   qa_report={
-                       "status": final["status"],
-                       "total_files": final["total_files"],
-                       "expected_files": final["expected_files"],
-                       "complete_count": c,
-                       "cleanup": final.get("cleanup", {}),
-                   })
-    _w(project_id, tracker)
-    logger.info(f"종료: {c}/{total}곡, {tracker['round']}라운드, cleanup={final.get('cleanup', {})}")
+    try:
+        tracker.update(phase="verifying", current_song="최종 검수 중...")
+        _w(project_id, tracker)
+        final = suno_qa_agent.final_check(project_id)
+        c = len([t for t in final.get("tracks", []) if t["status"] == "complete"])
+        tracker.update(status="completed", phase="done", tracks_collected=final["total_files"],
+                       qa_report={
+                           "status": final["status"],
+                           "total_files": final["total_files"],
+                           "expected_files": final["expected_files"],
+                           "complete_count": c,
+                           "cleanup": final.get("cleanup", {}),
+                       })
+        logger.info(f"종료: {c}/{total}곡, {tracker['round']}라운드")
+    except Exception as e:
+        logger.error(f"최종 검수 실패: {e}")
+        tracker.update(status="completed", phase="done")
+    finally:
+        _w(project_id, tracker)
 
 
 if __name__ == "__main__":
