@@ -628,19 +628,48 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   {project.channel_id && (() => {
                     const hasAnySuno = sunoTracks.length > 0 || (qaStatus && qaStatus.tracks.some(t => t.status !== 'missing'))
                     const allComplete = qaStatus?.status === 'pass'
+                    const completeCount = qaStatus?.tracks.filter(t => t.status === 'complete').length || 0
                     const missingCount = qaStatus?.tracks.filter(t => t.status !== 'complete').length || 0
+                    const downloadFailedCount = sunoTracks.filter(t => t.status === 'download_failed').length
+                    const isRunning = batchStatus?.status === 'running'
 
-                    return allComplete ? (
-                      <span className="text-xs text-green-400 px-3 py-1.5">✅ 전곡 완료</span>
-                    ) : (
-                      <button
-                        onClick={handleBatchCreate}
-                        disabled={batchStatus?.status === 'running' || !sunoSession?.session_exists}
-                        title={!sunoSession?.session_exists ? 'Suno 로그인 필요' : hasAnySuno ? `미완료 ${missingCount}곡 이어서 생성` : ''}
-                        className="bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        {hasAnySuno ? `🔄 미완료 ${missingCount}곡 재생성` : '🎵 Suno 일괄 생성'}
-                      </button>
+                    if (allComplete) return <span className="text-xs text-green-400 px-3 py-1.5">✅ 전곡 완료</span>
+
+                    return (
+                      <div className="flex gap-2">
+                        {/* 생성된 곡 다운로드 (Suno에 있지만 로컬에 없는 곡) */}
+                        {hasAnySuno && missingCount > 0 && (
+                          <button
+                            onClick={async () => {
+                              setScanningStr('다운로드 중...')
+                              try {
+                                await api.trackDesign.scanSiblings(project.id)
+                                setTimeout(async () => {
+                                  const r = await api.trackDesign.sunoTracks(project.id)
+                                  setSunoTracks(r.tracks)
+                                  api.qa.verify(project.id).then(setQaStatus).catch(() => {})
+                                  setScanningStr('')
+                                }, 15000)
+                              } catch { setScanningStr('') }
+                            }}
+                            disabled={isRunning || !!scanningStr}
+                            className="bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          >
+                            {scanningStr || `📥 생성된 곡 다운로드`}
+                          </button>
+                        )}
+                        {/* 미완료곡 생성 (아직 Suno에서 안 만든 곡) */}
+                        <button
+                          onClick={handleBatchCreate}
+                          disabled={isRunning || !sunoSession?.session_exists}
+                          title={!sunoSession?.session_exists ? 'Suno 로그인 필요' : ''}
+                          className="bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          {hasAnySuno
+                            ? `🎵 미완료 ${missingCount}곡 생성`
+                            : `🎵 Suno 일괄 생성 (${tracks.length}곡)`}
+                        </button>
+                      </div>
                     )
                   })()}
                 </div>
