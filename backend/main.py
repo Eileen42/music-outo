@@ -339,6 +339,36 @@ async def waveform_energy(project_id: str):
     return _json.loads(energy_file.read_text(encoding="utf-8"))
 
 
+# ─── Suno HTTP API ───────────────────────────────────────────────────────────
+
+@app.post("/api/suno/capture")
+async def suno_capture_api():
+    """Suno 내부 API 엔드포인트 캡처 (Edge CDP 필요)."""
+    from core.suno_api import suno_api
+    result = await suno_api.capture_api()
+    return {"endpoints": len(result.get("endpoints", [])), "captured": result}
+
+
+@app.get("/api/suno/credits")
+async def suno_credits():
+    """Suno 크레딧 조회."""
+    from core.suno_api import suno_api
+    return await suno_api.get_credits()
+
+
+@app.post("/api/suno/test-create")
+async def suno_test_create(body: dict):
+    """Suno HTTP API로 곡 1개 테스트 생성."""
+    from core.suno_api import suno_api
+    clips = await suno_api.create_song(
+        prompt=body.get("prompt", "peaceful piano ambient"),
+        title=body.get("title", "Test Song"),
+        lyrics=body.get("lyrics", ""),
+        instrumental=body.get("instrumental", True),
+    )
+    return {"clips": clips}
+
+
 # ─── QA 검수 ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/projects/{project_id}/qa")
