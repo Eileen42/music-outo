@@ -638,7 +638,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                     return (
                       <div className="flex gap-2">
                         {/* 생성된 곡 다운로드 (Suno에 있지만 로컬에 없는 곡) */}
-                        {hasAnySuno && missingCount > 0 && (
+                        {!allComplete && (
                           <button
                             onClick={async () => {
                               setScanningStr('다운로드 중...')
