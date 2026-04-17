@@ -30,33 +30,45 @@ class GeminiClient:
     # ──────────────────────────── public ────────────────────────────
 
     async def generate_text(self, prompt: str, model: str = "gemini-2.5-flash") -> str:
-        """텍스트 생성. 429/503 발생 시 자동 재시도."""
+        """텍스트 생성. 429/503 발생 시 fallback 모델로 자동 전환."""
+        # 모델 우선순위: 요청된 모델 → fallback 모델들
+        models_to_try = [model]
+        if model == "gemini-2.5-flash":
+            models_to_try += ["gemini-2.0-flash", "gemini-1.5-flash"]
+        elif model == "gemini-2.0-flash":
+            models_to_try += ["gemini-2.5-flash", "gemini-1.5-flash"]
+
         last_err: Exception | None = None
 
-        for attempt in range(max(len(self.api_keys), 1) * 3):
-            key_index, key = self._get_available_key()
-            client = genai.Client(api_key=key)
-            try:
-                response = await asyncio.to_thread(
-                    client.models.generate_content,
-                    model=model,
-                    contents=prompt,
-                )
-                return response.text
-            except Exception as e:
-                if self._is_rate_limit(e):
-                    logger.warning(f"키 [{key_index}] 429 — 쿨다운 {_COOLDOWN_SEC}s 설정")
-                    self._set_cooldown(key_index)
-                    last_err = e
-                elif self._is_retryable(e):
-                    wait = 10 * (attempt + 1)
-                    logger.warning(f"키 [{key_index}] 503 UNAVAILABLE — {wait}초 대기 후 재시도 ({attempt+1})")
-                    await asyncio.sleep(wait)
-                    last_err = e
-                else:
-                    raise
+        for current_model in models_to_try:
+            for attempt in range(max(len(self.api_keys), 1) * 2):
+                key_index, key = self._get_available_key()
+                client = genai.Client(api_key=key)
+                try:
+                    response = await asyncio.to_thread(
+                        client.models.generate_content,
+                        model=current_model,
+                        contents=prompt,
+                    )
+                    if current_model != model:
+                        logger.info(f"fallback 모델 사용: {current_model}")
+                    return response.text
+                except Exception as e:
+                    if self._is_rate_limit(e):
+                        logger.warning(f"키 [{key_index}] 429 ({current_model}) — 쿨다운 설정")
+                        self._set_cooldown(key_index)
+                        last_err = e
+                    elif self._is_retryable(e):
+                        wait = 10 * (attempt + 1)
+                        logger.warning(f"키 [{key_index}] 503 ({current_model}) — {wait}초 대기 ({attempt+1})")
+                        await asyncio.sleep(wait)
+                        last_err = e
+                    else:
+                        raise
+            # 이 모델 전부 실패 → 다음 모델로
+            logger.warning(f"{current_model} 전부 실패 — 다음 모델 시도")
 
-        raise last_err or RuntimeError("사용 가능한 Gemini 키가 없습니다.")
+        raise last_err or RuntimeError("사용 가능한 Gemini 키/모델이 없습니다.")
 
     async def generate_json(self, prompt: str, model: str = "gemini-2.5-flash") -> dict | list:
         """JSON 응답 생성. 마크다운 코드블록 자동 제거."""
