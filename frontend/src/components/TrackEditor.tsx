@@ -1,6 +1,8 @@
-import { useState, useRef, type DragEvent } from 'react'
+import { useState, useRef, useCallback, type DragEvent } from 'react'
 import type { Project, Track, RepeatConfig } from '../types'
 import { api } from '../api/client'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 interface Props {
   project: Project
@@ -35,11 +37,41 @@ export default function TrackEditor({ project, onRefresh }: Props) {
   const [lyricsDraft, setLyricsDraft] = useState('')
   const [savingRepeat, setSavingRepeat] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playingId, setPlayingId] = useState<string | null>(null)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
   const defaultRepeat: RepeatConfig = { mode: 'count', count: 1, target_minutes: 60 }
   const [repeat, setRepeat] = useState<RepeatConfig>(project.repeat ?? defaultRepeat)
 
   const tracks = [...(project.tracks || [])].sort((a, b) => a.order - b.order)
+
+  const togglePlay = useCallback((trackId: string, storedPath: string) => {
+    if (playingId === trackId) {
+      audioRef.current?.pause()
+      setPlayingId(null)
+      return
+    }
+    if (audioRef.current) audioRef.current.pause()
+    const url = storedPath.startsWith('http') ? storedPath : `${API_BASE}/storage/${storedPath.split('storage/')[1] || storedPath}`
+    const audio = new Audio(url.replace(/\\/g, '/'))
+    audio.onended = () => setPlayingId(null)
+    audio.play().catch(() => {})
+    audioRef.current = audio
+    setPlayingId(trackId)
+  }, [playingId])
+
+  const handleReorder = async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return
+    const ids = tracks.map(t => t.id)
+    const [moved] = ids.splice(fromIdx, 1)
+    ids.splice(toIdx, 0, moved)
+    try {
+      await api.tracks.reorder(project.id, ids)
+      await onRefresh()
+    } catch { /* ignore */ }
+  }
   const totalDuration = tracks.reduce((s, t) => s + t.duration, 0)
 
   // 반복 설정 기반 계산
@@ -289,11 +321,40 @@ export default function TrackEditor({ project, onRefresh }: Props) {
 
           <div className="space-y-2">
             {tracks.map((track, idx) => (
-              <div key={track.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 hover:border-gray-700 transition-colors">
+              <div
+                key={track.id}
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx) }}
+                onDragEnd={() => {
+                  if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+                    handleReorder(dragIdx, dragOverIdx)
+                  }
+                  setDragIdx(null)
+                  setDragOverIdx(null)
+                }}
+                className={`bg-gray-900 border rounded-2xl p-4 transition-all ${
+                  dragOverIdx === idx ? 'border-purple-500 ring-1 ring-purple-500' : 'border-gray-800 hover:border-gray-700'
+                }`}
+              >
                 <div className="flex items-start gap-3">
-                  <span className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-gray-800 text-gray-500 font-mono text-xs mt-0.5">
-                    {idx + 1}
-                  </span>
+                  <div className="flex flex-col items-center gap-1 shrink-0 mt-0.5">
+                    <span className="text-gray-500 cursor-grab active:cursor-grabbing select-none text-sm" title="드래그하여 순서 변경">⠿</span>
+                    <span className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-800 text-gray-500 font-mono text-xs">
+                      {idx + 1}
+                    </span>
+                    {track.stored_path && (
+                      <button
+                        onClick={() => togglePlay(track.id, track.stored_path)}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-colors ${
+                          playingId === track.id ? 'bg-purple-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
+                        title="재생/정지"
+                      >
+                        {playingId === track.id ? '⏸' : '▶'}
+                      </button>
+                    )}
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     {/* 제목 */}
