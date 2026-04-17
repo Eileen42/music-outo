@@ -362,6 +362,17 @@ export default function SongMaker({ project, onRefresh }: Props) {
       const s = await api.trackDesign.sunoStatus(project.id)
       setBatchStatus(s)
     } catch (e: unknown) {
+      // 409 Conflict = 이전 배치가 stuck → 자동 리셋 후 재시도
+      const err = e as { response?: { status?: number } }
+      if (err?.response?.status === 409) {
+        try {
+          await api.trackDesign.batchStop(project.id)
+          await api.trackDesign.batchCreate(project.id, project.channel_id)
+          const s = await api.trackDesign.sunoStatus(project.id)
+          setBatchStatus(s)
+          return
+        } catch { /* fallthrough */ }
+      }
       const msg = e instanceof Error ? e.message : 'Suno 시작 실패'
       setDesignError(msg)
     }
