@@ -30,10 +30,10 @@ class GeminiClient:
     # ──────────────────────────── public ────────────────────────────
 
     async def generate_text(self, prompt: str, model: str = "gemini-2.5-flash") -> str:
-        """텍스트 생성. 429 발생 시 다음 키로 자동 전환."""
+        """텍스트 생성. 429/503 발생 시 자동 재시도."""
         last_err: Exception | None = None
 
-        for _ in range(max(len(self.api_keys), 1)):
+        for attempt in range(max(len(self.api_keys), 1) * 3):
             key_index, key = self._get_available_key()
             client = genai.Client(api_key=key)
             try:
@@ -47,6 +47,11 @@ class GeminiClient:
                 if self._is_rate_limit(e):
                     logger.warning(f"키 [{key_index}] 429 — 쿨다운 {_COOLDOWN_SEC}s 설정")
                     self._set_cooldown(key_index)
+                    last_err = e
+                elif self._is_retryable(e):
+                    wait = 10 * (attempt + 1)
+                    logger.warning(f"키 [{key_index}] 503 UNAVAILABLE — {wait}초 대기 후 재시도 ({attempt+1})")
+                    await asyncio.sleep(wait)
                     last_err = e
                 else:
                     raise
@@ -157,6 +162,12 @@ class GeminiClient:
     def _is_rate_limit(e: Exception) -> bool:
         msg = str(e).lower()
         return "429" in msg or "quota" in msg or "rate" in msg or "resource_exhausted" in msg
+
+    @staticmethod
+    def _is_retryable(e: Exception) -> bool:
+        """503 UNAVAILABLE 등 일시적 에러."""
+        msg = str(e).lower()
+        return "503" in msg or "unavailable" in msg or "overloaded" in msg or "service_unavailable" in msg
 
 
 # ──────────────────────────── 싱글톤 ────────────────────────────
