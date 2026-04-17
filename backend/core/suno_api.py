@@ -380,49 +380,96 @@ class SunoAPIClient:
             page.on("response", on_response)
 
             await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
 
-            # Advanced 모드
-            adv = await page.query_selector("text=Custom")
+            # 쿠키 동의 배너 닫기
+            cookie_btn = await page.query_selector("button:has-text('Accept All Cookies')")
+            if not cookie_btn:
+                cookie_btn = await page.query_selector("button:has-text('Reject All')")
+            if cookie_btn:
+                await cookie_btn.click()
+                await page.wait_for_timeout(1000)
+                logger.info("쿠키 배너 닫기 완료")
+
+            # Advanced 모드 전환
+            adv = await page.query_selector("button:has-text('Advanced')")
             if adv:
                 await adv.click()
-                await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(2000)
+                logger.info("Advanced 모드 전환 완료")
+            else:
+                logger.info("Advanced 버튼 없음 (이미 Advanced 모드)")
 
-            # 프롬프트 입력 (React nativeValueSetter)
-            if not instrumental and lyrics:
-                await page.evaluate(f"""() => {{
-                    const ta = document.querySelector('[data-testid="lyrics-textarea"]') || document.querySelectorAll('textarea')[0];
-                    if (ta) {{ const nv = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; nv.call(ta, {json.dumps(lyrics)}); ta.dispatchEvent(new Event('input', {{bubbles: true}})); }}
-                }}""")
-                await page.wait_for_timeout(500)
-
-            # 스타일 입력
+            # 입력: 레시피 기반 (녹화된 셀렉터 사용)
+            # 1. 가사 (Instrumental이면 비움)
+            lyrics_val = "" if instrumental else lyrics
             await page.evaluate(f"""() => {{
-                const tas = document.querySelectorAll('textarea');
-                for (const ta of tas) {{
-                    if (ta.placeholder && !ta.placeholder.includes('lyrics')) {{
-                        const nv = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-                        nv.call(ta, {json.dumps(prompt)});
-                        ta.dispatchEvent(new Event('input', {{bubbles: true}}));
-                        break;
-                    }}
+                const ta = document.querySelector('[data-testid="lyrics-textarea"]');
+                if (ta) {{
+                    const nv = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                    nv.call(ta, {json.dumps(lyrics_val)});
+                    ta.dispatchEvent(new Event('input', {{bubbles: true}}));
                 }}
             }}""")
             await page.wait_for_timeout(500)
+            logger.info("가사 입력 완료")
 
-            # 제목 입력
+            # 2. Instrumental 체크 (aria-label로 찾기)
+            if instrumental:
+                inst_btn = await page.query_selector("[aria-label*='Instrumental']")
+                if inst_btn:
+                    # 이미 체크되어 있는지 확인
+                    is_checked = await page.evaluate("""() => {
+                        const btn = document.querySelector("[aria-label*='Instrumental']");
+                        return btn ? btn.getAttribute('data-state') === 'checked' || btn.getAttribute('aria-checked') === 'true' : false;
+                    }""")
+                    if not is_checked:
+                        await inst_btn.click()
+                        await page.wait_for_timeout(500)
+                        logger.info("Instrumental 체크")
+
+            # 3. 스타일 프롬프트 (위치 기반 — 두 번째 textarea 또는 placeholder 없는 것)
             await page.evaluate(f"""() => {{
-                const inp = document.querySelector("input[placeholder*='Song Title']");
-                if (inp) {{ const nv = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; nv.call(inp, {json.dumps(title)}); inp.dispatchEvent(new Event('input', {{bubbles: true}})); }}
+                const tas = [...document.querySelectorAll('textarea')];
+                // lyrics가 아닌 textarea 찾기
+                const style = tas.find(ta => !ta.getAttribute('data-testid')?.includes('lyrics') && ta !== tas[0]) || tas[1];
+                if (style) {{
+                    const nv = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                    nv.call(style, {json.dumps(prompt)});
+                    style.dispatchEvent(new Event('input', {{bubbles: true}}));
+                }}
             }}""")
             await page.wait_for_timeout(500)
+            logger.info("스타일 입력 완료")
 
-            # Create 클릭
+            # 4. 제목
+            await page.evaluate(f"""() => {{
+                const inp = document.querySelector("input[placeholder*='Song Title']") || document.querySelector("input[placeholder*='Title']");
+                if (inp) {{
+                    const nv = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nv.call(inp, {json.dumps(title)});
+                    inp.dispatchEvent(new Event('input', {{bubbles: true}}));
+                }}
+            }}""")
+            await page.wait_for_timeout(500)
+            logger.info("제목 입력 완료")
+
+            # 5. Create 클릭
+            await page.wait_for_timeout(1000)
             create_btn = await page.query_selector("[aria-label='Create song']")
             if not create_btn:
-                create_btn = await page.query_selector("button:has-text('Create')")
+                create_btn = await page.query_selector("button:has-text('Create'):not([disabled])")
             if create_btn:
-                await create_btn.click()
+                is_disabled = await create_btn.is_disabled()
+                if is_disabled:
+                    logger.error("Create 버튼이 disabled — 크레딧 부족 또는 입력 미완료")
+                    # 스크린샷 저장
+                    await page.screenshot(path=str(Path(__file__).parent.parent / "storage" / "dom_snapshots" / "create_disabled.png"))
+                else:
+                    await create_btn.click()
+                    logger.info("Create 클릭 완료")
+            else:
+                logger.error("Create 버튼을 찾을 수 없음")
 
             # clip 응답 대기 (최대 60초)
             for _ in range(30):
