@@ -275,10 +275,13 @@ class SunoAPIClient:
         if auth:
             headers["Authorization"] = auth
 
-        # 생성 전 체크 (captcha/rate limit)
-        await self._pre_generate_check(headers)
+        # 생성 전 captcha 체크
+        captcha_required = await self._pre_generate_check(headers)
+        if captcha_required:
+            logger.warning("Captcha 필요 — Playwright fallback으로 전환")
+            return await self._create_song_browser(prompt, title, lyrics, instrumental)
 
-        for attempt in range(2):
+        for attempt in range(4):
             async with aiohttp.ClientSession() as session:
                 async with session.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                     if resp.status == 200:
@@ -286,19 +289,33 @@ class SunoAPIClient:
                         clips = data.get("clips", data.get("data", []))
                         logger.info(f"곡 생성 성공: {len(clips)}개 clip, title={title}")
                         return clips
-                    elif resp.status == 401 and attempt == 0:
+                    elif resp.status == 401:
                         logger.info("401 — 토큰 갱신 후 재시도")
                         if await self.refresh_token():
                             headers["Authorization"] = self._bearer_token
                             headers["Cookie"] = self._cookie_header()
                             continue
+                    elif resp.status == 429:
+                        wait = 30 * (attempt + 1)
+                        logger.warning(f"429 Rate Limit — {wait}초 대기 후 재시도 ({attempt+1}/4)")
+                        await asyncio.sleep(wait)
+                        continue
+                    elif resp.status == 422:
+                        text = await resp.text()
+                        logger.error(f"422 요청 거부: {text[:300]}")
+                        # 크레딧 부족이면 재시도 의미 없음
+                        if "credit" in text.lower() or "insufficient" in text.lower():
+                            raise RuntimeError(f"크레딧 부족: {text[:100]}")
+                        # 그 외 422는 30초 대기 후 재시도
+                        await asyncio.sleep(30)
+                        continue
                     text = await resp.text()
                     logger.error(f"곡 생성 실패: HTTP {resp.status} — {text[:200]}")
                     raise RuntimeError(f"Suno API 에러: {resp.status}")
-        raise RuntimeError("Suno API: 재시도 실패")
+        raise RuntimeError("Suno API: 4회 재시도 후 실패")
 
-    async def _pre_generate_check(self, headers: dict) -> None:
-        """생성 전 captcha/rate-limit 체크."""
+    async def _pre_generate_check(self, headers: dict) -> bool:
+        """생성 전 captcha 체크. True면 captcha 필요."""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -308,12 +325,123 @@ class SunoAPIClient:
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     if resp.status == 200:
-                        logger.debug("pre-check OK")
-                    else:
-                        text = await resp.text()
-                        logger.warning(f"pre-check: HTTP {resp.status} — {text[:100]}")
+                        data = await resp.json()
+                        required = data.get("required", False)
+                        if required:
+                            logger.warning("pre-check: captcha 필요")
+                        return required
         except Exception as e:
             logger.warning(f"pre-check 실패 (무시): {e}")
+        return False
+
+    async def _create_song_browser(self, prompt: str, title: str, lyrics: str, instrumental: bool) -> list[dict]:
+        """Captcha 필요 시 Playwright fallback으로 곡 생성."""
+        logger.info(f"Playwright fallback 생성: {title}")
+        try:
+            from playwright.async_api import async_playwright
+
+            sp = _SESSION_DIR / "suno_context.json"
+            exe = None
+            for p in [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            ]:
+                if Path(p).exists():
+                    exe = p
+                    break
+
+            pw = await async_playwright().start()
+            browser = await pw.chromium.launch(
+                executable_path=exe, headless=False,
+                args=["--disable-blink-features=AutomationControlled", "--no-first-run"],
+            )
+            context = await browser.new_context(
+                storage_state=str(sp),
+                user_agent=self._headers.get("User-Agent", ""),
+            )
+            page = await context.new_page()
+
+            # 응답 가로채기
+            clips = []
+            async def on_response(response):
+                if "generate" in response.url and response.status == 200:
+                    try:
+                        data = await response.json()
+                        for c in data.get("clips", data.get("data", [])):
+                            if c.get("id"):
+                                clips.append(c)
+                    except Exception:
+                        pass
+            page.on("response", on_response)
+
+            await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(3000)
+
+            # Advanced 모드
+            adv = await page.query_selector("text=Custom")
+            if adv:
+                await adv.click()
+                await page.wait_for_timeout(1000)
+
+            # 프롬프트 입력 (React nativeValueSetter)
+            if not instrumental and lyrics:
+                await page.evaluate(f"""() => {{
+                    const ta = document.querySelector('[data-testid="lyrics-textarea"]') || document.querySelectorAll('textarea')[0];
+                    if (ta) {{ const nv = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; nv.call(ta, {json.dumps(lyrics)}); ta.dispatchEvent(new Event('input', {{bubbles: true}})); }}
+                }}""")
+                await page.wait_for_timeout(500)
+
+            # 스타일 입력
+            await page.evaluate(f"""() => {{
+                const tas = document.querySelectorAll('textarea');
+                for (const ta of tas) {{
+                    if (ta.placeholder && !ta.placeholder.includes('lyrics')) {{
+                        const nv = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                        nv.call(ta, {json.dumps(prompt)});
+                        ta.dispatchEvent(new Event('input', {{bubbles: true}}));
+                        break;
+                    }}
+                }}
+            }}""")
+            await page.wait_for_timeout(500)
+
+            # 제목 입력
+            await page.evaluate(f"""() => {{
+                const inp = document.querySelector("input[placeholder*='Song Title']");
+                if (inp) {{ const nv = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; nv.call(inp, {json.dumps(title)}); inp.dispatchEvent(new Event('input', {{bubbles: true}})); }}
+            }}""")
+            await page.wait_for_timeout(500)
+
+            # Create 클릭
+            create_btn = await page.query_selector("[aria-label='Create song']")
+            if not create_btn:
+                create_btn = await page.query_selector("button:has-text('Create')")
+            if create_btn:
+                await create_btn.click()
+
+            # clip 응답 대기 (최대 60초)
+            for _ in range(30):
+                if len(clips) >= 2:
+                    break
+                await page.wait_for_timeout(2000)
+
+            # 세션 저장 (갱신된 쿠키)
+            storage = await context.storage_state()
+            sp.write_text(json.dumps(storage, ensure_ascii=False), encoding="utf-8")
+
+            await browser.close()
+            await pw.stop()
+
+            if clips:
+                logger.info(f"Playwright 생성 성공: {len(clips)}개 clip")
+            else:
+                logger.error("Playwright 생성 실패: clip 없음")
+
+            return clips
+
+        except Exception as e:
+            logger.error(f"Playwright fallback 실패: {e}")
+            raise
 
     async def _get_auth_token(self) -> Optional[str]:
         """Bearer 토큰 반환. 만료 시 자동 갱신."""
