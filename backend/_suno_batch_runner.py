@@ -135,8 +135,8 @@ async def main(project_id: str) -> None:
                 "index": idx,
             })
 
-        # 곡을 하나씩 생성 + 즉시 다운로드 (병렬 3곡)
-        semaphore = asyncio.Semaphore(3)
+        # 곡을 순차 생성 (Suno rate limit 429 방지 — 1곡씩)
+        semaphore = asyncio.Semaphore(1)
         round_results = []
 
         async def process_song(song):
@@ -186,8 +186,8 @@ async def main(project_id: str) -> None:
 
                     logger.info(f"  [{idx}] 완료: {title}")
 
-                    # rate limit 방지
-                    await asyncio.sleep(5)
+                    # rate limit 방지 (Suno는 연속 요청에 민감)
+                    await asyncio.sleep(15)
 
                 except Exception as e:
                     logger.error(f"  [{idx}] 실패: {e}")
