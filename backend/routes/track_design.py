@@ -482,9 +482,9 @@ async def scan_siblings(project_id: str, background_tasks: BackgroundTasks):
         return {"status": "all_complete", "message": "모든 곡이 2개씩 완료됨"}
 
     background_tasks.add_task(
-        _run_sibling_scan,
+        _run_sibling_scan_http,
         project_id=project_id,
-        titles=missing_titles,
+        designed=designed,
         missing_indices=missing_indices,
     )
 
@@ -574,6 +574,128 @@ asyncio.run(main())
 
     except Exception as e:
         logger.error(f"누락곡 검색 실패: {e}")
+
+
+async def _run_sibling_scan_http(project_id: str, designed: list[dict], missing_indices: list[int]) -> None:
+    """HTTP API로 Suno 피드 검색 + CDN 다운로드. 브라우저 불필요."""
+    from core.suno_api import suno_api, BASE_URL as SUNO_BASE_URL
+
+    logger.info(f"[HTTP 스캔] 시작: {len(missing_indices)}곡 누락")
+
+    try:
+        # 토큰 갱신
+        suno_api.load_session()
+        if not await suno_api.refresh_token():
+            logger.error("[HTTP 스캔] 토큰 갱신 실패")
+            return
+
+        # Suno 피드에서 최근 곡 가져오기 (전체 워크스페이스)
+        import aiohttp
+        auth = await suno_api._get_auth_token()
+        headers = {**suno_api._headers, "Cookie": suno_api._cookie_header()}
+        if auth:
+            headers["Authorization"] = auth
+
+        # 피드 조회 (최근 100곡)
+        all_clips = []
+        cursor = None
+        for _ in range(3):  # 최대 3페이지 (60곡)
+            payload = {
+                "cursor": cursor,
+                "limit": 20,
+                "filters": {
+                    "disliked": "False",
+                    "trashed": "False",
+                    "workspace": {"presence": "True", "workspaceId": "default"},
+                },
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{SUNO_BASE_URL}/api/feed/v3",
+                    json=payload, headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status != 200:
+                        logger.error(f"[HTTP 스캔] 피드 조회 실패: HTTP {resp.status}")
+                        break
+                    data = await resp.json()
+                    clips = data if isinstance(data, list) else data.get("clips", [])
+                    if not clips:
+                        break
+                    all_clips.extend(clips)
+                    # 다음 페이지 커서
+                    if isinstance(clips, list) and clips:
+                        cursor = clips[-1].get("id")
+                    else:
+                        break
+
+        logger.info(f"[HTTP 스캔] 피드에서 {len(all_clips)}개 clip 조회")
+
+        # designed_tracks 제목과 매칭
+        title_to_index = {}
+        for dt in designed:
+            title_to_index[dt.get("title", "").strip().lower()] = dt.get("index", 0)
+
+        # 매칭 + 다운로드
+        project_dir = Path(__file__).parent.parent / "storage" / "projects" / project_id / "tracks"
+        project_dir.mkdir(parents=True, exist_ok=True)
+
+        results = []
+        matched_indices = set()
+
+        for clip in all_clips:
+            clip_title = (clip.get("title", "") or "").strip().lower()
+            audio_url = clip.get("audio_url") or clip.get("stream_audio_url", "")
+            clip_id = clip.get("id", "")
+
+            if clip_title not in title_to_index:
+                continue
+
+            idx = title_to_index[clip_title]
+            if idx not in missing_indices:
+                continue
+
+            # 이미 이 index의 슬롯을 2개 채웠으면 스킵
+            slots_filled = sum(1 for r in results if r["index"] == idx)
+            if slots_filled >= 2:
+                continue
+
+            slot = slots_filled + 1
+            orig_title = next((dt.get("title", "") for dt in designed if dt.get("index") == idx), clip_title)
+            safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in orig_title[:30])
+            prefix = f"{idx:02d}_{safe_title}_v{slot}."
+
+            file_path = await suno_api.download_clip(
+                {"id": clip_id, "audio_url": audio_url},
+                project_dir, prefix,
+            )
+
+            results.append({
+                "index": idx,
+                "title": orig_title,
+                "suno_id": clip_id,
+                "file_path": file_path,
+                "status": "completed" if file_path else "download_failed",
+                "slot": slot,
+            })
+            matched_indices.add(idx)
+
+            logger.info(f"[HTTP 스캔] [{idx}] v{slot} {'OK' if file_path else 'FAIL'}: {orig_title}")
+
+        # state.json 업데이트
+        if results:
+            state = state_manager.get(project_id) or {}
+            old_tracks = state.get("suno_tracks") or []
+            # 매칭된 index의 기존 항목 삭제
+            old_tracks = [t for t in old_tracks if t.get("index") not in matched_indices]
+            old_tracks.extend(results)
+            old_tracks.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
+            state_manager.update(project_id, {"suno_tracks": old_tracks})
+
+        logger.info(f"[HTTP 스캔] 완료: {len(results)}개 다운로드, {len(matched_indices)}곡 매칭")
+
+    except Exception as e:
+        logger.error(f"[HTTP 스캔] 실패: {e}")
 
 
 @router.put("/{project_id}/suno-tracks/reorder", summary="Suno 트랙 순서 변경")
