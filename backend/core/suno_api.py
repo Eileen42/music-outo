@@ -408,7 +408,12 @@ class SunoAPIClient:
         ] if u]
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        dest = output_dir / f"{prefix}{clip_id}.mp3"
+        # 파일명: {prefix}mp3 (QA 패턴 호환: {idx:02d}_*_v{slot}.mp3)
+        # prefix가 이미 "01_Title_v1." 형태이면 clip_id 안 붙임
+        if prefix.endswith("."):
+            dest = output_dir / f"{prefix[:-1]}.mp3"
+        else:
+            dest = output_dir / f"{prefix}{clip_id}.mp3"
 
         headers = {
             "User-Agent": self._headers.get("User-Agent", ""),
