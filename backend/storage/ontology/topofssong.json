@@ -35,7 +35,7 @@
       },
       "subtitle": {
         "tone": "neutral",
-        "style": "none"
+        "style": "lyrics"
       }
     },
     "pop": {
@@ -71,7 +71,7 @@
       },
       "subtitle": {
         "tone": "neutral",
-        "style": "none"
+        "style": "lyrics"
       }
     }
   }

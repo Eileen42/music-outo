@@ -17,11 +17,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [워커] %(message)s",
-    datefmt="%H:%M:%S",
-)
+# uvicorn에서 import할 때 루트 로거 설정을 덮어쓰지 않도록 가드
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [워커] %(message)s",
+        datefmt="%H:%M:%S",
+    )
 log = logging.getLogger(__name__)
 
 # ━━━ DOM 스냅샷 디렉토리 ━━━
@@ -95,37 +97,52 @@ async def dismiss_overlays(ws):
     await asyncio.sleep(0.3)
 
 
-async def cdp_set_file(ws, selector, file_path):
-    """CDP로 file input에 파일 설정."""
+async def _cdp_send_and_wait(ws, method: str, params: dict, timeout: float = 5.0) -> dict:
+    """CDP 메시지를 보내고 id 매칭되는 응답만 받을 때까지 대기.
+
+    웹소켓에는 page event 같은 비요청 메시지가 섞여 들어오므로 id가 안 맞는
+    프레임은 버려야 한다. 안 그러면 엉뚱한 이벤트에서 objectId 뽑으려다 실패.
+    """
     import random
     msg_id = random.randint(10000, 99999)
-    await ws.send(json.dumps({
-        "id": msg_id,
-        "method": "Runtime.evaluate",
-        "params": {"expression": f'document.querySelector("{selector}")', "returnByValue": False}
-    }))
-    raw = await asyncio.wait_for(ws.recv(), timeout=5)
-    resp = json.loads(raw)
+    await ws.send(json.dumps({"id": msg_id, "method": method, "params": params}))
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        try:
+            raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
+            resp = json.loads(raw)
+            if resp.get("id") == msg_id:
+                return resp
+        except asyncio.TimeoutError:
+            break
+    return {}
+
+
+async def cdp_set_file(ws, selector, file_path):
+    """CDP로 file input에 파일 설정. id 매칭 루프로 race 방지."""
+    resp = await _cdp_send_and_wait(
+        ws, "Runtime.evaluate",
+        {"expression": f'document.querySelector("{selector}")', "returnByValue": False},
+    )
     obj_id = resp.get("result", {}).get("result", {}).get("objectId")
     if not obj_id:
+        log.warning(f"썸네일 querySelector 실패: selector={selector}")
         return False
 
-    msg_id2 = random.randint(10000, 99999)
-    await ws.send(json.dumps({
-        "id": msg_id2, "method": "DOM.describeNode", "params": {"objectId": obj_id}
-    }))
-    raw2 = await asyncio.wait_for(ws.recv(), timeout=5)
-    resp2 = json.loads(raw2)
+    resp2 = await _cdp_send_and_wait(ws, "DOM.describeNode", {"objectId": obj_id})
     backend_id = resp2.get("result", {}).get("node", {}).get("backendNodeId")
     if not backend_id:
+        log.warning("썸네일 describeNode 실패 — backendNodeId 없음")
         return False
 
-    msg_id3 = random.randint(10000, 99999)
-    await ws.send(json.dumps({
-        "id": msg_id3, "method": "DOM.setFileInputFiles",
-        "params": {"files": [str(file_path)], "backendNodeId": backend_id}
-    }))
-    await asyncio.wait_for(ws.recv(), timeout=5)
+    resp3 = await _cdp_send_and_wait(
+        ws, "DOM.setFileInputFiles",
+        {"files": [str(file_path)], "backendNodeId": backend_id},
+    )
+    # setFileInputFiles는 성공 시 비어있는 result 반환. error 필드가 있으면 실패.
+    if resp3.get("error"):
+        log.warning(f"썸네일 setFileInputFiles 실패: {resp3['error']}")
+        return False
     return True
 
 
@@ -156,9 +173,38 @@ async def fill_metadata(project_id: str):
     import websockets
     from core.state_manager import state_manager
 
+    # ──────── 진행 상황 실시간 기록 헬퍼 ────────
+    TOTAL_STEPS = 10  # 시작 + 연결 + 페이지확인 + 제목 + 설명 + 태그 + 썸네일 + 아동용 + 다음(3) + 공개 + 게시
+    # (실제 개별 단계를 TOTAL로 나타냄 — 표시용)
+
+    def _write_progress(step: str, current: int, done: bool, error: str) -> None:
+        try:
+            state_manager.update(project_id, {
+                "browser_fill_progress": {
+                    "step": step,
+                    "current": current,
+                    "total": TOTAL_STEPS,
+                    "done": done,
+                    "error": error,
+                    "updated_at": datetime.now().isoformat(),
+                }
+            })
+        except Exception as e:
+            log.warning(f"진행상황 기록 실패: {e}")
+
+    def report(step: str, current: int, done: bool = False, error: str = "") -> None:
+        """동기 호출 가능 버전 — 파일 I/O는 스레드 풀에서 실행해 이벤트 루프 블로킹 방지."""
+        try:
+            asyncio.get_running_loop().run_in_executor(None, _write_progress, step, current, done, error)
+        except RuntimeError:
+            _write_progress(step, current, done, error)
+
+    report("시작 중", 0)
+
     state = state_manager.get(project_id)
     if not state:
         log.error(f"프로젝트 없음: {project_id}")
+        report("프로젝트 없음", 0, done=True, error="프로젝트를 찾을 수 없습니다")
         return
 
     meta = state.get("metadata", {})
@@ -171,12 +217,15 @@ async def fill_metadata(project_id: str):
     log.info(f"시작: {title[:30]}...")
     steps_done = []
 
-    # CDP 연결
+    # CDP 연결 — async httpx로 이벤트 루프 블로킹 방지
+    report("브라우저 연결 중", 1)
     try:
-        r = httpx.get("http://localhost:9224/json", timeout=3)
+        async with httpx.AsyncClient(timeout=3) as client:
+            r = await client.get("http://localhost:9224/json")
         tabs = r.json()
     except Exception as e:
         log.error(f"CDP 연결 실패: {e}")
+        report("브라우저 연결 실패 — '브라우저 업로드 열기'를 먼저 눌러주세요", 1, done=True, error=str(e)[:100])
         return
 
     ws_url = None
@@ -187,22 +236,24 @@ async def fill_metadata(project_id: str):
 
     if not ws_url:
         log.error("YouTube Studio 탭 없음")
+        report("YouTube Studio 탭 없음 — 먼저 '브라우저 업로드 열기'를 눌러주세요", 1, done=True, error="no_studio_tab")
         return
 
     try:
         async with websockets.connect(ws_url, max_size=10_000_000) as ws:
-            # 초기 DOM 스냅샷
-            await save_dom_snapshot(ws, "initial")
-
+            # 초기 DOM 스냅샷은 실패 시에만 저장 (정상 흐름에서는 latency 감소)
             # 편집 페이지 확인 (제목란 존재)
+            report("YouTube Studio 페이지 확인 중", 2)
             has_title = await safe_eval(ws,
                 f'!!document.querySelector("{SELECTORS["title"]}")',
                 "편집 페이지 확인", retries=5, timeout=5)
             if not has_title:
                 log.error("업로드 편집 페이지 아님 — 영상을 먼저 드래그하세요")
+                report("영상을 먼저 드래그하세요", 2, done=True, error="no_upload_form")
                 return
 
             # ── 1. 제목 (항상 덮어쓰기) ──
+            report("제목 입력 중", 3)
             await dismiss_overlays(ws)
             r = await safe_eval(ws, f"""
                 (() => {{
@@ -221,6 +272,7 @@ async def fill_metadata(project_id: str):
             await asyncio.sleep(1)
 
             # ── 2. 설명 ──
+            report("설명 입력 중", 4)
             await dismiss_overlays(ws)
             r = await safe_eval(ws, f"""
                 (() => {{
@@ -260,6 +312,7 @@ async def fill_metadata(project_id: str):
 
             # ── 4. 태그 ──
             if tags:
+                report(f"태그 {len(tags[:30])}개 입력 중", 5)
                 for tag in tags[:30]:
                     await cdp_eval(ws, f"""
                         (() => {{
@@ -278,22 +331,33 @@ async def fill_metadata(project_id: str):
 
             # ── 5. 썸네일 ──
             if thumb and Path(thumb).exists():
+                report("썸네일 업로드 중", 6)
                 try:
                     await dismiss_overlays(ws)
-                    ok = await cdp_set_file(ws, SELECTORS["thumbnail"], thumb)
-                    if not ok:
-                        ok = await cdp_set_file(ws, SELECTORS["thumbnail_fallback"], thumb)
+                    # 최대 3번 재시도 (DOM 전환·overlay 깔림 대비)
+                    ok = False
+                    for attempt in range(3):
+                        ok = await cdp_set_file(ws, SELECTORS["thumbnail"], thumb)
+                        if not ok:
+                            ok = await cdp_set_file(ws, SELECTORS["thumbnail_fallback"], thumb)
+                        if ok:
+                            break
+                        if attempt < 2:
+                            log.warning(f"⚠ 썸네일 재시도 {attempt + 2}/3")
+                            await dismiss_overlays(ws)
+                            await asyncio.sleep(1)
                     if ok:
                         steps_done.append("썸네일")
                         log.info("✅ 썸네일")
-                        await asyncio.sleep(3)
+                        await asyncio.sleep(2)  # 업로드 반영 대기 (기존 3초 → 2초)
                     else:
-                        log.warning("⚠ 썸네일 input 못 찾음")
+                        log.warning("⚠ 썸네일 input 못 찾음 (3회 재시도 실패)")
                         await save_dom_snapshot(ws, "thumbnail_fail")
                 except Exception as e:
                     log.warning(f"⚠ 썸네일 건너뜀: {e}")
 
             # ── 6. 아동용 아님 ──
+            report("시청자층 설정 중", 7)
             await dismiss_overlays(ws)
             await safe_eval(ws, f"""
                 (() => {{
@@ -308,6 +372,7 @@ async def fill_metadata(project_id: str):
 
             # ── 7. 다음 x3 ──
             for step in range(3):
+                report(f"다음 페이지로 이동 ({step + 1}/3)", 8)
                 await dismiss_overlays(ws)
                 await safe_eval(ws, f"""
                     (() => {{
@@ -321,6 +386,7 @@ async def fill_metadata(project_id: str):
                 steps_done.append(f"다음{step + 1}")
 
             # ── 8. 일부공개 ──
+            report("공개 범위 설정 중", 9)
             await dismiss_overlays(ws)
             await safe_eval(ws, f"""
                 (() => {{
@@ -333,6 +399,7 @@ async def fill_metadata(project_id: str):
             steps_done.append("일부공개")
 
             # ── 9. 저장/게시 ──
+            report("게시하는 중", 10)
             await dismiss_overlays(ws)
             await safe_eval(ws, f"""
                 (() => {{
@@ -348,10 +415,12 @@ async def fill_metadata(project_id: str):
             # 완료 스냅샷
             await save_dom_snapshot(ws, "completed")
             state_manager.update(project_id, {"browser_metadata_filled": True})
+            report("게시 완료!", TOTAL_STEPS, done=True)
             log.info(f"🎉 완료: {steps_done}")
 
     except Exception as e:
         log.error(f"실패 (완료: {steps_done}): {e}")
+        report(f"실패 — {type(e).__name__}", 0, done=True, error=str(e)[:200])
 
 
 if __name__ == "__main__":

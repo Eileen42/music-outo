@@ -44,6 +44,12 @@ export const api = {
       http.post(`/api/projects/${projectId}/tracks/${trackId}/transcribe`, null, {
         params: language ? { language } : {},
       }).then(r => r.data),
+    buildSubtitle: (projectId: string, trackId: string) =>
+      http.post<{ track_id: string; srt_path: string; project_srt_path: string; entries_count: number }>(
+        `/api/projects/${projectId}/tracks/${trackId}/subtitle/build`
+      ).then(r => r.data),
+    subtitleUrl: (projectId: string, trackId: string) =>
+      `${BASE}/api/projects/${projectId}/tracks/${trackId}/subtitle`,
   },
 
   images: {
@@ -137,6 +143,10 @@ export const api = {
       http.post<{ status: string }>(`/api/youtube/open-studio/${projectId}`).then(r => r.data),
     fillMetadata: (projectId: string) =>
       http.post<{ status: string }>(`/api/youtube/fill-metadata/${projectId}`).then(r => r.data),
+    fillProgress: (projectId: string) =>
+      http.get<{ step: string; current: number; total: number; done: boolean; error: string; updated_at?: string }>(
+        `/api/youtube/fill-progress/${projectId}`
+      ).then(r => r.data),
   },
 
   suno: {

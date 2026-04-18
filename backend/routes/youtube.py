@@ -153,22 +153,67 @@ async def open_studio(project_id: str):
 
 
 @router.post("/fill-metadata/{project_id}", summary="YouTube Studio에 메타데이터 자동 입력")
-async def fill_metadata(project_id: str):
-    """CDP로 열려있는 YouTube Studio에 제목/설명 자동 입력."""
-    import logging, subprocess, sys
-    log = logging.getLogger(__name__)
-    log.info(f"[메타입력] 4. API 요청 수신: project_id={project_id}")
-    state = state_manager.require(project_id)
-    log.info(f"[메타입력] 4a. 프로젝트 로드 완료")
+async def fill_metadata(project_id: str, background_tasks: BackgroundTasks):
+    """CDP로 열려있는 YouTube Studio에 제목/설명 자동 입력.
 
-    # 별도 프로세스로 실행 (이벤트 루프 충돌 방지)
-    script = Path(__file__).parent.parent / "routes" / "_fill_meta_worker.py"
-    subprocess.Popen(
-        [sys.executable, str(script), project_id],
-        cwd=str(Path(__file__).parent.parent),
-    )
-    log.info(f"[메타입력] 4b. 워커 프로세스 시작됨")
+    백엔드 이벤트 루프에서 직접 실행(subprocess 제거) → 버튼 클릭부터
+    브라우저 첫 입력까지의 latency를 1~2초 단축.
+    """
+    import logging, asyncio
+    from datetime import datetime
+    log = logging.getLogger(__name__)
+    log.info(f"[메타입력] API 요청 수신: project_id={project_id}")
+    state_manager.require(project_id)
+
+    # 인라인 BackgroundTask로 실행 (서브프로세스 제거 — Python 부팅 시간 없음)
+    # NOTE: 핸들러에서는 state 쓰기를 하지 않는다. 워커가 최우선으로 "시작 중" 진행상황을
+    #       기록하기 때문. 여기서 쓰면 워커와의 파일 쓰기 경합으로 응답이 느려짐.
+    from routes._fill_meta_worker import fill_metadata as worker_task
+
+    async def _run():
+        # 워커 첫 단계로 즉시 진행상황 기록 (스레드 풀로 이벤트 루프 블로킹 방지)
+        def _write_initial():
+            state_manager.update(project_id, {
+                "browser_fill_progress": {
+                    "step": "워커 시작됨", "current": 0, "total": 10,
+                    "done": False, "error": "", "updated_at": datetime.now().isoformat(),
+                }
+            })
+        try:
+            await asyncio.to_thread(_write_initial)
+        except Exception:
+            pass
+        try:
+            await worker_task(project_id)
+        except Exception as e:
+            log.error(f"[메타입력] 워커 예외: {e}", exc_info=True)
+            def _write_fail():
+                state_manager.update(project_id, {
+                    "browser_fill_progress": {
+                        "step": f"실패: {type(e).__name__}",
+                        "current": 0, "total": 10, "done": True, "error": str(e)[:200],
+                        "updated_at": datetime.now().isoformat(),
+                    }
+                })
+            try:
+                await asyncio.to_thread(_write_fail)
+            except Exception:
+                pass
+
+    asyncio.create_task(_run())
+    log.info(f"[메타입력] 인라인 워커 시작됨")
     return {"status": "filling"}
+
+
+@router.get("/fill-progress/{project_id}", summary="메타데이터 자동 입력 진행상황 (경량)")
+async def get_fill_progress(project_id: str):
+    """프론트의 실시간 폴링용. state 전체를 읽지 않고 progress 필드만 반환."""
+    state = state_manager.get(project_id)
+    if not state:
+        raise HTTPException(404, "프로젝트 없음")
+    return state.get("browser_fill_progress") or {
+        "step": "대기 중", "current": 0, "total": 10, "done": False, "error": "",
+    }
 
 
 async def _post_comment_when_ready(project_id: str, comment: str):

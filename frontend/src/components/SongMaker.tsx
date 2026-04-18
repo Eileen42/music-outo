@@ -466,7 +466,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
                           onClick={async () => {
                             const updated = [...channel.benchmark_history]
                             updated[idx] = { ...updated[idx], url: editingBenchmarkUrl }
-                            await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
+                            const result = await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
+                            setChannel(result)
                             setEditingBenchmarkIdx(-1)
                             onRefresh()
                           }}
@@ -488,7 +489,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
                           onClick={async () => {
                             if (!confirm('이 벤치마크를 삭제하시겠습니까?')) return
                             const updated = channel.benchmark_history.filter((_: unknown, i: number) => i !== idx)
-                            await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
+                            const result = await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
+                            setChannel(result)
                             onRefresh()
                           }}
                           className="text-xs text-gray-500 hover:text-red-400 px-1"

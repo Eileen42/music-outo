@@ -106,6 +106,17 @@ async def _run_build(project_id: str, mode: str = "capcut"):
         state_manager.update(project_id, {"build": {"progress": pct}})
 
     try:
+        # 자막 안전망: 가사 있는 트랙이 있는데 subtitle_entries가 비어있으면 먼저 빌드
+        if not state.get("subtitle_entries") and any(t.get("lyrics") for t in state.get("tracks", [])):
+            try:
+                from routes.tracks import _rebuild_subtitles
+                on_progress(5)
+                await _rebuild_subtitles(project_id)
+                state = state_manager.get(project_id) or state  # 최신 상태 재로드
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"빌드 전 자막 생성 실패 — 자막 없이 진행: {e}")
+
         if mode == "capcut":
             # CapCut 프로젝트 파일만 생성 (FFmpeg 불필요)
             on_progress(10)

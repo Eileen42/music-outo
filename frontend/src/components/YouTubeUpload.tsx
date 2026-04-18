@@ -19,6 +19,10 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
   const [loading, setLoading] = useState(true)
   const [showGuide, setShowGuide] = useState(false)
   const [fillingMeta, setFillingMeta] = useState(false)
+  const [fillStep, setFillStep] = useState<string>('')
+  const [fillCurrent, setFillCurrent] = useState(0)
+  const [fillTotal, setFillTotal] = useState(10)
+  const [fillError, setFillError] = useState<string>('')
 
   const yt = project.youtube || { video_id: null, url: null, uploaded_at: null }
   const buildDone = project.build?.status === 'done'
@@ -175,26 +179,62 @@ export default function YouTubeUpload({ project, onRefresh }: Props) {
               🌐 브라우저 업로드 열기
             </button>
             <button onClick={async () => {
-              console.log('[메타입력] 1. 버튼 클릭됨, projectId:', project.id)
               setFillingMeta(true)
+              setFillStep('시작 중...')
+              setFillCurrent(0)
+              setFillTotal(10)
+              setFillError('')
               try {
-                console.log('[메타입력] 2. API 호출: /api/youtube/fill-metadata/' + project.id)
-                const res = await api.youtube.fillMetadata(project.id)
-                console.log('[메타입력] 3. API 응답:', res)
-                const poll = setInterval(async () => {
-                  try { await onRefresh() } catch {}
-                }, 15000)
-                setTimeout(() => clearInterval(poll), 600000)
+                await api.youtube.fillMetadata(project.id)
               } catch (err) {
-                console.error('[메타입력] 3. API 에러:', err)
-              } finally { setTimeout(() => setFillingMeta(false), 30000) }
+                const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '시작 실패'
+                setFillError(detail)
+                setFillingMeta(false)
+                return
+              }
+              // 2초 폴링 — 각 단계 실시간 표시
+              const startedAt = Date.now()
+              const poll = setInterval(async () => {
+                try {
+                  const p = await api.youtube.fillProgress(project.id)
+                  setFillStep(p.step || '진행 중')
+                  setFillCurrent(p.current || 0)
+                  setFillTotal(p.total || 10)
+                  if (p.error) setFillError(p.error)
+                  if (p.done) {
+                    clearInterval(poll)
+                    await onRefresh()
+                    // 완료 메시지를 잠시 보여준 뒤 버튼 복구
+                    setTimeout(() => setFillingMeta(false), 3000)
+                  }
+                } catch {
+                  // 폴링 중 일시 실패는 무시
+                }
+                // 안전장치: 10분 초과 시 강제 종료
+                if (Date.now() - startedAt > 600000) {
+                  clearInterval(poll)
+                  setFillingMeta(false)
+                }
+              }, 2000)
             }}
               disabled={fillingMeta}
               className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
-              {fillingMeta ? '⏳ 입력 중...' : '✍️ 메타데이터 자동 입력'}
+              {fillingMeta ? `⏳ ${fillCurrent}/${fillTotal} — ${fillStep}` : '✍️ 메타데이터 자동 입력'}
             </button>
           </div>
-          {fillingMeta && <p className="text-[10px] text-gray-500 text-center">브라우저에서 자동 입력 중입니다. 30초 정도 소요.</p>}
+          {fillingMeta && (
+            <div className="space-y-1.5">
+              <div className="w-full bg-gray-800 rounded-full h-1.5">
+                <div
+                  className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.round((fillCurrent / Math.max(1, fillTotal)) * 100))}%` }}
+                />
+              </div>
+              <p className={`text-[11px] text-center ${fillError ? 'text-red-400' : 'text-gray-400'}`}>
+                {fillError ? `⚠ ${fillError}` : `${fillStep}…`}
+              </p>
+            </div>
+          )}
 
           {/* 브라우저 업로드 상태 */}
           {(project as unknown as { browser_metadata_filled?: boolean }).browser_metadata_filled && (

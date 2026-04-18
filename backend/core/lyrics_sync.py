@@ -29,6 +29,80 @@ class LyricsSyncEngine:
                 self.model_size, device=self.device
             )
 
+    async def align_with_lyrics(
+        self,
+        audio_path: Path,
+        lyrics: str,
+        language: Optional[str] = None,
+    ) -> dict:
+        """
+        가사 텍스트를 오디오에 forced alignment.
+        Whisper ASR과 달리 가사 원문이 그대로 유지되고 타임스탬프만 맞춰짐.
+        실패 시(음원과 가사 불일치 등) ASR 폴백.
+
+        Returns: {"text", "segments": [{start, end, text}], "language", "source": "align"|"asr"}
+        """
+        cleaned = _clean_lyrics(lyrics)
+        if not cleaned.strip():
+            raise ValueError("정렬할 가사 텍스트가 비어있습니다")
+
+        try:
+            result = await asyncio.to_thread(self._align, audio_path, cleaned, language)
+            if result:
+                result["source"] = "align"
+                return result
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"forced alignment 실패 → ASR 폴백: {type(e).__name__}: {e}"
+            )
+
+        # 폴백: ASR
+        result = await self.transcribe(audio_path, language=language)
+        result["source"] = "asr"
+        return result
+
+    def _align(self, audio_path: Path, text: str, language: Optional[str]) -> Optional[dict]:
+        """
+        Forced alignment. 세그먼트 분할은 호출자(subtitle_builder._resegment)에 위임.
+        여기서는 word-level 타임스탬프가 포함된 raw segments만 반환한다.
+        """
+        self._load_stable_model()
+        lang = language or "ko"  # stable_whisper.align은 language=None 불가
+        result = self._stable_model.align(str(audio_path), text, language=lang)
+        if result is None:
+            return None
+
+        seg_list = []
+        words = []
+        for seg in result.segments:
+            seg_words = []
+            for w in (seg.words or []):
+                wd = {
+                    "start": round(w.start, 3),
+                    "end": round(w.end, 3),
+                    "text": (w.word or "").strip(),
+                }
+                if wd["text"] and wd["end"] > wd["start"]:
+                    seg_words.append(wd)
+                    words.append(wd)
+            t = seg.text.strip()
+            if not t:
+                continue
+            seg_list.append({
+                "start": round(seg.start, 3),
+                "end": round(seg.end, 3),
+                "text": t,
+                "words": seg_words,
+            })
+
+        return {
+            "text": "\n".join(s["text"] for s in seg_list),
+            "segments": seg_list,
+            "words": words,
+            "language": getattr(result, "language", language) or "unknown",
+        }
+
     async def transcribe(
         self,
         audio_path: Path,
@@ -74,11 +148,10 @@ class LyricsSyncEngine:
 
     def _transcribe_stable(self, audio_path: Path, language: Optional[str]) -> dict:
         self._load_stable_model()
-        result = self._stable_model.transcribe(
-            str(audio_path),
-            language=language,
-            word_level=True,
-        )
+        kwargs = {"word_timestamps": True}
+        if language:
+            kwargs["language"] = language
+        result = self._stable_model.transcribe(str(audio_path), **kwargs)
         seg_list = []
         full_text = []
         for seg in result.segments:
@@ -141,6 +214,26 @@ class LyricsSyncEngine:
         s = seconds % 60
         ms = int((s % 1) * 1000)
         return f"{h:02d}:{m:02d}:{int(s):02d},{ms:03d}"
+
+
+def _clean_lyrics(raw: str) -> str:
+    """Suno 태그([Verse], [Chorus] 등)와 공백줄 제거. 음절 단위 정렬 품질 향상."""
+    import re
+    lines = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # [Verse 1], [Chorus], (Intro) 등 섹션 태그 제거
+        if re.match(r"^\s*[\[\(].*[\]\)]\s*$", stripped):
+            continue
+        # 괄호 안 효과음 제거: (fading guitar) 등 — 단, 가사 자체 괄호는 유지
+        stripped = re.sub(r"\(([^)]{0,80})\)", lambda m: "" if any(
+            kw in m.group(1).lower() for kw in ("fading", "intro", "outro", "instrumental", "humming", "guitar", "strings")
+        ) else m.group(0), stripped).strip()
+        if stripped:
+            lines.append(stripped)
+    return "\n".join(lines)
 
 
 lyrics_sync = LyricsSyncEngine()

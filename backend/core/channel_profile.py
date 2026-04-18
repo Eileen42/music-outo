@@ -111,6 +111,11 @@ class ChannelProfile:
             "genre":            genre,
             "has_lyrics":       has_lyrics,
             "subtitle_type":    subtitle_type,   # "none" | "affirmation" | "lyrics"
+            # 자막 표시 모드 (가사 있는 채널만 해당)
+            #   "source_only"             — 원문만 (기본)
+            #   "translation_only"        — 번역만 (예: 영어 가사 → 한글 번역)
+            #   "source_and_translation"  — 원문 + 번역 병행
+            "subtitle_display_mode": "source_only",
             "mood_keywords":    mood_keywords,
             "image_style":      image_style,
             "suno_base_prompt": suno_base_prompt,
@@ -126,7 +131,7 @@ class ChannelProfile:
         """부분 업데이트 후 저장된 프로필 반환."""
         profile = self._read(channel_id)
         for k, v in updates.items():
-            if k not in ("channel_id", "created_at", "benchmark_history"):
+            if k not in ("channel_id", "created_at"):
                 profile[k] = v
         self.save(channel_id, profile)
         return profile
