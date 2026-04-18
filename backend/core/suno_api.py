@@ -36,6 +36,14 @@ CHECK_ENDPOINT = "/api/c/check"
 BILLING_ENDPOINT = "/api/billing/info/"
 SESSION_ENDPOINT = "/api/session/"
 
+# Clerk(인증) 엔드포인트 — Suno는 Clerk 사용
+CLERK_BASE_URL = "https://clerk.suno.com"
+CLERK_API_VERSION = "2025-11-10"
+CLERK_JS_VERSION = "5.74.0"
+
+# Suno v5.5 모델 식별자 — 2026-04 캡처에서 확인
+SUNO_MODEL_V55 = "chirp-fenix"
+
 
 class SunoAPIClient:
     """Suno HTTP API 클라이언트."""
@@ -81,9 +89,106 @@ class SunoAPIClient:
 
     async def refresh_token(self) -> bool:
         """
-        Playwright로 Suno에 접속하여 JWT 토큰 갱신.
-        저장된 세션 쿠키로 로그인 → 새 __session JWT 발급 → 저장.
+        Clerk REST API로 JWT 직접 갱신 — 브라우저 불필요.
+
+        절차:
+          1. /v1/client 로 현재 클라이언트 정보 조회 → active session id(sid) 추출
+          2. /v1/client/sessions/{sid}/tokens 로 새 JWT 발급
+          3. 받은 JWT를 __session 쿠키에 덮어쓰고 storage_state 갱신
+
+        실패 시(예: __client 만료) Playwright fallback 호출.
         """
+        if not self._cookies:
+            if not self.load_session():
+                return False
+
+        client_cookie = self._cookies.get("__client", "")
+        if not client_cookie:
+            logger.error("__client 쿠키 없음 — 로그인 만료")
+            return await self._refresh_token_browser()
+
+        common_headers = {
+            "User-Agent": self._headers.get("User-Agent", ""),
+            "Origin": "https://suno.com",
+            "Referer": "https://suno.com/",
+            "Accept": "*/*",
+            "Cookie": f"__client={client_cookie}",
+        }
+        params = f"?__clerk_api_version={CLERK_API_VERSION}&_clerk_js_version={CLERK_JS_VERSION}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                # 1) 클라이언트 조회 → sid
+                url = f"{CLERK_BASE_URL}/v1/client{params}"
+                async with session.get(url, headers=common_headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status != 200:
+                        body = (await resp.text())[:200]
+                        logger.warning(f"Clerk /v1/client 실패: HTTP {resp.status} - {body}")
+                        return await self._refresh_token_browser()
+                    data = await resp.json()
+
+                response = data.get("response", {}) or {}
+                sessions = response.get("sessions", []) or []
+                last_active_id = response.get("last_active_session_id", "")
+                sid = ""
+                # active 세션 우선
+                for s in sessions:
+                    if s.get("status") == "active" and s.get("id"):
+                        sid = s["id"]
+                        break
+                if not sid:
+                    sid = last_active_id
+                if not sid:
+                    logger.error("Clerk 응답에 active session 없음")
+                    return await self._refresh_token_browser()
+
+                # 2) JWT 발급
+                tok_url = f"{CLERK_BASE_URL}/v1/client/sessions/{sid}/tokens{params}"
+                async with session.post(
+                    tok_url,
+                    headers={**common_headers, "Content-Type": "application/x-www-form-urlencoded"},
+                    data="",
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        body = (await resp.text())[:200]
+                        logger.warning(f"Clerk tokens 실패: HTTP {resp.status} - {body}")
+                        return await self._refresh_token_browser()
+                    tok = await resp.json()
+
+                jwt = tok.get("jwt", "")
+                if not jwt:
+                    logger.error("Clerk 응답에 jwt 없음")
+                    return await self._refresh_token_browser()
+
+            # 3) 메모리 + storage_state 갱신
+            self._cookies["__session"] = jwt
+            self._bearer_token = f"Bearer {jwt}"
+            # Clerk JWT는 ~50초 단위로 갱신됨. 보수적으로 40초 만료로 캐시.
+            self._token_expires = time.time() + 40
+
+            sp = _SESSION_DIR / "suno_context.json"
+            if sp.exists():
+                try:
+                    storage = json.loads(sp.read_text(encoding="utf-8"))
+                    for c in storage.get("cookies", []):
+                        if c.get("name") == "__session":
+                            c["value"] = jwt
+                            c["expires"] = self._token_expires
+                            break
+                    sp.write_text(json.dumps(storage, ensure_ascii=False), encoding="utf-8")
+                except Exception as e:
+                    logger.warning(f"세션 파일 갱신 실패(무시): {e}")
+
+            logger.info("Clerk JWT 갱신 성공 (HTTP)")
+            return True
+
+        except Exception as e:
+            logger.warning(f"HTTP JWT 갱신 실패 — 브라우저 fallback: {e}")
+            return await self._refresh_token_browser()
+
+    async def _refresh_token_browser(self) -> bool:
+        """Playwright로 JWT 갱신 (Clerk HTTP 실패 시 fallback)."""
         sp = _SESSION_DIR / "suno_context.json"
         if not sp.exists():
             logger.error("세션 파일 없음 — 먼저 Suno 로그인 필요")
@@ -113,39 +218,29 @@ class SunoAPIClient:
             )
             page = await context.new_page()
 
-            logger.info("토큰 갱신: Suno 접속 중...")
+            logger.info("토큰 갱신(브라우저): Suno 접속 중...")
             await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
 
-            # 갱신된 쿠키 저장
             cookies = await context.cookies("https://suno.com")
             storage = await context.storage_state()
-
-            # suno_context.json 업데이트
             sp.write_text(json.dumps(storage, ensure_ascii=False), encoding="utf-8")
 
-            # 메모리에도 반영
-            self._cookies = {}
-            for c in cookies:
-                self._cookies[c["name"]] = c["value"]
-
-            # 토큰 캐시
+            self._cookies = {c["name"]: c["value"] for c in cookies}
             self._bearer_token = None
             for c in cookies:
                 if c["name"] == "__session":
                     self._bearer_token = f"Bearer {c['value']}"
-                    exp = c.get("expires", 0)
-                    self._token_expires = exp
-                    logger.info(f"토큰 갱신 성공 (만료: {exp})")
+                    self._token_expires = c.get("expires", 0)
+                    logger.info(f"토큰 갱신(브라우저) 성공")
                     break
 
             await browser.close()
             await pw.stop()
-
             return self._bearer_token is not None
 
         except Exception as e:
-            logger.error(f"토큰 갱신 실패: {e}")
+            logger.error(f"브라우저 토큰 갱신 실패: {e}")
             return False
 
     def _cookie_header(self) -> str:
@@ -260,19 +355,24 @@ class SunoAPIClient:
 
         endpoint = f"{BASE_URL}{GENERATE_ENDPOINT}"
 
-        # 캡처된 실제 payload 형식에 맞춤
+        # 2026-04 캡처 기준 — v5.5(chirp-fenix) custom 모드
         payload = {
             "token": None,
             "generation_type": "TEXT",
             "title": title,
-            "tags": prompt,  # style/genre/mood 프롬프트는 tags 필드
+            "tags": prompt,  # style/genre/mood
+            "negative_tags": "",
+            "mv": SUNO_MODEL_V55,
+            "prompt": lyrics or "",
+            "make_instrumental": instrumental and not lyrics,
+            "user_uploaded_images_b64": None,
+            "metadata": {
+                "web_client_pathname": "/create",
+                "is_max_mode": False,
+                "is_mumble": False,
+                "create_mode": "custom",
+            },
         }
-        if lyrics:
-            payload["prompt"] = lyrics
-            payload["generation_type"] = "TEXT"
-        else:
-            payload["prompt"] = ""
-            payload["make_instrumental"] = True
 
         headers = {**self._headers, "Cookie": self._cookie_header()}
 
@@ -625,16 +725,20 @@ class SunoAPIClient:
         songs: list[dict],
         output_dir: Path,
         progress_cb=None,
+        result_cb=None,
         max_concurrent: int = 3,
     ) -> list[dict]:
         """
         여러 곡 병렬 생성 + 다운로드.
 
         songs: [{"title": str, "suno_prompt": str, "lyrics": str, "is_instrumental": bool, "index": int}]
+        progress_cb(info): {"phase": "creating", "current_title": str, "completed": int}
+        result_cb(track): 다운로드 완료된 트랙 1건씩 호출 (state 점진 저장용)
         반환: [{"index": int, "title": str, "suno_id": str, "file_path": str, "status": str, "slot": int}]
         """
-        results = []
+        results: list[dict] = []
         semaphore = asyncio.Semaphore(max_concurrent)
+        results_lock = asyncio.Lock()
 
         async def _process_one(song: dict):
             async with semaphore:
@@ -646,7 +750,10 @@ class SunoAPIClient:
 
                 try:
                     if progress_cb:
-                        progress_cb({"phase": "creating", "current_title": title, "completed": len(results)})
+                        try:
+                            progress_cb({"phase": "creating", "current_title": title, "completed": len(results)})
+                        except Exception:
+                            pass
 
                     # 생성
                     clips = await self.create_song(prompt, title, lyrics, instrumental)
@@ -654,35 +761,51 @@ class SunoAPIClient:
                     # audio_url 대기
                     ready_clips = await self.wait_for_audio(clips, timeout=300)
 
-                    # 다운로드
+                    # 다운로드 — 안전한 파일명 (Windows 금지문자 치환)
+                    safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in title[:30])
                     for slot, clip in enumerate(ready_clips[:2], 1):
-                        prefix = f"{idx:02d}_{title[:30]}_v{slot}_"
+                        prefix = f"{idx:02d}_{safe_title}_v{slot}_"
                         file_path = await self.download_clip(clip, output_dir, prefix)
-                        results.append({
+                        track = {
                             "index": idx,
                             "title": title,
                             "suno_id": clip.get("id", ""),
                             "file_path": file_path,
                             "status": "completed" if file_path else "download_failed",
                             "slot": slot,
-                        })
+                        }
+                        async with results_lock:
+                            results.append(track)
+                        if result_cb:
+                            try:
+                                result_cb(track)
+                            except Exception:
+                                pass
 
                     # 생성 간 딜레이 (rate limit 방지)
                     await asyncio.sleep(5)
 
                 except Exception as e:
                     logger.error(f"곡 생성 실패 [{title}]: {e}")
-                    results.append({
+                    failed = {
                         "index": idx, "title": title, "suno_id": "",
                         "file_path": None, "status": "failed", "slot": 0,
                         "error": str(e),
-                    })
+                    }
+                    async with results_lock:
+                        results.append(failed)
+                    if result_cb:
+                        try:
+                            result_cb(failed)
+                        except Exception:
+                            pass
 
         # 병렬 실행
         tasks = [asyncio.create_task(_process_one(s)) for s in songs]
         await asyncio.gather(*tasks, return_exceptions=True)
 
-        logger.info(f"배치 완료: {len(results)}개 결과, 성공 {sum(1 for r in results if r['status']=='completed')}개")
+        success = sum(1 for r in results if r.get("status") == "completed")
+        logger.info(f"배치 완료: {len(results)}개 결과, 성공 {success}개")
         return results
 
     # ━━━ 크레딧 확인 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

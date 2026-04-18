@@ -237,8 +237,11 @@ export const api = {
       http.delete(`/api/tracks/${projectId}/${idx}`).then(r => r.data),
     regenerate: (projectId: string, idx: number, channelId: string) =>
       http.post<DesignedTrack>(`/api/tracks/${projectId}/regenerate/${idx}`, { channel_id: channelId }).then(r => r.data),
-    batchCreate: (projectId: string, channelId: string) =>
-      http.post<{ status: string; total_batches: number }>(`/api/tracks/${projectId}/batch-create`, { channel_id: channelId }).then(r => r.data),
+    batchCreate: (projectId: string, channelId: string, mode: 'cookie' | 'browser' = 'cookie') =>
+      http.post<{ status: string; mode?: string; total_batches: number }>(
+        `/api/tracks/${projectId}/batch-create`,
+        { channel_id: channelId, mode },
+      ).then(r => r.data),
     batchStop: (projectId: string) =>
       http.post<{ reset: boolean }>(`/api/tracks/${projectId}/batch-reset`).then(r => r.data),
     sunoStatus: (projectId: string) =>

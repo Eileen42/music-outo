@@ -47,6 +47,8 @@ class DesignRequest(BaseModel):
 
 class BatchCreateRequest(BaseModel):
     channel_id: str
+    # "cookie" (기본·빠름) | "browser" (캡차 발생 시 fallback)
+    mode: str = "cookie"
 
 
 # ──────────────────────────── routes ────────────────────────────
@@ -297,10 +299,12 @@ async def batch_create(
         project_id=project_id,
         tracks=tracks,
         has_lyrics=profile.get("has_lyrics", False),
+        mode=body.mode,
     )
 
     return {
         "status":        "started",
+        "mode":          body.mode,
         "total_batches": total_batches,
         "total_tracks":  len(tracks),
     }
@@ -834,12 +838,16 @@ async def _run_suno_batch(
     project_id: str,
     tracks: list[dict],
     has_lyrics: bool,
+    mode: str = "cookie",
 ) -> None:
     """
     Suno 일괄 생성 백그라운드 작업.
 
+    mode="cookie": _suno_cookie_runner.py (HTTP 직접 호출, 브라우저 없음, 빠름)
+    mode="browser": _suno_batch_runner.py (Playwright 자동화 — 캡차 발생 시 사용)
+
     Windows uvicorn의 SelectorEventLoop에서는 Playwright subprocess를 실행할 수 없으므로
-    _suno_batch_runner.py 를 별도 Python 프로세스로 띄워 완전히 격리한다.
+    런너를 별도 Python 프로세스로 띄워 완전히 격리한다.
     진행 상황은 _suno_progress.json 을 폴링해 task dict에 반영한다.
     """
     task = _suno_tasks.get(project_id)
@@ -849,14 +857,20 @@ async def _run_suno_batch(
     import subprocess as _sp
     backend_dir  = Path(__file__).parent.parent  # routes/ → backend/
     progress_path = backend_dir / "storage" / "projects" / project_id / "_suno_progress.json"
-    runner        = backend_dir / "_suno_batch_runner.py"
+
+    runner_name = "_suno_cookie_runner.py" if mode == "cookie" else "_suno_batch_runner.py"
+    runner = backend_dir / runner_name
+    if not runner.exists():
+        # 안전장치: 쿠키 런너 없으면 브라우저 런너로 폴백
+        runner = backend_dir / "_suno_batch_runner.py"
+        mode = "browser"
 
     try:
         proc = _sp.Popen(
             [sys.executable, str(runner), project_id],
             stdout=_sp.PIPE, stderr=_sp.PIPE,
         )
-        logger.info(f"Suno runner 프로세스 시작: PID={proc.pid}, project={project_id}")
+        logger.info(f"Suno runner 시작 (mode={mode}): PID={proc.pid}, project={project_id}")
 
         # progress.json 폴링 (2초 간격)
         while proc.poll() is None:
