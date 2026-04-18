@@ -20,6 +20,8 @@ backend/storage/browser_sessions/
 backend/storage/channels/
 backend/storage/debug/
 backend/storage/test_tracks/
+backend/storage/dom_snapshots/
+backend/storage/suno_api_captures/
 backend/storage/*.json
 *.mp4
 *.mp3
