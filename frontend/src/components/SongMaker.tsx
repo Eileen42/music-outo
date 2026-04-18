@@ -564,7 +564,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       onChange={e => setCount(Number(e.target.value))}
                       className="bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
                     >
-                      {[10, 15, 20, 25, 30].map(n => (
+                      {[5, 10, 15, 20, 25, 30].map(n => (
                         <option key={n} value={n}>{n}곡</option>
                       ))}
                     </select>
