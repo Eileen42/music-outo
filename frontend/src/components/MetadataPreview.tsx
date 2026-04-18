@@ -22,19 +22,37 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const [instruction, setInstruction] = useState('')
   const meta = project.metadata || { title: null, description: null, tags: [], comment: null }
 
-  // 타임스탬프 자동 계산
-  const timestamps = useMemo(() => {
+  // 곡 제목에서 넘버/버전/날짜/확장자 제거
+  function cleanTitle(raw: string): string {
+    return raw
+      .replace(/^\d{1,3}[_.\-\s]+/, '')        // 앞쪽 넘버: "01_", "03. ", "1-"
+      .replace(/_v\d+$/i, '')                   // 뒤쪽 버전: "_v1", "_v2"
+      .replace(/\.\w{2,4}$/, '')                // 확장자: ".mp3", ".wav"
+      .replace(/\d{4}[-_.]\d{2}[-_.]\d{2}/, '') // 날짜: "2026-04-17"
+      .replace(/_/g, ' ')                       // 언더스코어 → 공백
+      .trim()
+  }
+
+  // 타임스탬프 자동 계산 (편집 가능)
+  const initialTimestamps = useMemo(() => {
     const tracks = project.tracks || []
     if (tracks.length === 0) return []
     let elapsed = 0
     return tracks.map(t => {
       const ts = fmtTime(elapsed)
       elapsed += t.duration || 0
-      return { time: ts, title: t.title }
+      return { time: ts, title: cleanTitle(t.title) }
     })
   }, [project.tracks])
 
-  const timestampText = timestamps.map(t => `${t.time} ${t.title}`).join('\n')
+  const [editableTimestamps, setEditableTimestamps] = useState(initialTimestamps)
+
+  // tracks 변경 시 초기화
+  useMemo(() => {
+    setEditableTimestamps(initialTimestamps)
+  }, [initialTimestamps])
+
+  const timestampText = editableTimestamps.map(t => `${t.time} ${t.title}`).join('\n')
 
   const [title, setTitle] = useState(meta.title || '')
   const [description, setDescription] = useState(meta.description || '')
@@ -177,7 +195,7 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
           <div className="text-xs text-gray-600 text-right mt-1">{description.length}/5000</div>
         </div>
 
-        {timestamps.length > 0 && (
+        {editableTimestamps.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-sm text-gray-400">타임스탬프</label>
@@ -190,11 +208,19 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
                 복사
               </button>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 font-mono text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">
-              {timestamps.map((t, i) => (
-                <div key={i} className="flex gap-3">
-                  <span className="text-purple-400 shrink-0">{t.time}</span>
-                  <span>{t.title}</span>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 font-mono text-xs text-gray-300 leading-relaxed">
+              {editableTimestamps.map((t, i) => (
+                <div key={i} className="flex items-center gap-2 py-0.5">
+                  <span className="text-purple-400 shrink-0 w-12">{t.time}</span>
+                  <input
+                    value={t.title}
+                    onChange={e => {
+                      const updated = [...editableTimestamps]
+                      updated[i] = { ...updated[i], title: e.target.value }
+                      setEditableTimestamps(updated)
+                    }}
+                    className="flex-1 bg-transparent text-gray-200 border-b border-transparent hover:border-gray-700 focus:border-purple-500 focus:outline-none px-1 py-0.5 text-xs"
+                  />
                 </div>
               ))}
             </div>
