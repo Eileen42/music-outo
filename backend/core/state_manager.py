@@ -17,6 +17,19 @@ from config import settings
 class ProjectStateManager:
     def __init__(self):
         self._root = settings.projects_path
+        # 프로젝트별 쓰기 락 (같은 프로세스 내 동시 update 직렬화)
+        import threading
+        self._locks: dict[str, threading.Lock] = {}
+        self._locks_mutex = threading.Lock()
+
+    def _get_lock(self, project_id: str):
+        import threading
+        with self._locks_mutex:
+            lock = self._locks.get(project_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._locks[project_id] = lock
+            return lock
 
     # ──────────────────────── internal helpers ────────────────────────
 
@@ -34,9 +47,19 @@ class ProjectStateManager:
             return json.load(fp)
 
     def _save(self, project_id: str, state: dict) -> None:
+        """원자적 쓰기 + 락 — 동시 쓰기 시 JSON 파일 손상 방지.
+
+        write(*.tmp) → os.replace(tmp, state.json)로 원자적 교체.
+        같은 프로세스 내 동시 update는 프로젝트별 락으로 직렬화.
+        """
+        import os
         f = self._state_file(project_id)
-        with open(f, "w", encoding="utf-8") as fp:
-            json.dump(state, fp, ensure_ascii=False, indent=2)
+        lock = self._get_lock(project_id)
+        with lock:
+            tmp = f.with_suffix(".json.tmp")
+            with open(tmp, "w", encoding="utf-8") as fp:
+                json.dump(state, fp, ensure_ascii=False, indent=2)
+            os.replace(tmp, f)
 
     @staticmethod
     def _now() -> str:
@@ -93,12 +116,22 @@ class ProjectStateManager:
         return projects
 
     def update(self, project_id: str, updates: dict) -> Optional[dict]:
-        state = self._load(project_id)
-        if state is None:
-            return None
-        _deep_update(state, updates)
-        state["updated_at"] = self._now()
-        self._save(project_id, state)
+        # read-modify-write 구간을 락으로 감싸 lost-update 방지
+        lock = self._get_lock(project_id)
+        with lock:
+            state = self._load(project_id)
+            if state is None:
+                return None
+            _deep_update(state, updates)
+            state["updated_at"] = self._now()
+            # _save 내부의 락 재진입 — threading.Lock은 non-reentrant이므로
+            # 중복 획득 방지 위해 내부 _save를 우회하고 직접 원자 쓰기
+            import os
+            f = self._state_file(project_id)
+            tmp = f.with_suffix(".json.tmp")
+            with open(tmp, "w", encoding="utf-8") as fp:
+                json.dump(state, fp, ensure_ascii=False, indent=2)
+            os.replace(tmp, f)
         return state
 
     def delete(self, project_id: str) -> bool:
