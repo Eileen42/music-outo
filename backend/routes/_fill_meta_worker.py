@@ -119,10 +119,25 @@ async def _cdp_send_and_wait(ws, method: str, params: dict, timeout: float = 5.0
 
 
 async def cdp_set_file(ws, selector, file_path):
-    """CDP로 file input에 파일 설정. id 매칭 루프로 race 방지."""
+    """CDP로 file input에 파일 설정. 안정화된 버전:
+    - JS 문자열 이스케이프 보장 (selector에 "가 있어도 안전)
+    - DOM이 준비될 때까지 scrollIntoView 후 querySelector
+    - id 매칭 루프로 CDP race 방지
+    """
+    # selector를 JS 문자열 리터럴로 안전 인코딩 (json.dumps는 "로 감싸고 내부 " 이스케이프)
+    sel_js = json.dumps(selector)
+    # 요소를 찾고 view로 스크롤 후 참조 반환
+    expr = f"""
+    (() => {{
+        const el = document.querySelector({sel_js});
+        if (!el) return null;
+        try {{ el.scrollIntoView({{block: 'center'}}); }} catch(e) {{}}
+        return el;
+    }})()
+    """
     resp = await _cdp_send_and_wait(
         ws, "Runtime.evaluate",
-        {"expression": f'document.querySelector("{selector}")', "returnByValue": False},
+        {"expression": expr, "returnByValue": False},
     )
     obj_id = resp.get("result", {}).get("result", {}).get("objectId")
     if not obj_id:
@@ -139,7 +154,6 @@ async def cdp_set_file(ws, selector, file_path):
         ws, "DOM.setFileInputFiles",
         {"files": [str(file_path)], "backendNodeId": backend_id},
     )
-    # setFileInputFiles는 성공 시 비어있는 result 반환. error 필드가 있으면 실패.
     if resp3.get("error"):
         log.warning(f"썸네일 setFileInputFiles 실패: {resp3['error']}")
         return False

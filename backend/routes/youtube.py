@@ -98,13 +98,11 @@ async def upload_video(
 @router.post("/open-studio/{project_id}", summary="YouTube 업로드 브라우저 열기")
 async def open_studio(project_id: str):
     """Edge를 CDP 모드로 열어 YouTube 업로드 페이지 + outputs 폴더."""
-    import subprocess, os
+    import asyncio, subprocess, os, httpx
     state = state_manager.require(project_id)
     project_dir = state_manager.project_dir(project_id)
     outputs_dir = project_dir / "outputs"
 
-    # OAuth 연결 여부와 관계없이 업로드 페이지 열기
-    # youtube.com/upload는 로그인만 되어있으면 바로 업로드 화면
     channel_id = state.get("channel_id", "_default")
     yt_info = youtube_uploader.get_channel_info(channel_id)
     yt_channel_id = yt_info.get("youtube_channel_id", "")
@@ -113,41 +111,43 @@ async def open_studio(project_id: str):
     else:
         upload_url = "https://www.youtube.com/upload"
 
-    # 기존 Edge CDP 포트 충돌 방지 — CDP 포트가 이미 열려있으면 재사용
-    import time
+    # CDP 포트 생존 확인 — 비동기 httpx로 이벤트 루프 블로킹 방지
     cdp_alive = False
     try:
-        import httpx
-        resp = httpx.get("http://localhost:9224/json/version", timeout=2)
+        async with httpx.AsyncClient(timeout=2) as client:
+            resp = await client.get("http://localhost:9224/json/version")
         cdp_alive = resp.status_code == 200
     except Exception:
         pass
 
     if not cdp_alive:
-        # Edge를 CDP 모드로 새로 시작
-        os.system('taskkill /F /IM msedge.exe >nul 2>&1')
-        time.sleep(2)
-        subprocess.Popen([
-            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            "--remote-debugging-port=9224",
-            "--restore-last-session",
-            upload_url,
-        ])
-        time.sleep(3)  # Edge 시작 대기
+        # Edge CDP 모드로 새로 시작 (긴 sleep/subprocess는 스레드 풀로)
+        def _launch_edge():
+            import os as _os, subprocess as _sp, time as _t
+            _os.system('taskkill /F /IM msedge.exe >nul 2>&1')
+            _t.sleep(2)
+            _sp.Popen([
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                "--remote-debugging-port=9224",
+                "--restore-last-session",
+                upload_url,
+            ])
+            _t.sleep(3)
+        await asyncio.to_thread(_launch_edge)
     else:
         # 이미 열린 Edge에서 새 탭으로 업로드 페이지 열기
         try:
-            import httpx
-            httpx.put(f"http://localhost:9224/json/new?{upload_url}", timeout=3)
+            async with httpx.AsyncClient(timeout=3) as client:
+                await client.put(f"http://localhost:9224/json/new?{upload_url}")
         except Exception:
-            subprocess.Popen([
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                upload_url,
-            ])
+            await asyncio.to_thread(
+                subprocess.Popen,
+                [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", upload_url],
+            )
 
-    # outputs 폴더 열기
+    # outputs 폴더 열기 (startfile은 non-blocking이지만 안전하게 to_thread)
     if outputs_dir.exists():
-        os.startfile(str(outputs_dir))
+        await asyncio.to_thread(os.startfile, str(outputs_dir))
 
     return {"status": "opened", "cdp_port": 9224, "url": upload_url}
 
