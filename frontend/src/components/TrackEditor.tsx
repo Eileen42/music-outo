@@ -35,6 +35,8 @@ export default function TrackEditor({ project, onRefresh }: Props) {
   const [transcribing, setTranscribing] = useState<string | null>(null)
   const [editingLyrics, setEditingLyrics] = useState<string | null>(null)
   const [lyricsDraft, setLyricsDraft] = useState('')
+  const [buildingSrt, setBuildingSrt] = useState<string | null>(null)
+  const [srtMsg, setSrtMsg] = useState<Record<string, string>>({})
   const [savingRepeat, setSavingRepeat] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -202,7 +204,25 @@ export default function TrackEditor({ project, onRefresh }: Props) {
   const saveLyrics = async (trackId: string) => {
     await api.tracks.update(project.id, trackId, { lyrics: lyricsDraft })
     setEditingLyrics(null)
+    // 가사 저장 즉시 SRT 동기 빌드 (Whisper forced alignment, 30초~2분)
+    if (lyricsDraft.trim()) {
+      setBuildingSrt(trackId)
+      setSrtMsg(m => ({ ...m, [trackId]: '자막 동기화 중... (30초~2분)' }))
+      try {
+        const res = await api.tracks.buildSubtitle(project.id, trackId)
+        setSrtMsg(m => ({ ...m, [trackId]: `자막 생성 완료 (${res.entries_count}줄)` }))
+      } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '자막 생성 실패'
+        setSrtMsg(m => ({ ...m, [trackId]: detail }))
+      } finally {
+        setBuildingSrt(null)
+      }
+    }
     await onRefresh()
+  }
+
+  const downloadSrt = (trackId: string) => {
+    window.open(api.tracks.subtitleUrl(project.id, trackId), '_blank')
   }
 
   const waitingCount = pending.filter(p => p.status === 'waiting').length
@@ -383,6 +403,19 @@ export default function TrackEditor({ project, onRefresh }: Props) {
                       {track.lyrics && editingLyrics !== track.id && (
                         <span className="text-[11px] bg-blue-900/40 text-blue-400 border border-blue-800 px-1.5 py-0.5 rounded-full">가사 ✓</span>
                       )}
+                      {track.lyrics && (
+                        <button
+                          onClick={() => downloadSrt(track.id)}
+                          disabled={buildingSrt === track.id}
+                          className="text-[11px] bg-indigo-900/40 text-indigo-300 border border-indigo-800 hover:bg-indigo-800/60 px-1.5 py-0.5 rounded-full disabled:opacity-50"
+                          title="싱크된 SRT 자막 다운로드"
+                        >⬇ SRT</button>
+                      )}
+                      {srtMsg[track.id] && (
+                        <span className={`text-[11px] ${buildingSrt === track.id ? 'text-yellow-400' : 'text-gray-500'}`}>
+                          {srtMsg[track.id]}
+                        </span>
+                      )}
                     </div>
 
                     {/* 가사 편집 */}
@@ -397,8 +430,14 @@ export default function TrackEditor({ project, onRefresh }: Props) {
                           autoFocus
                         />
                         <div className="flex gap-2 mt-2">
-                          <button onClick={() => saveLyrics(track.id)} className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg">저장</button>
-                          <button onClick={() => setEditingLyrics(null)} className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded-lg">취소</button>
+                          <button
+                            onClick={() => saveLyrics(track.id)}
+                            disabled={buildingSrt === track.id}
+                            className="text-xs bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg"
+                          >
+                            {buildingSrt === track.id ? '자막 싱크 중...' : '저장 + 자막 생성'}
+                          </button>
+                          <button onClick={() => setEditingLyrics(null)} disabled={buildingSrt === track.id} className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 px-3 py-1.5 rounded-lg">취소</button>
                         </div>
                       </div>
                     ) : (

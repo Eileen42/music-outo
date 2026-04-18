@@ -143,7 +143,7 @@ class RegisterSetRequest(BaseModel):
 
 
 @router.post("/{project_id}/register-suno-set", summary="Suno 세트를 프로젝트 트랙으로 등록")
-async def register_suno_set(project_id: str, body: RegisterSetRequest):
+async def register_suno_set(project_id: str, body: RegisterSetRequest, background_tasks: BackgroundTasks = None):
     """
     특정 slot(1 or 2)의 suno_tracks를 프로젝트 tracks로 변환·등록.
     Suno가 곡당 2곡 생성 → slot 1 = 세트 A, slot 2 = 세트 B.
@@ -185,6 +185,12 @@ async def register_suno_set(project_id: str, body: RegisterSetRequest):
             else:
                 seen_hashes[h] = st.get("index", 0)
 
+    # designed_tracks에서 가사 매핑 (index → lyrics)
+    designed_tracks_map: dict[int, dict] = {
+        dt.get("index", i + 1): dt
+        for i, dt in enumerate(state.get("designed_tracks", []) or [])
+    }
+
     # suno_track → Track 변환 (중복 제외)
     dup_indices = {d["index"] for d in duplicates}
     tracks = []
@@ -199,6 +205,10 @@ async def register_suno_set(project_id: str, body: RegisterSetRequest):
         except Exception:
             info = {"duration": 0, "sample_rate": 48000, "channels": 2}
 
+        # 설계 시점의 가사를 복사 (채널이 가사형이면 Suno가 실제로 부른 가사 = designed lyrics)
+        designed = designed_tracks_map.get(st.get("index"), {})
+        designed_lyrics = designed.get("lyrics") or None
+
         track_id = str(_uuid.uuid4())
         tracks.append({
             "id": track_id,
@@ -211,7 +221,7 @@ async def register_suno_set(project_id: str, body: RegisterSetRequest):
             "sample_rate": info.get("sample_rate", 48000),
             "channels": info.get("channels", 2),
             "waveform_file": None,
-            "lyrics": None,
+            "lyrics": designed_lyrics,
             "lyrics_sync_file": None,
         })
 
@@ -220,6 +230,11 @@ async def register_suno_set(project_id: str, body: RegisterSetRequest):
         "tracks": tracks,
         "active_suno_set": set_label,
     })
+
+    # 가사 있는 트랙이 있으면 자막 자동 빌드
+    if background_tasks and any(t.get("lyrics") for t in tracks):
+        from routes.tracks import _rebuild_subtitles
+        background_tasks.add_task(_rebuild_subtitles, project_id)
 
     return {
         "set": set_label,

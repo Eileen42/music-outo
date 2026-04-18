@@ -34,9 +34,9 @@ class GeminiClient:
         # 모델 우선순위: 요청된 모델 → fallback 모델들
         models_to_try = [model]
         if model == "gemini-2.5-flash":
-            models_to_try += ["gemini-2.0-flash", "gemini-1.5-flash"]
+            models_to_try += ["gemini-2.0-flash", "gemini-flash-latest"]
         elif model == "gemini-2.0-flash":
-            models_to_try += ["gemini-2.5-flash", "gemini-1.5-flash"]
+            models_to_try += ["gemini-2.5-flash", "gemini-flash-latest"]
 
         last_err: Exception | None = None
 
@@ -54,6 +54,11 @@ class GeminiClient:
                         logger.info(f"fallback 모델 사용: {current_model}")
                     return response.text
                 except Exception as e:
+                    if self._is_model_not_found(e):
+                        # 폐기된 모델 — 재시도 의미 없음. 다음 모델로 즉시 이동.
+                        logger.warning(f"{current_model} 404 NOT_FOUND — 폐기된 모델. 다음 모델 시도")
+                        last_err = e
+                        break
                     if self._is_rate_limit(e):
                         logger.warning(f"키 [{key_index}] 429 ({current_model}) — 쿨다운 설정")
                         self._set_cooldown(key_index)
@@ -173,13 +178,20 @@ class GeminiClient:
     @staticmethod
     def _is_rate_limit(e: Exception) -> bool:
         msg = str(e).lower()
-        return "429" in msg or "quota" in msg or "rate" in msg or "resource_exhausted" in msg
+        # NOTE: "rate" 단독 부분매치는 "generateContent"(gene*rate*Content)와 오탐되므로 제외.
+        return "429" in msg or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg
 
     @staticmethod
     def _is_retryable(e: Exception) -> bool:
         """503 UNAVAILABLE 등 일시적 에러."""
         msg = str(e).lower()
         return "503" in msg or "unavailable" in msg or "overloaded" in msg or "service_unavailable" in msg
+
+    @staticmethod
+    def _is_model_not_found(e: Exception) -> bool:
+        """404 NOT_FOUND — 폐기/미지원 모델. 재시도 불필요."""
+        msg = str(e)
+        return "404" in msg and "NOT_FOUND" in msg
 
 
 # ──────────────────────────── 싱글톤 ────────────────────────────
