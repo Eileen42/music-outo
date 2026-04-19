@@ -762,9 +762,10 @@ class SunoAPIClient:
                     ready_clips = await self.wait_for_audio(clips, timeout=300)
 
                     # 다운로드 — 안전한 파일명 (Windows 금지문자 치환)
+                    # 끝의 "."은 download_clip 신호: 클린 파일명({prefix[:-1]}.mp3) 사용
                     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in title[:30])
                     for slot, clip in enumerate(ready_clips[:2], 1):
-                        prefix = f"{idx:02d}_{safe_title}_v{slot}_"
+                        prefix = f"{idx:02d}_{safe_title}_v{slot}."
                         file_path = await self.download_clip(clip, output_dir, prefix)
                         track = {
                             "index": idx,

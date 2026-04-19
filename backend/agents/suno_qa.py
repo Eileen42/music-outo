@@ -44,8 +44,12 @@ class SunoQAAgent:
             index = dt.get("index", 0)
             title = dt.get("title", f"Track_{index}")
 
-            v1_files = list(tracks_dir.glob(f"{index:02d}_*_v1.mp3")) if tracks_dir.exists() else []
-            v2_files = list(tracks_dir.glob(f"{index:02d}_*_v2.mp3")) if tracks_dir.exists() else []
+            # `_v1.mp3`(클린) + `_v1_<uuid>.mp3`(쿠키 런너) 양쪽 매칭
+            if tracks_dir.exists():
+                v1_files = list(tracks_dir.glob(f"{index:02d}_*_v1.mp3")) + list(tracks_dir.glob(f"{index:02d}_*_v1_*.mp3"))
+                v2_files = list(tracks_dir.glob(f"{index:02d}_*_v2.mp3")) + list(tracks_dir.glob(f"{index:02d}_*_v2_*.mp3"))
+            else:
+                v1_files, v2_files = [], []
             v1_exists = len(v1_files) > 0 and v1_files[0].stat().st_size > 10_000
             v2_exists = len(v2_files) > 0 and v2_files[0].stat().st_size > 10_000
 
@@ -97,7 +101,10 @@ class SunoQAAgent:
 
         for item in report["unlinked"]:
             index, slot = item["index"], item["slot"]
-            files = list(tracks_dir.glob(f"{index:02d}_*_v{slot}.mp3"))
+            files = (
+                list(tracks_dir.glob(f"{index:02d}_*_v{slot}.mp3"))
+                + list(tracks_dir.glob(f"{index:02d}_*_v{slot}_*.mp3"))
+            )
             if not files:
                 continue
 

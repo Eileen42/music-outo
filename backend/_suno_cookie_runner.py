@@ -47,20 +47,31 @@ def _write_progress(pid: str, data: dict) -> None:
 
 
 def _count_done(all_tracks: list[dict], tracks_dir: Path) -> tuple[int, list[dict]]:
-    """파일 시스템 기준 완료 수 + 미완료 트랙 목록."""
+    """파일 시스템 기준 완료 수 + 미완료 트랙 목록.
+
+    `_v1.mp3` (클린) 또는 `_v1_<uuid>.mp3` (구 형식) 양쪽 모두 인식.
+    """
     files = list(tracks_dir.glob("*.mp3")) if tracks_dir.exists() else []
+
+    def _has(idx: int, slot: int) -> bool:
+        slot_clean = f"_v{slot}.mp3"
+        slot_uuid  = f"_v{slot}_"
+        for f in files:
+            if not f.name.startswith(f"{idx:02d}_"):
+                continue
+            if not (f.name.endswith(slot_clean) or slot_uuid in f.name):
+                continue
+            try:
+                if f.stat().st_size > 10_000:
+                    return True
+            except OSError:
+                continue
+        return False
+
     done, missing = 0, []
     for i, t in enumerate(all_tracks):
         idx = t.get("index", i + 1)
-        v1 = any(
-            f.name.startswith(f"{idx:02d}_") and "_v1." in f.name
-            and f.stat().st_size > 10_000 for f in files
-        )
-        v2 = any(
-            f.name.startswith(f"{idx:02d}_") and "_v2." in f.name
-            and f.stat().st_size > 10_000 for f in files
-        )
-        if v1 and v2:
+        if _has(idx, 1) and _has(idx, 2):
             done += 1
         else:
             missing.append(t)
