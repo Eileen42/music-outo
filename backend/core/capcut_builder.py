@@ -30,12 +30,23 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _measure_track(stored_path: str, silence_thresh: float = -50.0) -> dict | None:
+# 무음 트림 튜닝값 — Suno 페이드아웃 보호를 위해 보수적으로 설정
+# threshold 를 낮출수록 "더 조용한 소리도 유효음"으로 간주 → 페이드 꼬리 덜 잘림
+_HEAD_SILENCE_DBFS = -55.0      # 곡 앞: count-in 같은 깨끗한 무음만 제거
+_TAIL_SILENCE_DBFS = -60.0      # 곡 뒤: 페이드아웃 꼬리를 지키려고 더 엄격
+_HEAD_TRIM_CAP_MS = 3000        # 앞 무음 최대 3초까지만 제거
+_TAIL_TRIM_CAP_MS = 1000        # 뒤 무음 최대 1초까지만 제거 (페이드 보호)
+
+
+def _measure_track(stored_path: str) -> dict | None:
     """MP3 실제 재생 길이 + 앞/뒤 무음 구간 측정 (ms 단위).
 
     state.json의 duration은 업로드 시점에 mutagen이 읽은 헤더값이라 실제 파일과
     어긋날 수 있다(재생성/교체·VBR 헤더 오차). CapCut 빌드 직전에 실측해서
     타임라인 정합을 보장한다.
+
+    무음 판정은 head/tail 다른 threshold + 최대 트림 cap 을 둬서 Suno 페이드
+    아웃이 통째로 잘려나가는 것을 막는다.
 
     반환: {"real_ms", "head_ms", "tail_ms", "play_ms"} 또는 None.
     """
@@ -58,14 +69,18 @@ def _measure_track(stored_path: str, silence_thresh: float = -50.0) -> dict | No
     if detect_leading_silence is not None:
         try:
             head_ms = int(detect_leading_silence(
-                seg, silence_threshold=silence_thresh, chunk_size=10
+                seg, silence_threshold=_HEAD_SILENCE_DBFS, chunk_size=10
             ))
             tail_ms = int(detect_leading_silence(
-                seg.reverse(), silence_threshold=silence_thresh, chunk_size=10
+                seg.reverse(), silence_threshold=_TAIL_SILENCE_DBFS, chunk_size=10
             ))
         except Exception as e:
             logger.warning(f"measure: silence detect fail {p.name}: {e}")
             head_ms = tail_ms = 0
+
+    # 최대 트림 cap — 너무 많이 잘리는 걸 방지 (특히 tail 페이드 보호)
+    head_ms = min(head_ms, _HEAD_TRIM_CAP_MS)
+    tail_ms = min(tail_ms, _TAIL_TRIM_CAP_MS)
 
     # 감지된 무음 합이 전체의 50% 이상이면 이상 감지 — 트림 포기
     if head_ms + tail_ms > total_ms * 0.5:
