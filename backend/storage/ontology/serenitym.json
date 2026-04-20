@@ -1,25 +1,112 @@
 {
   "channel": "serenitym",
-  "channel_name": "세러니티엠",
+  "channel_name": "세레니티엠",
   "generated_from": "auto",
   "categories": {
-    "sleep": {
-      "mood": ["calm", "peaceful", "dreamy"],
-      "music": {"tempo": [55, 75], "instruments": ["piano", "pad", "ambient"], "energy": "low", "vocal": "none"},
-      "image": {"color_tone": "dark", "subjects": ["night sky", "ocean", "moon", "stars"], "lighting": "soft", "style": "cinematic"},
-      "subtitle": {"tone": "comforting", "style": "affirmation"}
+    "수면음악": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "affirmation"
+      }
     },
-    "meditation": {
-      "mood": ["serene", "spiritual", "focused"],
-      "music": {"tempo": [50, 70], "instruments": ["singing bowl", "pad", "nature sounds"], "energy": "very_low", "vocal": "none"},
-      "image": {"color_tone": "warm", "subjects": ["sunrise", "mountain", "lotus", "temple"], "lighting": "golden", "style": "ethereal"},
-      "subtitle": {"tone": "mindful", "style": "affirmation"}
+    "명상음악": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "affirmation"
+      }
     },
-    "healing": {
-      "mood": ["gentle", "warm", "soothing"],
-      "music": {"tempo": [60, 85], "instruments": ["piano", "strings", "flute", "harp"], "energy": "low", "vocal": "none"},
-      "image": {"color_tone": "warm", "subjects": ["forest", "lake", "sunset", "flower field"], "lighting": "golden", "style": "cinematic"},
-      "subtitle": {"tone": "poetic", "style": "affirmation"}
+    "힐링음악": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "affirmation"
+      }
     }
   }
 }
