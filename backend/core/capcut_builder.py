@@ -22,33 +22,23 @@ from typing import Optional
 
 try:
     from pydub import AudioSegment
-    from pydub.silence import detect_leading_silence
 except ImportError:
     AudioSegment = None  # type: ignore
-    detect_leading_silence = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
 
-# 무음 트림 튜닝값 — Suno 페이드아웃 보호를 위해 보수적으로 설정
-# threshold 를 낮출수록 "더 조용한 소리도 유효음"으로 간주 → 페이드 꼬리 덜 잘림
-_HEAD_SILENCE_DBFS = -55.0      # 곡 앞: count-in 같은 깨끗한 무음만 제거
-_TAIL_SILENCE_DBFS = -60.0      # 곡 뒤: 페이드아웃 꼬리를 지키려고 더 엄격
-_HEAD_TRIM_CAP_MS = 3000        # 앞 무음 최대 3초까지만 제거
-_TAIL_TRIM_CAP_MS = 1000        # 뒤 무음 최대 1초까지만 제거 (페이드 보호)
-
-
 def _measure_track(stored_path: str) -> dict | None:
-    """MP3 실제 재생 길이 + 앞/뒤 무음 구간 측정 (ms 단위).
+    """MP3 실제 재생 길이 측정 (ms 단위).
 
     state.json의 duration은 업로드 시점에 mutagen이 읽은 헤더값이라 실제 파일과
     어긋날 수 있다(재생성/교체·VBR 헤더 오차). CapCut 빌드 직전에 실측해서
     타임라인 정합을 보장한다.
 
-    무음 판정은 head/tail 다른 threshold + 최대 트림 cap 을 둬서 Suno 페이드
-    아웃이 통째로 잘려나가는 것을 막는다.
+    ⚠️ 원본 보존 원칙: 음악 파일은 절대 자르지 않는다. 앞/뒤 무음이 있어도
+    원본 그대로 이어붙인다. 따라서 head/tail 무음 트림 없음.
 
-    반환: {"real_ms", "head_ms", "tail_ms", "play_ms"} 또는 None.
+    반환: {"real_ms": int} 또는 None.
     """
     if AudioSegment is None or not stored_path:
         return None
@@ -63,36 +53,7 @@ def _measure_track(stored_path: str) -> dict | None:
     total_ms = len(seg)
     if total_ms <= 0:
         return None
-
-    head_ms = 0
-    tail_ms = 0
-    if detect_leading_silence is not None:
-        try:
-            head_ms = int(detect_leading_silence(
-                seg, silence_threshold=_HEAD_SILENCE_DBFS, chunk_size=10
-            ))
-            tail_ms = int(detect_leading_silence(
-                seg.reverse(), silence_threshold=_TAIL_SILENCE_DBFS, chunk_size=10
-            ))
-        except Exception as e:
-            logger.warning(f"measure: silence detect fail {p.name}: {e}")
-            head_ms = tail_ms = 0
-
-    # 최대 트림 cap — 너무 많이 잘리는 걸 방지 (특히 tail 페이드 보호)
-    head_ms = min(head_ms, _HEAD_TRIM_CAP_MS)
-    tail_ms = min(tail_ms, _TAIL_TRIM_CAP_MS)
-
-    # 감지된 무음 합이 전체의 50% 이상이면 이상 감지 — 트림 포기
-    if head_ms + tail_ms > total_ms * 0.5:
-        head_ms = tail_ms = 0
-
-    play_ms = max(total_ms - head_ms - tail_ms, 500)  # 최소 0.5초 보장
-    return {
-        "real_ms": total_ms,
-        "head_ms": head_ms,
-        "tail_ms": tail_ms,
-        "play_ms": play_ms,
-    }
+    return {"real_ms": total_ms}
 
 
 # CapCut 캐시 폰트 정보 (content.styles.font에 path+id 필수)
@@ -351,9 +312,10 @@ class CapcutBuilder:
         for _ in range(3):
             (project_dir / f"{{{_uuid()}}}").mkdir(exist_ok=True)
 
-        # ── 각 트랙의 실제 재생 길이 + 앞/뒤 무음 측정 ──
-        # state.duration(헤더값)이 실제 파일과 어긋나거나, 앞뒤 무음이 있으면
-        # CapCut 타임라인에서 곡이 잘리거나 공백이 생긴다. 빌드 직전에 실측.
+        # ── 각 트랙의 실제 재생 길이 측정 ──
+        # state.duration(헤더값)이 실제 파일과 어긋나면 CapCut 타임라인에서 곡이
+        # 잘린다. 빌드 직전에 실측해서 정확한 길이로 배치한다.
+        # 원본 보존: 앞뒤 무음도 포함해 원본 파일 전체를 그대로 이어붙인다.
         for t in tracks:
             m = _measure_track(t.get("stored_path", ""))
             if m:
@@ -361,22 +323,20 @@ class CapcutBuilder:
                 logger.info(
                     f"measure: {Path(t.get('stored_path','')).name} "
                     f"state={t.get('duration', 0):.3f}s → "
-                    f"real={m['real_ms']/1000:.3f}s "
-                    f"head={m['head_ms']}ms tail={m['tail_ms']}ms "
-                    f"play={m['play_ms']/1000:.3f}s"
+                    f"real={m['real_ms']/1000:.3f}s"
                 )
 
-        def _play_sec(t: dict) -> float:
-            """실측 play 시간(앞뒤 무음 제외). 측정 실패 시 state.duration 폴백."""
+        def _real_sec(t: dict) -> float:
+            """실측 파일 길이. 측정 실패 시 state.duration 폴백."""
             m = t.get("_measured")
             if m:
-                return m["play_ms"] / 1000.0
+                return m["real_ms"] / 1000.0
             return float(t.get("duration", 0))
 
         # 반복 설정 적용
         repeat_cfg = state.get("repeat", {})
         repeat_mode = repeat_cfg.get("mode", "count")
-        single_duration = sum(_play_sec(t) for t in tracks)
+        single_duration = sum(_real_sec(t) for t in tracks)
 
         if repeat_mode == "count":
             repeat_count = max(1, repeat_cfg.get("count", 1))
@@ -666,14 +626,14 @@ class CapcutBuilder:
             })
 
         # ── 5. 오디오 트랙 (반복 적용) ──
-        # material.duration은 파일 전체 실측 길이, segment는 (head 스킵 → play 구간)
-        # 만 사용하도록 source_timerange.start = head_us 로 설정한다.
+        # 원본 파일 전체를 그대로 이어붙인다. 자르지 않음, 갭 없음.
+        # material.duration = segment.duration = 실측 파일 길이, source.start = 0.
         audio_segments = []
         time_offset_us = 0
 
         # audio material은 1세트만 생성 (반복 시 같은 material 재사용)
-        # 각 엔트리: (material_id, head_us, play_us)
-        audio_mats: list[tuple[str, int, int]] = []
+        # 각 엔트리: (material_id, real_us)
+        audio_mats: list[tuple[str, int]] = []
         for track in tracks:
             audio_path = track.get("stored_path", "")
             if not audio_path or not Path(audio_path).exists():
@@ -682,13 +642,9 @@ class CapcutBuilder:
             m = track.get("_measured")
             if m:
                 real_us = _us(m["real_ms"] / 1000.0)
-                head_us = _us(m["head_ms"] / 1000.0)
-                play_us = _us(m["play_ms"] / 1000.0)
             else:
-                # 실측 실패 → state 값 폴백 (트림 없음)
+                # 실측 실패 → state 값 폴백
                 real_us = _us(track.get("duration", 0))
-                head_us = 0
-                play_us = real_us
             res_path = str(Path(audio_path).resolve())
             aud_mat = _load_audio_mat_skeleton()
             aud_mat.update({
@@ -699,17 +655,17 @@ class CapcutBuilder:
                 "name": track.get("title", ""),
             })
             materials["audios"].append(aud_mat)
-            audio_mats.append((aud_id, head_us, play_us))
+            audio_mats.append((aud_id, real_us))
 
-        # repeat_count만큼 반복 배치
+        # repeat_count만큼 반복 배치 (곡 사이 갭 0)
         for _rep in range(repeat_count):
-            for aud_id, head_us, play_us in audio_mats:
+            for aud_id, real_us in audio_mats:
                 audio_segments.append(_make_segment(
-                    aud_id, time_offset_us, play_us, materials,
+                    aud_id, time_offset_us, real_us, materials,
                     track_type="audio", render_index=0,
-                    source_start=head_us,
+                    source_start=0,
                 ))
-                time_offset_us += play_us
+                time_offset_us += real_us
 
         if audio_segments:
             track_list.append({
