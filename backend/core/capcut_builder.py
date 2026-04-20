@@ -20,40 +20,47 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-try:
-    from pydub import AudioSegment
-except ImportError:
-    AudioSegment = None  # type: ignore
+import subprocess
 
 logger = logging.getLogger(__name__)
 
 
 def _measure_track(stored_path: str) -> dict | None:
-    """MP3 실제 재생 길이 측정 (ms 단위).
+    """MP3 실제 재생 길이 측정 (ms 단위) — ffprobe 기반.
 
-    state.json의 duration은 업로드 시점에 mutagen이 읽은 헤더값이라 실제 파일과
-    어긋날 수 있다(재생성/교체·VBR 헤더 오차). CapCut 빌드 직전에 실측해서
-    타임라인 정합을 보장한다.
+    CapCut 은 내부적으로 ffmpeg 를 쓰므로, 같은 엔진인 ffprobe 가 보고하는
+    duration 과 segment 길이를 일치시키는 것이 정확하다. pydub(전체 디코딩)
+    이나 mutagen(헤더값)은 깨진 MP3 헤더에서 값이 어긋나서 segment 가
+    실제 재생 길이와 달라지는 문제가 있다.
 
     ⚠️ 원본 보존 원칙: 음악 파일은 절대 자르지 않는다. 앞/뒤 무음이 있어도
     원본 그대로 이어붙인다. 따라서 head/tail 무음 트림 없음.
 
     반환: {"real_ms": int} 또는 None.
     """
-    if AudioSegment is None or not stored_path:
+    if not stored_path:
         return None
     p = Path(stored_path)
     if not p.exists():
         return None
     try:
-        seg = AudioSegment.from_file(str(p))
+        r = subprocess.run(
+            ["ffprobe", "-v", "error",
+             "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1",
+             str(p)],
+            capture_output=True, text=True, timeout=15,
+        )
+        dur_s = float(r.stdout.strip())
+    except FileNotFoundError:
+        logger.warning("measure: ffprobe not found in PATH")
+        return None
     except Exception as e:
-        logger.warning(f"measure: decode fail {p.name}: {e}")
+        logger.warning(f"measure: ffprobe fail {p.name}: {e}")
         return None
-    total_ms = len(seg)
-    if total_ms <= 0:
+    if dur_s <= 0:
         return None
-    return {"real_ms": total_ms}
+    return {"real_ms": int(dur_s * 1000)}
 
 
 # CapCut 캐시 폰트 정보 (content.styles.font에 path+id 필수)
