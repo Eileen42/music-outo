@@ -20,7 +20,47 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import subprocess
+
 logger = logging.getLogger(__name__)
+
+
+def _measure_track(stored_path: str) -> dict | None:
+    """MP3 실제 재생 길이 측정 (ms 단위) — ffprobe 기반.
+
+    CapCut 은 내부적으로 ffmpeg 를 쓰므로, 같은 엔진인 ffprobe 가 보고하는
+    duration 과 segment 길이를 일치시키는 것이 정확하다. pydub(전체 디코딩)
+    이나 mutagen(헤더값)은 깨진 MP3 헤더에서 값이 어긋나서 segment 가
+    실제 재생 길이와 달라지는 문제가 있다.
+
+    ⚠️ 원본 보존 원칙: 음악 파일은 절대 자르지 않는다. 앞/뒤 무음이 있어도
+    원본 그대로 이어붙인다. 따라서 head/tail 무음 트림 없음.
+
+    반환: {"real_ms": int} 또는 None.
+    """
+    if not stored_path:
+        return None
+    p = Path(stored_path)
+    if not p.exists():
+        return None
+    try:
+        r = subprocess.run(
+            ["ffprobe", "-v", "error",
+             "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1",
+             str(p)],
+            capture_output=True, text=True, timeout=15,
+        )
+        dur_s = float(r.stdout.strip())
+    except FileNotFoundError:
+        logger.warning("measure: ffprobe not found in PATH")
+        return None
+    except Exception as e:
+        logger.warning(f"measure: ffprobe fail {p.name}: {e}")
+        return None
+    if dur_s <= 0:
+        return None
+    return {"real_ms": int(dur_s * 1000)}
 
 
 # CapCut 캐시 폰트 정보 (content.styles.font에 path+id 필수)
@@ -279,10 +319,31 @@ class CapcutBuilder:
         for _ in range(3):
             (project_dir / f"{{{_uuid()}}}").mkdir(exist_ok=True)
 
+        # ── 각 트랙의 실제 재생 길이 측정 ──
+        # state.duration(헤더값)이 실제 파일과 어긋나면 CapCut 타임라인에서 곡이
+        # 잘린다. 빌드 직전에 실측해서 정확한 길이로 배치한다.
+        # 원본 보존: 앞뒤 무음도 포함해 원본 파일 전체를 그대로 이어붙인다.
+        for t in tracks:
+            m = _measure_track(t.get("stored_path", ""))
+            if m:
+                t["_measured"] = m
+                logger.info(
+                    f"measure: {Path(t.get('stored_path','')).name} "
+                    f"state={t.get('duration', 0):.3f}s → "
+                    f"real={m['real_ms']/1000:.3f}s"
+                )
+
+        def _real_sec(t: dict) -> float:
+            """실측 파일 길이. 측정 실패 시 state.duration 폴백."""
+            m = t.get("_measured")
+            if m:
+                return m["real_ms"] / 1000.0
+            return float(t.get("duration", 0))
+
         # 반복 설정 적용
         repeat_cfg = state.get("repeat", {})
         repeat_mode = repeat_cfg.get("mode", "count")
-        single_duration = sum(t.get("duration", 0) for t in tracks)
+        single_duration = sum(_real_sec(t) for t in tracks)
 
         if repeat_mode == "count":
             repeat_count = max(1, repeat_cfg.get("count", 1))
@@ -572,38 +633,46 @@ class CapcutBuilder:
             })
 
         # ── 5. 오디오 트랙 (반복 적용) ──
+        # 원본 파일 전체를 그대로 이어붙인다. 자르지 않음, 갭 없음.
+        # material.duration = segment.duration = 실측 파일 길이, source.start = 0.
         audio_segments = []
-        time_offset = 0
+        time_offset_us = 0
 
         # audio material은 1세트만 생성 (반복 시 같은 material 재사용)
-        audio_mats: list[tuple[str, float]] = []  # (material_id, duration_sec)
+        # 각 엔트리: (material_id, real_us)
+        audio_mats: list[tuple[str, int]] = []
         for track in tracks:
             audio_path = track.get("stored_path", "")
             if not audio_path or not Path(audio_path).exists():
                 continue
             aud_id = _uuid()
-            dur = track.get("duration", 0)
-            dur_us = _us(dur)
+            m = track.get("_measured")
+            if m:
+                real_us = _us(m["real_ms"] / 1000.0)
+            else:
+                # 실측 실패 → state 값 폴백
+                real_us = _us(track.get("duration", 0))
             res_path = str(Path(audio_path).resolve())
             aud_mat = _load_audio_mat_skeleton()
             aud_mat.update({
                 "id": aud_id,
                 "path": res_path,
-                "duration": dur_us,
+                "duration": real_us,
                 "type": "extract_music",
                 "name": track.get("title", ""),
             })
             materials["audios"].append(aud_mat)
-            audio_mats.append((aud_id, dur))
+            audio_mats.append((aud_id, real_us))
 
-        # repeat_count만큼 반복 배치
+        # repeat_count만큼 반복 배치 (곡 사이 갭 0)
         for _rep in range(repeat_count):
-            for aud_id, dur in audio_mats:
-                dur_us = _us(dur)
+            for aud_id, real_us in audio_mats:
                 audio_segments.append(_make_segment(
-                    aud_id, _us(time_offset), dur_us, materials, track_type="audio", render_index=0,
+                    aud_id, time_offset_us, real_us, materials,
+                    track_type="audio", render_index=0,
+                    source_start=0,
                 ))
-                time_offset += dur
+                time_offset_us += real_us
 
         if audio_segments:
             track_list.append({

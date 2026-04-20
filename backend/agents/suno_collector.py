@@ -200,6 +200,9 @@ class SunoCollectorAgent:
                             content = await resp.read()
                             if len(content) > 10_000:
                                 dest.write_bytes(content)
+                                # Suno MP3 헤더 교정 (container/Xing 재mux)
+                                from core.mp3_fix import fix_mp3_header
+                                await fix_mp3_header(dest)
                                 return str(dest)
                 except Exception:
                     pass

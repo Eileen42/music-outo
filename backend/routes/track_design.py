@@ -452,6 +452,9 @@ async def retry_download(project_id: str, body: dict):
                             content = await resp.read()
                             if len(content) > 1000:  # 유효한 MP3인지 최소 크기 체크
                                 dest.write_bytes(content)
+                                # Suno MP3 헤더 교정 (container/Xing 재mux)
+                                from core.mp3_fix import fix_mp3_header
+                                await fix_mp3_header(dest)
                                 t["file_path"] = str(dest)
                                 t["status"] = "completed"
                                 downloaded = True

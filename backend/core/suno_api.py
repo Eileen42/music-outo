@@ -709,6 +709,9 @@ class SunoAPIClient:
                             content = await resp.read()
                             if len(content) > 10_000:  # 최소 10KB
                                 dest.write_bytes(content)
+                                # Suno MP3 헤더 교정 (container/Xing 재mux)
+                                from core.mp3_fix import fix_mp3_header
+                                await fix_mp3_header(dest)
                                 logger.info(f"다운로드 완료: {dest.name} ({len(content) // 1024}KB)")
                                 return str(dest)
                 except Exception as e:
