@@ -1,0 +1,73 @@
+name: 인스톨러 exe 빌드 & Release 업로드
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '수동 빌드용 버전 (예: 1.0.0)'
+        required: false
+        default: '0.0.0-manual'
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 버전 결정
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "버전: $VERSION"
+
+      - name: Inno Setup 설치
+        shell: powershell
+        run: |
+          choco install innosetup --yes --no-progress
+
+      - name: 인스톨러 컴파일
+        shell: powershell
+        env:
+          APP_VERSION: ${{ steps.ver.outputs.VERSION }}
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            /DMyAppVersion=$env:APP_VERSION `
+            installer\music-outo.iss
+          Get-ChildItem -Path installer\Output -Recurse
+
+      - name: 빌드 산출물 업로드 (GitHub Actions 아티팩트)
+        uses: actions/upload-artifact@v4
+        with:
+          name: music-outo-setup-${{ steps.ver.outputs.VERSION }}
+          path: installer/Output/music-outo-setup.exe
+
+      - name: GitHub Release 생성 + exe 첨부 (태그 push 시만)
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/music-outo-setup.exe
+          name: Music Outo ${{ steps.ver.outputs.VERSION }}
+          body: |
+            ## Music Outo ${{ steps.ver.outputs.VERSION }}
+
+            ### 설치 방법
+            1. 아래 `music-outo-setup.exe` 를 다운로드
+            2. 더블클릭해서 실행
+            3. 설치 마법사 안내에 따라 진행
+            4. 완료 후 바탕화면의 "Music Outo" 아이콘 더블클릭
+
+            ※ 최초 설치 시 Docker Desktop 이 함께 설치됩니다(5~10분).
+          draft: false
+          prerelease: false

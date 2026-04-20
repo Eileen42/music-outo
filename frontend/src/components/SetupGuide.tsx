@@ -35,10 +35,15 @@ export default function SetupGuide({ onConnected, backendUrl }: Props) {
     return () => clearInterval(id)
   }, [backendUrl, onConnected])
 
+  // 최신 GitHub Release 의 installer 링크
+  // 태그 push 시 GitHub Actions 가 music-outo-setup.exe 를 업로드한다.
+  const INSTALLER_URL =
+    'https://github.com/Eileen42/music-outo/releases/latest/download/music-outo-setup.exe'
+
   const handleDownload = () => {
     const link = document.createElement('a')
-    link.href = '/install-music-outo.bat'
-    link.download = 'install-music-outo.bat'
+    link.href = INSTALLER_URL
+    link.download = 'music-outo-setup.exe'
     link.click()
   }
 
@@ -72,16 +77,16 @@ export default function SetupGuide({ onConnected, backendUrl }: Props) {
               </li>
               <li className="flex gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs text-purple-400 font-bold">2</span>
-                <span>다운로드된 <code className="text-purple-300 bg-gray-800 px-1 rounded">install-music-outo.bat</code> 파일을 더블클릭합니다</span>
+                <span>다운로드된 <code className="text-purple-300 bg-gray-800 px-1 rounded">music-outo-setup.exe</code> 파일을 더블클릭합니다</span>
               </li>
               <li className="flex gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs text-purple-400 font-bold">3</span>
+                <span>설치 마법사가 열리면 "다음" 을 눌러 진행합니다 (첫 설치 시 Docker Desktop 자동 설치, 5~10분 소요)</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs text-purple-400 font-bold">4</span>
                 <span>
-                  설치 완료 후{' '}
-                  <a href="http://localhost:3000" className="text-purple-400 hover:text-purple-300 underline">
-                    localhost:3000
-                  </a>
-                  {' '}으로 접속합니다
+                  설치 완료 후 바탕화면의 <strong className="text-purple-300">Music Outo</strong> 아이콘으로 실행합니다
                 </span>
               </li>
             </ol>
