@@ -4,6 +4,13 @@ title Music Outo
 
 cd /d "%LOCALAPPDATA%\Programs\music-outo"
 
+REM ── 0. 최신 설정 파일 가져오기 (docker-compose.prod.yml) ──
+REM    네트워크/저장소 이슈 시 조용히 실패해 기존 파일로 진행
+curl -fsL "https://raw.githubusercontent.com/Eileen42/music-outo/master/docker-compose.prod.yml" -o docker-compose.prod.yml.new 2>nul
+if exist docker-compose.prod.yml.new (
+    move /Y docker-compose.prod.yml.new docker-compose.prod.yml >nul 2>&1
+)
+
 REM ── Docker CLI 존재 확인 → 없으면 winget 으로 Docker Desktop 자동 설치 ──
 where docker >nul 2>&1
 if %ERRORLEVEL% neq 0 (
@@ -75,4 +82,11 @@ goto wait_port
 
 :ready
 start http://localhost:3000
+
+REM ── 마지막: 이 bat 자신도 최신본으로 갱신 (다음 실행부터 반영) ──
+REM    실행 중 자기 자신 덮어쓰기가 위험하므로 파일 끝 한 줄 앞에서만 수행
+curl -fsL "https://raw.githubusercontent.com/Eileen42/music-outo/master/installer/start-music-outo.bat" -o start-music-outo.bat.new 2>nul
+if exist start-music-outo.bat.new (
+    move /Y start-music-outo.bat.new start-music-outo.bat >nul 2>&1
+)
 exit /b 0
