@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ForgotPasswordModal from './ForgotPasswordModal'
 
 interface Props {
   onRegistered: (token: string) => void
@@ -8,6 +9,7 @@ type Mode = 'login' | 'register'
 
 export default function RegisterForm({ onRegistered }: Props) {
   const [mode, setMode] = useState<Mode>('login')
+  const [showForgot, setShowForgot] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -100,6 +102,20 @@ export default function RegisterForm({ onRegistered }: Props) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+      {showForgot && (
+        <ForgotPasswordModal
+          initialEmail={email}
+          onClose={() => setShowForgot(false)}
+          onComplete={(resetEmail) => {
+            setShowForgot(false)
+            setMode('login')
+            setEmail(resetEmail)
+            setPassword('')
+            setError('')
+            alert('비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.')
+          }}
+        />
+      )}
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">YouTube Playlist Automator</h1>
@@ -153,6 +169,16 @@ export default function RegisterForm({ onRegistered }: Props) {
             >
               {loading ? '로그인 중...' : '로그인'}
             </button>
+
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowForgot(true)}
+                className="text-xs text-gray-500 hover:text-purple-400 transition-colors"
+              >
+                비밀번호를 잊으셨나요?
+              </button>
+            </div>
 
             <div className="pt-2 border-t border-gray-800 text-center">
               <button
