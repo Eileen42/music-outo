@@ -121,6 +121,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 1 */}
           <section id="step1" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">📺 1단계. 채널 설정</h2>
+            <Screenshot src="/guide/step1-channel.png" alt="채널 설정 화면" />
             <p className="mb-4">
               유튜브 채널 한 개마다 작업 프로필을 만듭니다. 같은 스타일의 영상을
               반복 생산할 때 기본값(장르, 가사 여부, Suno 프롬프트, 설명·태그 템플릿)이
@@ -136,6 +137,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 2 */}
           <section id="step2" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">🎵 2단계. 노래 만들기</h2>
+            <Screenshot src="/guide/step2-tracks.png" alt="노래 만들기 화면" />
             <p className="mb-4">
               Suno AI 로 곡을 직접 생성하거나, 이미 있는 MP3 를 업로드할 수 있습니다.
             </p>
@@ -167,6 +169,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 3 */}
           <section id="step3" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">🖼️ 3단계. 이미지 설정</h2>
+            <Screenshot src="/guide/step3-images.png" alt="이미지 설정 화면" />
             <p className="mb-4">
               썸네일(1280×720)과 배경 이미지(1920×1080)를 각각 지정합니다.
             </p>
@@ -180,6 +183,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 4 */}
           <section id="step4" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">✍️ 4단계. 메타데이터</h2>
+            <Screenshot src="/guide/step4-metadata.png" alt="메타데이터 화면" />
             <p className="mb-4">
               YouTube 에 올라갈 제목·설명·태그·고정댓글을 Gemini 로 한 번에 생성합니다.
             </p>
@@ -193,6 +197,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 5 */}
           <section id="step5" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">🎬 5단계. 레이어 설정</h2>
+            <Screenshot src="/guide/step5-layers.png" alt="레이어 설정 화면" />
             <p className="mb-4">
               영상에 올라갈 오버레이(파형·자막·텍스트)를 설정합니다. 전부 선택 항목.
             </p>
@@ -215,6 +220,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 6 */}
           <section id="step6" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">⚒️ 6단계. 빌드 & 다운로드</h2>
+            <Screenshot src="/guide/step6-build.png" alt="빌드 & 다운로드 화면" />
             <p className="mb-4">
               두 가지 출력 모드가 있습니다:
             </p>
@@ -245,6 +251,7 @@ export default function GuidePage({ onBack }: Props) {
           {/* Step 7 */}
           <section id="step7" className="scroll-mt-20">
             <h2 className="text-2xl font-bold text-white mb-4">▶️ 7단계. YouTube 업로드</h2>
+            <Screenshot src="/guide/step7-upload.png" alt="YouTube 업로드 화면" />
             <p className="mb-4">
               YouTube API 대신 <strong className="text-purple-300">브라우저 자동화</strong> 방식을 씁니다.
               Google OAuth 연결 없이 평소 YouTube 로그인만으로 동작합니다.
@@ -367,6 +374,20 @@ export default function GuidePage({ onBack }: Props) {
         </main>
       </div>
     </div>
+  )
+}
+
+function Screenshot({ src, alt }: { src: string; alt: string }) {
+  return (
+    <figure className="mb-5">
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className="w-full rounded-xl border border-gray-800 bg-gray-900"
+      />
+      <figcaption className="mt-2 text-xs text-gray-600 text-center">{alt}</figcaption>
+    </figure>
   )
 }
 
