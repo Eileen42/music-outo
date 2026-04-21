@@ -1,9 +1,10 @@
 interface Props {
   onStart: () => void
   onAdmin: () => void
+  onGuide: () => void
 }
 
-export default function LandingPage({ onStart, onAdmin }: Props) {
+export default function LandingPage({ onStart, onAdmin, onGuide }: Props) {
   const features = [
     { icon: '🎵', title: 'Suno 곡 배치 생성', desc: 'AI 가사 생성부터 다운로드·헤더 교정까지 자동' },
     { icon: '🎬', title: 'CapCut 프로젝트 자동 빌드', desc: '배경·파형·자막 레이어를 합쳐 draft 파일 생성' },
@@ -21,12 +22,20 @@ export default function LandingPage({ onStart, onAdmin }: Props) {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="px-6 py-4 flex items-center justify-between max-w-5xl mx-auto">
         <div className="text-lg font-bold text-purple-400">🎬 Music Outo</div>
-        <button
-          onClick={onStart}
-          className="text-sm bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          로그인 / 가입
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onGuide}
+            className="text-sm text-gray-400 hover:text-purple-300 px-3 py-2 transition-colors"
+          >
+            📖 사용 가이드
+          </button>
+          <button
+            onClick={onStart}
+            className="text-sm bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            로그인 / 가입
+          </button>
+        </div>
       </header>
 
       <section className="max-w-3xl mx-auto px-6 pt-16 pb-20 text-center">

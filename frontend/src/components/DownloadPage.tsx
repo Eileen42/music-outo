@@ -1,13 +1,14 @@
 interface Props {
   userName: string
   onLogout: () => void
+  onGuide: () => void
 }
 
 // GitHub Releases 의 최신 exe (installer.yml 워크플로우가 매 태그마다 갱신)
 const INSTALLER_URL =
   'https://github.com/Eileen42/music-outo/releases/latest/download/music-outo-setup.exe'
 
-export default function DownloadPage({ userName, onLogout }: Props) {
+export default function DownloadPage({ userName, onLogout, onGuide }: Props) {
   const handleDownload = () => {
     const link = document.createElement('a')
     link.href = INSTALLER_URL
@@ -20,6 +21,12 @@ export default function DownloadPage({ userName, onLogout }: Props) {
       <header className="px-6 py-4 flex items-center justify-between border-b border-gray-800">
         <div className="text-lg font-bold text-purple-400">🎬 Music Outo</div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={onGuide}
+            className="text-xs text-gray-400 hover:text-purple-300 transition-colors"
+          >
+            📖 사용 가이드
+          </button>
           <span className="text-sm text-gray-400">{userName} 님</span>
           <button
             onClick={onLogout}

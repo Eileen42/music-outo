@@ -14,6 +14,7 @@ import AdminPage from './components/AdminPage'
 import GeminiSetup from './components/GeminiSetup'
 import LandingPage from './components/LandingPage'
 import DownloadPage from './components/DownloadPage'
+import GuidePage from './components/GuidePage'
 
 type AuthState = 'loading' | 'landing' | 'register' | 'pending' | 'rejected' | 'approved'
 
@@ -103,6 +104,10 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('admin') === 'true'
+  })
+  const [showGuide, setShowGuide] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('guide') === 'true'
   })
 
   const backendUrl = localStorage.getItem('backend_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -273,6 +278,15 @@ export default function App() {
     )
   }
 
+  if (showGuide) {
+    return <GuidePage onBack={() => {
+      setShowGuide(false)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('guide')
+      window.history.replaceState({}, '', url.toString())
+    }} />
+  }
+
   if (showAdmin) {
     return <AdminPage onBack={() => setShowAdmin(false)} />
   }
@@ -283,6 +297,7 @@ export default function App() {
       <LandingPage
         onStart={() => setAuthState('register')}
         onAdmin={() => setShowAdmin(true)}
+        onGuide={() => setShowGuide(true)}
       />
     )
   }
@@ -328,7 +343,13 @@ export default function App() {
 
   // Vercel 에서 승인된 사용자 → 다운로드 안내 화면 (작업 UI 접근 X)
   if (authState === 'approved' && isVercel) {
-    return <DownloadPage userName={userName} onLogout={handleLogout} />
+    return (
+      <DownloadPage
+        userName={userName}
+        onLogout={handleLogout}
+        onGuide={() => setShowGuide(true)}
+      />
+    )
   }
 
   // 승인됨 + 서버 확인 중 → 연결 중 화면
