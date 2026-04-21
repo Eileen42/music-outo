@@ -10,11 +10,12 @@ import BuildDownload from './components/BuildDownload'
 import YouTubeUpload from './components/YouTubeUpload'
 import RegisterForm from './components/RegisterForm'
 import PendingApproval from './components/PendingApproval'
-import SetupGuide from './components/SetupGuide'
 import AdminPage from './components/AdminPage'
 import GeminiSetup from './components/GeminiSetup'
+import LandingPage from './components/LandingPage'
+import DownloadPage from './components/DownloadPage'
 
-type AuthState = 'loading' | 'register' | 'pending' | 'rejected' | 'approved'
+type AuthState = 'loading' | 'landing' | 'register' | 'pending' | 'rejected' | 'approved'
 
 interface Step {
   id: StepId
@@ -114,8 +115,11 @@ export default function App() {
     setAuthState('register')
   }
 
-  // 로컬 환경 감지 (localhost에서는 인증 건너뜀)
+  // 실행 환경 감지
+  // - localhost:3000 → 설치된 앱(작업 UI 전용)
+  // - *.vercel.app 등 → 공개 웹(랜딩·가입·승인·다운로드 전용)
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  const isVercel = !isLocal
 
   // 인증 상태 확인
   useEffect(() => {
@@ -126,8 +130,9 @@ export default function App() {
       return
     }
 
+    // Vercel 환경에서 토큰이 없으면 랜딩 페이지부터
     if (!authToken) {
-      setAuthState('register')
+      setAuthState('landing')
       return
     }
 
@@ -147,9 +152,10 @@ export default function App() {
     checkAuth()
   }, [authToken, isLocal])
 
-  // 서버 연결 상태 체크 (5초마다) — 승인된 사용자만
+  // 서버 연결 상태 체크 (5초마다) — 로컬(설치된 앱)에서만 의미 있음
   useEffect(() => {
     if (authState !== 'approved') return
+    if (isVercel) return  // Vercel 은 로컬 백엔드 체크 대상 아님
 
     const check = async () => {
       try {
@@ -182,7 +188,7 @@ export default function App() {
     check()
     const id = setInterval(check, 5000)
     return () => clearInterval(id)
-  }, [authState, backendUrl])
+  }, [authState, backendUrl, isVercel])
 
   // 프로젝트 활성화 — 항상 full 데이터 로드 후 표시
   const activateProject = useCallback(async (id: string, targetStep?: StepId) => {
@@ -271,6 +277,16 @@ export default function App() {
     return <AdminPage onBack={() => setShowAdmin(false)} />
   }
 
+  // Vercel 방문자 첫 화면 (비로그인)
+  if (authState === 'landing') {
+    return (
+      <LandingPage
+        onStart={() => setAuthState('register')}
+        onAdmin={() => setShowAdmin(true)}
+      />
+    )
+  }
+
   if (authState === 'register') {
     return (
       <RegisterForm onRegistered={(token) => {
@@ -308,6 +324,11 @@ export default function App() {
         </div>
       </div>
     )
+  }
+
+  // Vercel 에서 승인된 사용자 → 다운로드 안내 화면 (작업 UI 접근 X)
+  if (authState === 'approved' && isVercel) {
+    return <DownloadPage userName={userName} onLogout={handleLogout} />
   }
 
   // 승인됨 + 서버 확인 중 → 연결 중 화면
