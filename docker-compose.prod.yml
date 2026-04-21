@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   frontend:
-    image: eileen42/music-outo-frontend:latest
+    image: tofha42/music-outo-frontend:latest
     ports:
       - "3000:3000"
     depends_on:
@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: eileen42/music-outo:latest
+    image: tofha42/music-outo:latest
     ports:
       - "8000:8000"
     volumes:
