@@ -46,13 +46,9 @@ Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: autostart
 
 [Run]
-; 1) Docker Desktop 없으면 winget 으로 설치
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Write-Host 'Docker Desktop 설치 중... (몇 분 소요)'; winget install Docker.DockerDesktop --accept-package-agreements --accept-source-agreements --silent; Write-Host 'Docker Desktop 설치 완료. 완전 활성화를 위해 한번 재부팅이 필요할 수 있습니다.' }"""; \
-  StatusMsg: "Docker Desktop 확인 및 설치 중... (최초 설치 시 5~10분 소요)"; \
-  Flags: runhidden waituntilterminated
-
-; 2) 설치 직후 실행 여부를 사용자가 선택
+; 설치 직후 실행 여부를 사용자가 선택
+; Docker Desktop 자동 설치는 start-music-outo.bat 내부에서 처리한다
+; (Inno Setup 의 중괄호 예약어 충돌 때문에 PowerShell 인라인 호출을 피함)
 Filename: "{app}\{#MyAppExeName}"; Description: "지금 {#MyAppName} 실행"; \
   Flags: shellexec postinstall skipifsilent nowait
 

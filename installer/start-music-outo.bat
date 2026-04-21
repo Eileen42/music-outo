@@ -2,9 +2,33 @@
 chcp 65001 >nul
 title Music Outo
 
-cd /d "%USERPROFILE%\music-outo"
+cd /d "%LOCALAPPDATA%\Programs\music-outo"
 
-REM Docker 실행 중인지 확인, 아니면 Docker Desktop 시작하고 대기
+REM ── Docker CLI 존재 확인 → 없으면 winget 으로 Docker Desktop 자동 설치 ──
+where docker >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo  처음 실행이네요. Docker Desktop 을 설치합니다 (5~10분 소요).
+    echo  설치 중 관리자 권한 요청이 뜨면 "예" 를 눌러주세요.
+    echo.
+    winget install Docker.DockerDesktop --accept-package-agreements --accept-source-agreements --silent
+    if %ERRORLEVEL% neq 0 (
+        echo.
+        echo  Docker Desktop 자동 설치에 실패했습니다.
+        echo  아래 주소에서 수동으로 설치한 뒤 이 아이콘을 다시 실행해주세요:
+        echo    https://www.docker.com/products/docker-desktop/
+        start https://www.docker.com/products/docker-desktop/
+        pause
+        exit /b 1
+    )
+    echo.
+    echo  Docker Desktop 설치 완료. PC 재부팅이 필요할 수 있습니다.
+    echo  재부팅 후 바탕화면의 "Music Outo" 아이콘을 다시 실행해주세요.
+    pause
+    exit /b 0
+)
+
+REM ── Docker 엔진 실행 중인지 확인, 아니면 Docker Desktop 기동 후 대기 ──
 docker info >nul 2>&1
 if %ERRORLEVEL% neq 0 (
     echo Docker Desktop 시작 중...
@@ -17,7 +41,7 @@ if %ERRORLEVEL% neq 0 (
     if %ERRORLEVEL% equ 0 goto docker_ready
     set /a WAITED+=3
     if %WAITED% geq 90 (
-        echo Docker Desktop 시작에 실패했습니다. 수동으로 Docker Desktop을 실행한 뒤 다시 시도하세요.
+        echo Docker Desktop 시작에 실패했습니다. 수동으로 Docker Desktop 을 실행한 뒤 다시 시도하세요.
         pause
         exit /b 1
     )
