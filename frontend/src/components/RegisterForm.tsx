@@ -17,6 +17,19 @@ export default function RegisterForm({ onRegistered }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // HTTP 응답을 에러 메시지로 변환 — 서버가 error 필드 안 내려줘도 안내
+  const friendlyError = async (res: Response, fallback: string): Promise<string> => {
+    let data: Record<string, unknown> = {}
+    try { data = await res.json() } catch { /* 본문이 JSON 이 아닐 수 있음 */ }
+    const explicit = (data.error || data.message) as string | undefined
+    if (explicit) return explicit
+    if (res.status >= 500) return '서버에 일시적인 문제가 있습니다. 잠시 후 다시 시도해주세요.'
+    if (res.status === 409) return '이미 가입된 이메일입니다.'
+    if (res.status === 401) return '이메일 또는 비밀번호가 올바르지 않습니다.'
+    if (res.status === 400) return '입력값을 확인해주세요.'
+    return `${fallback} (HTTP ${res.status})`
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -28,21 +41,24 @@ export default function RegisterForm({ onRegistered }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || '로그인에 실패했습니다')
+        const msg = await friendlyError(res, '로그인 실패')
+        console.error('[login] failed', res.status, msg)
+        setError(msg)
         return
       }
 
+      const data = await res.json()
       if (autoLogin) {
         localStorage.setItem('auth_token', data.token)
       } else {
         sessionStorage.setItem('auth_token', data.token)
       }
       onRegistered(data.token)
-    } catch {
-      setError('서버에 연결할 수 없습니다')
+    } catch (e) {
+      console.error('[login] network error', e)
+      setError('네트워크 오류입니다. 인터넷 연결을 확인해주세요.')
     } finally {
       setLoading(false)
     }
@@ -59,21 +75,24 @@ export default function RegisterForm({ onRegistered }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, phone, referral_source: referralSource }),
       })
-      const data = await res.json()
 
-      if (!res.ok && !data.token) {
-        setError(data.error || '가입 중 오류가 발생했습니다')
+      if (!res.ok) {
+        const msg = await friendlyError(res, '가입 실패')
+        console.error('[register] failed', res.status, msg)
+        setError(msg)
         return
       }
 
+      const data = await res.json()
       if (autoLogin) {
         localStorage.setItem('auth_token', data.token)
       } else {
         sessionStorage.setItem('auth_token', data.token)
       }
       onRegistered(data.token)
-    } catch {
-      setError('서버에 연결할 수 없습니다')
+    } catch (e) {
+      console.error('[register] network error', e)
+      setError('네트워크 오류입니다. 인터넷 연결을 확인해주세요.')
     } finally {
       setLoading(false)
     }

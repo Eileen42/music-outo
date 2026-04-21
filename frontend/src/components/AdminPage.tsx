@@ -15,6 +15,12 @@ interface Props {
   onBack: () => void
 }
 
+interface ResetResult {
+  name: string
+  email: string
+  temporary_password: string
+}
+
 export default function AdminPage({ onBack }: Props) {
   const [users, setUsers] = useState<User[]>([])
   const [filter, setFilter] = useState<string>('')
@@ -22,6 +28,7 @@ export default function AdminPage({ onBack }: Props) {
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resetResult, setResetResult] = useState<ResetResult | null>(null)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -63,6 +70,33 @@ export default function AdminPage({ onBack }: Props) {
       body: JSON.stringify({ status }),
     })
     fetchUsers()
+  }
+
+  const resetPassword = async (u: User) => {
+    if (!confirm(`${u.name}(${u.email}) 계정의 비밀번호를 임시값으로 초기화할까요?`)) return
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({ user_id: u.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || '초기화에 실패했습니다')
+        return
+      }
+      setResetResult({
+        name: data.name,
+        email: data.email,
+        temporary_password: data.temporary_password,
+      })
+    } catch (e) {
+      console.error('[reset-password]', e)
+      alert('네트워크 오류로 실패했습니다')
+    }
   }
 
   const handleLogin = (e: React.FormEvent) => {
@@ -121,6 +155,61 @@ export default function AdminPage({ onBack }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
+      {resetResult && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
+          <div className="w-full max-w-md bg-gray-900 border border-purple-700 rounded-2xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">🔐</span>
+              <div>
+                <h3 className="text-lg font-bold text-white">임시 비밀번호가 발급되었습니다</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  이 비밀번호는 <strong className="text-yellow-300">이 화면에서만</strong> 확인할 수 있습니다.
+                  사용자에게 카톡·문자 등으로 전달해주세요.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-xl p-4 space-y-2">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>이름</span>
+                <span className="text-gray-200">{resetResult.name}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>이메일</span>
+                <span className="text-gray-200">{resetResult.email}</span>
+              </div>
+              <div className="border-t border-gray-700 pt-2 mt-2">
+                <div className="text-xs text-gray-400 mb-1">임시 비밀번호</div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-gray-950 text-purple-300 text-lg font-mono px-3 py-2 rounded select-all">
+                    {resetResult.temporary_password}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(resetResult.temporary_password)
+                    }}
+                    className="text-xs bg-purple-700 hover:bg-purple-600 text-white px-3 py-2 rounded"
+                  >
+                    복사
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-950/40 border border-yellow-800 rounded-lg px-3 py-2 text-xs text-yellow-200">
+              💡 사용자는 이 비밀번호로 로그인한 뒤 원하는 값으로 다시 변경할 수 있도록 안내해주세요.
+            </div>
+
+            <button
+              onClick={() => setResetResult(null)}
+              className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5 rounded-lg text-sm"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-white">사용자 관리</h1>
@@ -205,6 +294,13 @@ export default function AdminPage({ onBack }: Props) {
                           차단
                         </button>
                       )}
+                      <button
+                        onClick={() => resetPassword(u)}
+                        className="text-xs px-2 py-1 rounded bg-purple-900/50 text-purple-300 hover:bg-purple-800/50"
+                        title="비밀번호를 임시값으로 초기화"
+                      >
+                        🔐 비번 초기화
+                      </button>
                     </div>
                   </td>
                 </tr>
