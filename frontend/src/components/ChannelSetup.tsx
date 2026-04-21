@@ -62,51 +62,6 @@ const EMPTY_FORM: NewChannelForm = {
   default_privacy: 'private', default_tags: '', default_description: '',
 }
 
-// ── YouTube 채널 연결 미니 컴포넌트 ──
-function YouTubeChannelLink({ channelId }: { channelId: string }) {
-  const [info, setInfo] = useState<{ authorized: boolean; youtube_channel_title?: string } | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    api.youtube.status(channelId).then(setInfo).catch(() => setInfo({ authorized: false }))
-  }, [channelId])
-
-  if (!info) return null
-
-  if (info.authorized) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-red-400">▶</span>
-        <span className="text-[10px] text-gray-400 truncate">{info.youtube_channel_title || 'YouTube 연결됨'}</span>
-        <span role="button" onClick={async (e) => {
-          e.stopPropagation()
-          await api.youtube.revoke()
-          setInfo({ authorized: false })
-        }} className="text-[9px] text-gray-600 hover:text-red-400 ml-auto cursor-pointer">해제</span>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      role="button"
-      onClick={async (e) => {
-        e.stopPropagation()
-        if (loading) return
-        setLoading(true)
-        try {
-          const { auth_url } = await api.youtube.getAuthUrl(channelId)
-          window.open(auth_url, '_blank', 'width=600,height=700')
-        } catch { /* ignore */ }
-        finally { setLoading(false) }
-      }}
-      className="text-[10px] text-red-400 hover:text-red-300 w-full text-left cursor-pointer"
-    >
-      {loading ? '연결 중...' : '▶ YouTube 채널 연결'}
-    </div>
-  )
-}
-
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }: Props) {
@@ -475,9 +430,8 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
                       </span>
                     )}
                   </div>
-                  {/* YouTube 채널 연결 + 수정 */}
-                  <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between" onClick={e => e.stopPropagation()}>
-                    <YouTubeChannelLink channelId={ch.channel_id} />
+                  {/* 수정 */}
+                  <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-end" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={(e) => { e.stopPropagation(); startEditChannel(ch) }}
                       className="text-[10px] text-gray-600 hover:text-indigo-400 transition-colors shrink-0"

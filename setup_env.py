@@ -62,20 +62,6 @@ def main():
             sys.exit(0)
 
     print()
-    print("[ Google OAuth — YouTube 업로드용 (선택) ]")
-    print("  지금 설정 안 해도 됩니다. 업로드 기능 사용 시에만 필요.")
-    setup_yt = ask("  YouTube 업로드 설정할까요? (y/N)", default="N")
-
-    google_client_id = ""
-    google_client_secret = ""
-
-    if setup_yt.lower() == "y":
-        print("  Google Cloud Console > OAuth 2.0 클라이언트 ID에서 발급")
-        print("  승인된 리다이렉션 URI: http://localhost:8000/api/youtube/callback")
-        google_client_id = ask("  Client ID", secret=True)
-        google_client_secret = ask("  Client Secret", secret=True)
-
-    print()
     print("[ 스토리지 경로 ]")
     storage_path = ask("  저장 경로", default="./backend/storage")
 
@@ -84,11 +70,6 @@ def main():
 
     env_content = f"""# Gemini API Keys (멀티키 로테이션)
 GEMINI_API_KEYS={gemini_json}
-
-# Google OAuth (YouTube 업로드용)
-GOOGLE_CLIENT_ID={google_client_id}
-GOOGLE_CLIENT_SECRET={google_client_secret}
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/youtube/callback
 
 # Storage (로컬 실행 시)
 STORAGE_PATH={storage_path}

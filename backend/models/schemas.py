@@ -181,12 +181,6 @@ class LayersUpdateRequest(BaseModel):
     layers: LayersData
 
 
-# ──────────────────────────── YouTube 요청 ────────────────────────────
-
-class YouTubeUploadRequest(BaseModel):
-    privacy_status: Literal["private", "unlisted", "public"] = "private"
-
-
 # ──────────────────────────── CapCut 레이어 ────────────────────────────
 
 class LayerInfo(BaseModel):

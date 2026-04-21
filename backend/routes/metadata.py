@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 from core.gemini_client import gemini_client
 from core.metadata_generator import metadata_generator
 from core.state_manager import state_manager
-from core.youtube_uploader import youtube_uploader
 
 logger = logging.getLogger(__name__)
 
@@ -79,18 +78,8 @@ async def generate_metadata(project_id: str, body: dict = None):
     if existing.get("title") and not regenerate:
         return existing
 
-    # 채널 연결된 경우 기존 영상 메타데이터 가져오기
-    channel_id = state.get("channel_id", "")
-    channel_videos = []
-    if channel_id and youtube_uploader.is_authorized(channel_id):
-        try:
-            channel_videos = await youtube_uploader.fetch_recent_videos(channel_id, max_results=5)
-            logger.info(f"채널 영상 {len(channel_videos)}개 참조 로드 완료")
-        except Exception as e:
-            logger.warning(f"채널 영상 가져오기 실패 (무시하고 계속): {e}")
-
     try:
-        generated = await metadata_generator.generate(state, instruction=instruction, channel_videos=channel_videos)
+        generated = await metadata_generator.generate(state, instruction=instruction, channel_videos=[])
     except Exception as e:
         logger.error(f"메타데이터 생성 실패: {e}", exc_info=True)
         raise HTTPException(500, f"메타데이터 생성 실패: {str(e)}")

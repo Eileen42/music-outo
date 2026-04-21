@@ -22,6 +22,9 @@ backend/storage/debug/
 backend/storage/test_tracks/
 backend/storage/dom_snapshots/
 backend/storage/suno_api_captures/
+backend/storage/youtube_tokens/
+backend/storage/google_flow_sessions/
+backend/storage/flow_mocks/
 backend/storage/*.json
 *.mp4
 *.mp3

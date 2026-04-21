@@ -205,56 +205,6 @@ async def set_gemini_keys(body: dict):
     return {"status": "ok", "key_count": len(settings.gemini_api_keys)}
 
 
-@app.get("/api/settings/google-oauth")
-async def get_google_oauth_status():
-    """Google OAuth 설정 여부 확인"""
-    return {
-        "configured": bool(settings.google_client_id and settings.google_client_secret),
-        "has_client_id": bool(settings.google_client_id),
-        "has_client_secret": bool(settings.google_client_secret),
-    }
-
-
-@app.post("/api/settings/google-oauth")
-async def set_google_oauth(body: dict):
-    """Google OAuth 키 저장"""
-    client_id = body.get("client_id", "").strip()
-    client_secret = body.get("client_secret", "").strip()
-
-    if not client_id or not client_secret:
-        return {"error": "Client ID와 Client Secret 모두 필요합니다"}, 400
-
-    env_path = Path(settings.storage_dir).parent / ".env"
-    if not env_path.exists():
-        env_path = Path("/app/.env")
-
-    env_lines = []
-    if env_path.exists():
-        env_lines = env_path.read_text(encoding="utf-8").splitlines()
-
-    updates = {
-        "GOOGLE_CLIENT_ID": client_id,
-        "GOOGLE_CLIENT_SECRET": client_secret,
-    }
-
-    for key, value in updates.items():
-        found = False
-        for i, line in enumerate(env_lines):
-            if line.startswith(key + "="):
-                env_lines[i] = f"{key}={value}"
-                found = True
-                break
-        if not found:
-            env_lines.append(f"{key}={value}")
-
-    env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-
-    settings.google_client_id = client_id
-    settings.google_client_secret = client_secret
-
-    return {"status": "ok"}
-
-
 # ─── 에이전트 스킬 관리 ──────────────────────────────────────────────────────
 
 # ─── 파형 사전 생성 ──────────────────────────────────────────────────────────

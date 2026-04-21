@@ -38,25 +38,12 @@ cp .env.example .env
 ```env
 # Gemini API 키 (여러 개 권장 - 무료 티어 RPM 분산)
 GEMINI_API_KEYS=["키1","키2","키3"]
-
-# Google OAuth (YouTube 업로드 시 필요)
-GOOGLE_CLIENT_ID=your_client_id
-GOOGLE_CLIENT_SECRET=your_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/youtube/callback
 ```
 
 ### Gemini API 키 발급
 1. https://aistudio.google.com/app/apikey 접속
 2. "Create API key" 클릭
 3. 무료 티어: 분당 15회 요청 제한 → 키 여러 개 권장
-
-### Google OAuth 설정 (YouTube 업로드용)
-1. https://console.cloud.google.com 접속
-2. 새 프로젝트 생성
-3. "YouTube Data API v3" 활성화
-4. OAuth 2.0 클라이언트 ID 생성
-   - 애플리케이션 유형: 웹 애플리케이션
-   - 승인된 리디렉션 URI: `http://localhost:8000/api/youtube/callback`
 
 ---
 
@@ -120,10 +107,10 @@ npm run dev
 - FFmpeg로 영상 합성 + CapCut 파일 생성
 - MP4 / CapCut 파일 다운로드
 
-### Step 7: YouTube 업로드
-- Google 계정 연결 (OAuth)
-- 공개 설정 선택 (비공개/미등록/공개)
-- "YouTube 업로드" 클릭
+### Step 7: YouTube 업로드 (브라우저 방식)
+- "YouTube 업로드 페이지 열기" 클릭 → Edge 로 YouTube Studio + outputs 폴더가 열림
+- 폴더에서 MP4 를 YouTube 에 드래그해 업로드 시작
+- "메타데이터 자동 입력" 클릭 → 제목/설명/태그/썸네일이 자동 입력됨
 
 ---
 

@@ -9,12 +9,8 @@ _ENV_FILE = _ROOT / ".env" if (_ROOT / ".env").exists() else _HERE / ".env"
 
 class Settings(BaseSettings):
     gemini_api_keys: list[str] = []
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/api/youtube/callback"
     storage_path: str = str(_ROOT / "backend" / "storage")
     browser_headless: bool = True
-    youtube_api_key: str = ""
 
     # Google Flow 자동화
     chrome_download_dir: str = str(Path.home() / "Downloads")
