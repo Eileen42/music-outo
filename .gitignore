@@ -36,3 +36,6 @@ server.log
 server_*.log
 backend/=*
 backend/_record_log.txt
+
+.vercel
+.claude/worktrees/
