@@ -39,3 +39,4 @@ backend/_record_log.txt
 
 .vercel
 .claude/worktrees/
+tests/screenshots/

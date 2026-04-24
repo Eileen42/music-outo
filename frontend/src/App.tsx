@@ -123,7 +123,9 @@ export default function App() {
   // 실행 환경 감지
   // - localhost:3000 → 설치된 앱(작업 UI 전용)
   // - *.vercel.app 등 → 공개 웹(랜딩·가입·승인·다운로드 전용)
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  // - ?auth=force 쿼리가 있으면 localhost 에서도 Vercel 흐름을 강제 (개발/QA 용)
+  const _forceAuthFlow = new URLSearchParams(window.location.search).get('auth') === 'force'
+  const isLocal = !_forceAuthFlow && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   const isVercel = !isLocal
 
   // 인증 상태 확인
