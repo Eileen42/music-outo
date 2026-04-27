@@ -30,18 +30,27 @@ class GeminiClient:
     # ──────────────────────────── public ────────────────────────────
 
     async def generate_text(self, prompt: str, model: str = "gemini-2.5-flash") -> str:
-        """텍스트 생성. 429/503 발생 시 fallback 모델로 자동 전환."""
-        # 모델 우선순위: 요청된 모델 → fallback 모델들
+        """텍스트 생성. 429/503 발생 시 fallback 모델로 자동 전환.
+
+        gemini-2.0-flash는 폐기됨(404). 폴백 리스트에서 제외.
+        503은 길게 기다리기보다 다음 모델로 빠르게 전환하는 편이 효율적.
+        """
+        # 모델 우선순위: 요청된 모델 → 안정적인 alias 폴백
+        # (gemini-2.0-flash 제거 — 매번 404 반환하던 폐기 모델)
+        FALLBACKS = ("gemini-flash-latest", "gemini-2.5-flash-lite")
         models_to_try = [model]
-        if model == "gemini-2.5-flash":
-            models_to_try += ["gemini-2.0-flash", "gemini-flash-latest"]
-        elif model == "gemini-2.0-flash":
-            models_to_try += ["gemini-2.5-flash", "gemini-flash-latest"]
+        for f in FALLBACKS:
+            if f != model:
+                models_to_try.append(f)
+
+        # 503 시 같은 모델 재시도는 최대 2번 (짧게), 그 후 다음 모델로
+        MAX_503_RETRIES = 2
 
         last_err: Exception | None = None
 
         for current_model in models_to_try:
-            for attempt in range(max(len(self.api_keys), 1) * 2):
+            attempt = 0
+            while True:
                 key_index, key = self._get_available_key()
                 client = genai.Client(api_key=key)
                 try:
@@ -55,23 +64,25 @@ class GeminiClient:
                     return response.text
                 except Exception as e:
                     if self._is_model_not_found(e):
-                        # 폐기된 모델 — 재시도 의미 없음. 다음 모델로 즉시 이동.
-                        logger.warning(f"{current_model} 404 NOT_FOUND — 폐기된 모델. 다음 모델 시도")
+                        logger.warning(f"{current_model} 404 NOT_FOUND — 다음 모델로 전환")
                         last_err = e
                         break
                     if self._is_rate_limit(e):
-                        logger.warning(f"키 [{key_index}] 429 ({current_model}) — 쿨다운 설정")
+                        logger.warning(f"키 [{key_index}] 429 ({current_model}) — 쿨다운 후 다음 모델")
                         self._set_cooldown(key_index)
                         last_err = e
-                    elif self._is_retryable(e):
-                        wait = 10 * (attempt + 1)
-                        logger.warning(f"키 [{key_index}] 503 ({current_model}) — {wait}초 대기 ({attempt+1})")
+                        break  # 429는 키 단위 — 다음 모델 시도가 더 빠름
+                    if self._is_retryable(e):
+                        if attempt >= MAX_503_RETRIES:
+                            logger.warning(f"{current_model} 503 반복 — 다음 모델로 전환")
+                            last_err = e
+                            break
+                        wait = 2 + attempt * 3  # 2, 5초 (이전 10, 20, 30…에서 단축)
+                        logger.warning(f"키 [{key_index}] 503 ({current_model}) — {wait}초 후 재시도 ({attempt+1}/{MAX_503_RETRIES})")
                         await asyncio.sleep(wait)
-                        last_err = e
-                    else:
-                        raise
-            # 이 모델 전부 실패 → 다음 모델로
-            logger.warning(f"{current_model} 전부 실패 — 다음 모델 시도")
+                        attempt += 1
+                        continue
+                    raise
 
         raise last_err or RuntimeError("사용 가능한 Gemini 키/모델이 없습니다.")
 
