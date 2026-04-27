@@ -37,6 +37,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [count, setCount] = useState(20)
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')
+  const [designPhase, setDesignPhase] = useState('')
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState<Partial<DesignedTrack>>({})
   const [regenIdx, setRegenIdx] = useState<number | null>(null)
@@ -247,8 +248,9 @@ export default function SongMaker({ project, onRefresh }: Props) {
     if (!project.channel_id) return
     setDesigning(true)
     setDesignError('')
+    setDesignPhase('시작 중...')
     try {
-      const result = await api.trackDesign.design(
+      await api.trackDesign.designStart(
         project.channel_id,
         project.id,
         {
@@ -260,14 +262,46 @@ export default function SongMaker({ project, onRefresh }: Props) {
           extra: userExtra.trim(),
         },
       )
-      setTracks(result.tracks)
-      setConcept(result.concept ?? null)
-      onRefresh()
+
+      // 폴링 — 백엔드 BackgroundTask가 끝나거나 실패할 때까지
+      const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+      const startedAt = Date.now()
+      let idleCount = 0
+      while (true) {
+        await sleep(2000)
+        const status = await api.trackDesign.designStatus(project.id)
+        if (status.message) setDesignPhase(status.message)
+
+        if (status.status === 'completed') {
+          setTracks(status.tracks ?? [])
+          setConcept(status.concept ?? null)
+          onRefresh()
+          break
+        }
+        if (status.status === 'failed') {
+          throw new Error(status.error || '곡 설계 실패')
+        }
+        if (status.status === 'idle') {
+          // 서버 재시작 등으로 task가 사라진 경우. 시작 직후 한 번은 허용.
+          idleCount += 1
+          if (idleCount >= 2) {
+            throw new Error('서버 task가 사라졌습니다. 백엔드 재시작 또는 상태 초기화 필요.')
+          }
+        } else {
+          idleCount = 0
+        }
+
+        // 안전장치 — 10분 초과 시 폴링 중단 (백엔드는 계속 돌 수 있음)
+        if (Date.now() - startedAt > 10 * 60 * 1000) {
+          throw new Error('곡 설계가 10분을 초과했습니다. 백엔드 로그를 확인하세요.')
+        }
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '곡 설계 실패'
       setDesignError(msg)
     } finally {
       setDesigning(false)
+      setDesignPhase('')
     }
   }
 
@@ -584,6 +618,9 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   </button>
                 </div>
               </div>
+              {designing && designPhase && (
+                <p className="text-indigo-300 text-xs mt-3">⏳ {designPhase}</p>
+              )}
               {designError && (
                 <p className="text-red-400 text-xs mt-3">{designError}</p>
               )}
@@ -1416,6 +1453,9 @@ export default function SongMaker({ project, onRefresh }: Props) {
                     {designing ? '설계 중...' : '✨ 전체 재설계'}
                   </button>
                 </div>
+                {designing && designPhase && (
+                  <p className="text-indigo-300 text-xs mt-2">⏳ {designPhase}</p>
+                )}
                 {designError && <p className="text-red-400 text-xs mt-2">{designError}</p>}
               </div>
             </div>

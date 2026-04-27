@@ -234,8 +234,8 @@ export const api = {
   },
 
   trackDesign: {
-    design: (channelId: string, projectId: string, opts?: { benchmarkUrl?: string; count?: number; keywords?: string; mood?: string; lyricsHint?: string; extra?: string }) =>
-      http.post<{ tracks: DesignedTrack[]; concept: ProjectConcept; benchmark_used: string; total: number }>(
+    designStart: (channelId: string, projectId: string, opts?: { benchmarkUrl?: string; count?: number; keywords?: string; mood?: string; lyricsHint?: string; extra?: string }) =>
+      http.post<{ status: string; project_id: string; total: number }>(
         '/api/tracks/design',
         {
           channel_id: channelId,
@@ -248,6 +248,18 @@ export const api = {
           extra: opts?.extra ?? '',
         }
       ).then(r => r.data),
+    designStatus: (projectId: string) =>
+      http.get<{
+        status: 'idle' | 'running' | 'completed' | 'failed'
+        phase?: string
+        progress?: number
+        message?: string
+        total?: number
+        tracks?: DesignedTrack[]
+        concept?: ProjectConcept
+        benchmark_used?: string
+        error?: string
+      }>(`/api/tracks/design-status/${projectId}`).then(r => r.data),
     list: (projectId: string) =>
       http.get<{ tracks: DesignedTrack[]; concept: ProjectConcept }>(`/api/tracks/${projectId}`).then(r => r.data),
     update: (projectId: string, idx: number, data: Partial<DesignedTrack>) =>

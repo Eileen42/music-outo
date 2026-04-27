@@ -30,6 +30,10 @@ router = APIRouter(prefix="/api/tracks", tags=["track-design"])
 # 프로젝트별 Suno 자동화 진행 상태 (in-memory)
 _suno_tasks: dict[str, dict] = {}
 
+# 프로젝트별 곡 설계(/design) 진행 상태 (in-memory)
+# Gemini 4단계 파이프라인이 30~60초 걸려 동기 응답 시 hang 위험. BackgroundTask로 분리.
+_design_tasks: dict[str, dict] = {}
+
 
 # ──────────────────────────── schemas ────────────────────────────
 
@@ -53,75 +57,137 @@ class BatchCreateRequest(BaseModel):
 
 # ──────────────────────────── routes ────────────────────────────
 
-@router.post("/design", summary="AI 곡 설계")
-async def design_tracks(body: DesignRequest):
+@router.post("/design", summary="AI 곡 설계 시작 (백그라운드)")
+async def design_tracks(body: DesignRequest, background_tasks: BackgroundTasks):
     """
-    벤치마크 URL이 있으면 분석 후 곡 설계.
-    없으면 채널 히스토리 최신 벤치마크 사용.
-    프로젝트 state의 designed_tracks에 저장.
+    Gemini 4단계 파이프라인이 30~60초 걸려 동기 응답이면 브라우저가 hang/timeout 한다.
+    이 라우트는 즉시 {status:"started"}만 반환하고 처리는 백그라운드로 실행.
+    프론트는 GET /api/tracks/design-status/{project_id} 폴링으로 진행상황을 받는다.
     """
-    # 채널 프로필 로드
     try:
         profile = channel_profile.load(body.channel_id)
     except FileNotFoundError:
         raise HTTPException(404, f"채널을 찾을 수 없습니다: {body.channel_id}")
 
-    # 프로젝트 존재 확인
     state_manager.require(body.project_id)
 
-    # 벤치마크 결정
-    benchmark = None
-    benchmark_used = "none"
+    existing = _design_tasks.get(body.project_id, {})
+    if existing.get("status") == "running":
+        raise HTTPException(409, "이미 곡 설계가 진행 중입니다.")
 
-    if body.benchmark_url:
-        try:
-            benchmark = await benchmark_analyzer.analyze(body.benchmark_url)
-            channel_profile.add_benchmark(body.channel_id, benchmark)
-            benchmark_used = body.benchmark_url
-        except Exception as e:
-            logger.warning(f"벤치마크 분석 실패, 히스토리 사용 시도: {e}")
-
-    if benchmark is None:
-        benchmark = channel_profile.get_latest_benchmark(body.channel_id)
-        if benchmark:
-            benchmark_used = benchmark.get("url", "history")
-
-    # 사용자 입력
-    user_input = {
-        "keywords": body.keywords,
-        "mood": body.mood,
-        "lyrics_hint": body.lyrics_hint,
-        "extra": body.extra,
+    _design_tasks[body.project_id] = {
+        "status":   "running",
+        "phase":    "queued",
+        "progress": 0,
+        "total":    body.count,
+        "message":  "대기 중...",
     }
 
-    # 곡 설계 (2단계 — concept + tracks)
-    result = await track_designer.design_tracks(
-        channel_profile=profile,
-        benchmark=benchmark,
-        count=body.count,
-        user_input=user_input,
+    background_tasks.add_task(
+        _run_design_task,
+        project_id=body.project_id,
+        channel_id=body.channel_id,
+        profile=profile,
+        body=body,
     )
-    analysis  = result.get("analysis", {})
-    concept   = result.get("concept", {})
-    tracklist = result.get("tracklist", [])
-    tracks    = result.get("tracks", [])
 
-    # 프로젝트에 저장
-    state_manager.update(body.project_id, {
-        "designed_tracks":   tracks,
-        "project_concept":   concept,
-        "project_analysis":  analysis,
-        "project_tracklist": tracklist,
-        "benchmark_url":     benchmark_used,
-        "benchmark_data":    benchmark or {},
-    })
+    return {"status": "started", "project_id": body.project_id, "total": body.count}
 
-    return {
-        "tracks":         tracks,
-        "concept":        concept,
-        "benchmark_used": benchmark_used,
-        "total":          len(tracks),
-    }
+
+@router.get("/design-status/{project_id}", summary="곡 설계 진행 상태")
+async def design_status(project_id: str):
+    """폴링용. status: idle | running | completed | failed."""
+    task = _design_tasks.get(project_id)
+    if not task:
+        return {"status": "idle"}
+    return task
+
+
+async def _run_design_task(
+    project_id: str,
+    channel_id: str,
+    profile: dict,
+    body: DesignRequest,
+) -> None:
+    """곡 설계 백그라운드 작업. _design_tasks[project_id]에 진행 상태 기록."""
+    task = _design_tasks[project_id]
+
+    def _set(phase: str, message: str, progress: int | None = None) -> None:
+        task["phase"] = phase
+        task["message"] = message
+        if progress is not None:
+            task["progress"] = progress
+
+    try:
+        # 벤치마크 결정
+        _set("benchmark", "벤치마크 분석 중...", 5)
+        benchmark = None
+        benchmark_used = "none"
+
+        if body.benchmark_url:
+            try:
+                benchmark = await benchmark_analyzer.analyze(body.benchmark_url)
+                channel_profile.add_benchmark(channel_id, benchmark)
+                benchmark_used = body.benchmark_url
+            except Exception as e:
+                logger.warning(f"벤치마크 분석 실패, 히스토리 사용 시도: {e}")
+
+        if benchmark is None:
+            benchmark = channel_profile.get_latest_benchmark(channel_id)
+            if benchmark:
+                benchmark_used = benchmark.get("url", "history")
+
+        # 4단계 곡 설계
+        _set("designing", "Gemini 4단계 파이프라인 실행 중 (30~60초)...", 20)
+        user_input = {
+            "keywords":    body.keywords,
+            "mood":        body.mood,
+            "lyrics_hint": body.lyrics_hint,
+            "extra":       body.extra,
+        }
+        result = await track_designer.design_tracks(
+            channel_profile=profile,
+            benchmark=benchmark,
+            count=body.count,
+            user_input=user_input,
+        )
+
+        analysis  = result.get("analysis", {})
+        concept   = result.get("concept", {})
+        tracklist = result.get("tracklist", [])
+        tracks    = result.get("tracks", [])
+
+        _set("saving", "프로젝트에 저장 중...", 95)
+        state_manager.update(project_id, {
+            "designed_tracks":   tracks,
+            "project_concept":   concept,
+            "project_analysis":  analysis,
+            "project_tracklist": tracklist,
+            "benchmark_url":     benchmark_used,
+            "benchmark_data":    benchmark or {},
+        })
+
+        task.update({
+            "status":         "completed",
+            "phase":          "done",
+            "progress":       100,
+            "message":        f"{len(tracks)}곡 설계 완료",
+            "tracks":         tracks,
+            "concept":        concept,
+            "benchmark_used": benchmark_used,
+            "total":          len(tracks),
+        })
+        logger.info(f"[design] 완료: project={project_id}, {len(tracks)}곡")
+
+    except Exception as e:
+        import traceback as _tb
+        task.update({
+            "status":    "failed",
+            "phase":     "error",
+            "error":     f"[{type(e).__name__}] {e}",
+            "traceback": _tb.format_exc()[-2000:],
+        })
+        logger.error(f"[design] 실패: project={project_id}, {e}")
 
 
 @router.get("/{project_id}", summary="프로젝트 곡 목록 (갤러리)")
