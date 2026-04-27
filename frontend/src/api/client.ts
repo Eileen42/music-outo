@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import type { Project, Track, ProjectImages, ProjectMetadata, ProjectLayers, BuildStatus, RepeatConfig, ImageMood, Channel, DesignedTrack, ProjectConcept, SunoTrack, LayerTemplate } from '../types'
 
 function getBackendUrl() {
@@ -7,7 +7,33 @@ function getBackendUrl() {
 
 const BASE = getBackendUrl()
 
-const http = axios.create({ baseURL: BASE })
+// AI 호출(Gemini, 곡 설계 등)이 60초 가까이 걸릴 수 있어 5분으로 설정
+const http = axios.create({ baseURL: BASE, timeout: 300_000 })
+
+// 에러 메시지를 진짜 원인이 보이게 정규화한다.
+// 기본 axios 에러는 "Network Error" 같은 모호한 문자열만 던져 사용자가
+// 백엔드 hang / 종료 / 422 / 500을 구분할 수 없다.
+http.interceptors.response.use(
+  r => r,
+  (err: AxiosError<{ detail?: unknown }>) => {
+    let msg = '요청 실패'
+    if (err.code === 'ECONNABORTED') {
+      msg = '서버 응답 시간 초과 (5분). 백엔드가 처리 중이거나 응답하지 않습니다.'
+    } else if (err.response) {
+      const detail = err.response.data?.detail
+      if (typeof detail === 'string') msg = `서버 오류 ${err.response.status}: ${detail}`
+      else if (Array.isArray(detail)) msg = `요청 형식 오류: ${detail.map((d: { msg?: string; loc?: unknown[] }) => `${(d.loc ?? []).join('.')} ${d.msg ?? ''}`).join(', ')}`
+      else msg = `서버 오류 ${err.response.status}`
+    } else if (err.request) {
+      msg = '백엔드에 연결할 수 없습니다. uvicorn이 실행 중인지 확인하세요. (브라우저는 CORS 에러로 보일 수 있지만 실제 원인은 서버 무응답)'
+    } else {
+      msg = err.message || '알 수 없는 오류'
+    }
+    const wrapped = new Error(msg)
+    ;(wrapped as Error & { axiosError?: AxiosError }).axiosError = err
+    return Promise.reject(wrapped)
+  },
+)
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
