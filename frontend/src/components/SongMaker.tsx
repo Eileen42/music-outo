@@ -33,6 +33,15 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [channel, setChannel] = useState<Channel | null>(null)
   const [tracks, setTracks] = useState<DesignedTrack[]>(project.designed_tracks ?? [])
   const [concept, setConcept] = useState<ProjectConcept | null>(null)
+
+  // 외부에서 designed_tracks가 채워지면 자동 sync.
+  // 곡 설계 완료 후 handleDesign이 setTracks를 호출하지만, onRefresh로 부모가
+  // 새 project를 가져온 시점에도 reactive하게 반영되어야 "Suno 곡 생성하기" UI가
+  // 새로고침 없이 즉시 나타난다.
+  useEffect(() => {
+    const incoming = project.designed_tracks ?? []
+    if (incoming.length > 0) setTracks(incoming)
+  }, [project.designed_tracks])
   const [count, setCount] = useState(20)
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')
