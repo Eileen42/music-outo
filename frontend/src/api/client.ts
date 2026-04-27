@@ -234,13 +234,12 @@ export const api = {
   },
 
   trackDesign: {
-    designStart: (channelId: string, projectId: string, opts?: { benchmarkUrl?: string; count?: number; keywords?: string; mood?: string; lyricsHint?: string; extra?: string }) =>
+    designStart: (channelId: string, projectId: string, opts?: { count?: number; keywords?: string; mood?: string; lyricsHint?: string; extra?: string }) =>
       http.post<{ status: string; project_id: string; total: number }>(
         '/api/tracks/design',
         {
           channel_id: channelId,
           project_id: projectId,
-          benchmark_url: opts?.benchmarkUrl ?? null,
           count: opts?.count ?? 20,
           keywords: opts?.keywords ?? '',
           mood: opts?.mood ?? '',
@@ -257,7 +256,6 @@ export const api = {
         total?: number
         tracks?: DesignedTrack[]
         concept?: ProjectConcept
-        benchmark_used?: string
         error?: string
       }>(`/api/tracks/design-status/${projectId}`).then(r => r.data),
     list: (projectId: string) =>

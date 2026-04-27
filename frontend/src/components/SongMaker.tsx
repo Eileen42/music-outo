@@ -33,7 +33,6 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [channel, setChannel] = useState<Channel | null>(null)
   const [tracks, setTracks] = useState<DesignedTrack[]>(project.designed_tracks ?? [])
   const [concept, setConcept] = useState<ProjectConcept | null>(null)
-  const [benchmarkUrl, setBenchmarkUrl] = useState(project.benchmark_url || '')
   const [count, setCount] = useState(20)
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')
@@ -51,9 +50,6 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [expandIdx, setExpandIdx] = useState<number | null>(null)
   const [dragTrackIdx, setDragTrackIdx] = useState<number | null>(null)
   const [dragOverTrackIdx, setDragOverTrackIdx] = useState<number | null>(null)
-  const [showBenchmarks, setShowBenchmarks] = useState(false)
-  const [editingBenchmarkIdx, setEditingBenchmarkIdx] = useState(-1)
-  const [editingBenchmarkUrl, setEditingBenchmarkUrl] = useState('')
   const [qaStatus, setQaStatus] = useState<{ status: string; tracks: { index: number; title: string; v1_exists: boolean; v2_exists: boolean; status: string }[] } | null>(null)
   const [userKeywords, setUserKeywords] = useState('')
   const [userMood, setUserMood] = useState('')
@@ -254,7 +250,6 @@ export default function SongMaker({ project, onRefresh }: Props) {
         project.channel_id,
         project.id,
         {
-          benchmarkUrl: benchmarkUrl.trim() || undefined,
           count,
           keywords: userKeywords.trim(),
           mood: userMood.trim(),
@@ -464,78 +459,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   {channel.subtitle_type === 'affirmation' ? ' 확언자막' : channel.subtitle_type === 'lyrics' ? ' 가사자막' : ' 자막없음'}
                 </div>
               </div>
-              {channel.benchmark_history.length > 0 && (
-                <button
-                  onClick={() => setShowBenchmarks(v => !v)}
-                  className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  벤치마크 {channel.benchmark_history.length}개 {showBenchmarks ? '▲' : '▼'}
-                </button>
-              )}
             </div>
-
-            {/* 벤치마크 목록 */}
-            {showBenchmarks && channel.benchmark_history.length > 0 && (
-              <div className="mb-6 space-y-2">
-                {channel.benchmark_history.map((b: { url: string; video_id: string; title?: string }, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-2">
-                    <span className="text-xs text-gray-500 shrink-0">#{idx + 1}</span>
-                    <a
-                      href={b.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-400 hover:text-blue-300 truncate flex-1"
-                      title={b.url}
-                    >
-                      {b.title && b.title !== b.video_id ? b.title : b.url}
-                    </a>
-                    {editingBenchmarkIdx === idx ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          value={editingBenchmarkUrl}
-                          onChange={e => setEditingBenchmarkUrl(e.target.value)}
-                          className="bg-gray-700 text-white text-xs rounded px-2 py-1 w-64 border border-gray-600 focus:outline-none focus:border-indigo-500"
-                        />
-                        <button
-                          onClick={async () => {
-                            const updated = [...channel.benchmark_history]
-                            updated[idx] = { ...updated[idx], url: editingBenchmarkUrl }
-                            const result = await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
-                            setChannel(result)
-                            setEditingBenchmarkIdx(-1)
-                            onRefresh()
-                          }}
-                          className="text-xs text-green-400 hover:text-green-300 px-1"
-                        >✓</button>
-                        <button
-                          onClick={() => setEditingBenchmarkIdx(-1)}
-                          className="text-xs text-gray-500 hover:text-gray-300 px-1"
-                        >✕</button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => { setEditingBenchmarkIdx(idx); setEditingBenchmarkUrl(b.url) }}
-                          className="text-xs text-gray-500 hover:text-yellow-400 px-1"
-                          title="수정"
-                        >✏️</button>
-                        <button
-                          onClick={async () => {
-                            if (!confirm('이 벤치마크를 삭제하시겠습니까?')) return
-                            const updated = channel.benchmark_history.filter((_: unknown, i: number) => i !== idx)
-                            const result = await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
-                            setChannel(result)
-                            onRefresh()
-                          }}
-                          className="text-xs text-gray-500 hover:text-red-400 px-1"
-                          title="삭제"
-                        >🗑️</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </>)}
 
           {/* 설계 폼 */}
