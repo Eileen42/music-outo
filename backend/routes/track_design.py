@@ -18,7 +18,6 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from config import settings
-from core.benchmark_analyzer import benchmark_analyzer
 from core.channel_profile import channel_profile
 from core.state_manager import state_manager
 from core.track_designer import track_designer
@@ -40,7 +39,6 @@ _design_tasks: dict[str, dict] = {}
 class DesignRequest(BaseModel):
     channel_id: str
     project_id: str
-    benchmark_url: str | None = None
     count: int = 20
     # 사용자 입력 (키워드, 분위기, 가사 힌트 등)
     keywords: str = ""
@@ -119,26 +117,7 @@ async def _run_design_task(
             task["progress"] = progress
 
     try:
-        # 벤치마크 결정
-        _set("benchmark", "벤치마크 분석 중...", 5)
-        benchmark = None
-        benchmark_used = "none"
-
-        if body.benchmark_url:
-            try:
-                benchmark = await benchmark_analyzer.analyze(body.benchmark_url)
-                channel_profile.add_benchmark(channel_id, benchmark)
-                benchmark_used = body.benchmark_url
-            except Exception as e:
-                logger.warning(f"벤치마크 분석 실패, 히스토리 사용 시도: {e}")
-
-        if benchmark is None:
-            benchmark = channel_profile.get_latest_benchmark(channel_id)
-            if benchmark:
-                benchmark_used = benchmark.get("url", "history")
-
-        # 4단계 곡 설계
-        _set("designing", "Gemini 4단계 파이프라인 실행 중 (30~60초)...", 20)
+        _set("designing", "곡 설계 시작 (사용자 입력 + 채널 프로필 기반)...", 10)
         user_input = {
             "keywords":    body.keywords,
             "mood":        body.mood,
@@ -147,9 +126,9 @@ async def _run_design_task(
         }
         result = await track_designer.design_tracks(
             channel_profile=profile,
-            benchmark=benchmark,
             count=body.count,
             user_input=user_input,
+            progress_cb=_set,
         )
 
         analysis  = result.get("analysis", {})
@@ -163,19 +142,16 @@ async def _run_design_task(
             "project_concept":   concept,
             "project_analysis":  analysis,
             "project_tracklist": tracklist,
-            "benchmark_url":     benchmark_used,
-            "benchmark_data":    benchmark or {},
         })
 
         task.update({
-            "status":         "completed",
-            "phase":          "done",
-            "progress":       100,
-            "message":        f"{len(tracks)}곡 설계 완료",
-            "tracks":         tracks,
-            "concept":        concept,
-            "benchmark_used": benchmark_used,
-            "total":          len(tracks),
+            "status":   "completed",
+            "phase":    "done",
+            "progress": 100,
+            "message":  f"{len(tracks)}곡 설계 완료",
+            "tracks":   tracks,
+            "concept":  concept,
+            "total":    len(tracks),
         })
         logger.info(f"[design] 완료: project={project_id}, {len(tracks)}곡")
 
