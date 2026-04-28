@@ -80,22 +80,41 @@ class MetaWriterAgent(BaseAgent):
         return result
 
     async def _translate_text(self, text: str) -> str:
-        """짧은 텍스트 한국어 → 영어. 빈 문자열/이미 영어면 그대로."""
+        """짧은 텍스트 한국어 → 영어. 빈 문자열/이미 영어면 그대로.
+
+        한글 잔재 검증 + 1회 재시도. 실패해도 한글이 남아있으면 비영문 문자만 제거한 결과 반환
+        (최후의 안전망 — 사용자 화면에 한글이 노출되는 것은 무조건 막는다).
+        """
         if not text or not _has_korean(text):
             return text
-        prompt = (
+        base_prompt = (
             "Translate the following Korean text to natural, idiomatic English suitable for a "
-            "YouTube music channel. Output ONLY the English translation, no explanation, no quotes.\n\n"
+            "YouTube music channel. Output ONLY the English translation, no Korean characters, "
+            "no explanation, no quotes.\n\n"
             f"{text}"
         )
-        try:
-            return (await gemini_client.generate_text(prompt)).strip()
-        except Exception as e:
-            logger.warning(f"번역 실패(원문 유지): {e}")
-            return text
+        retry_prompt = base_prompt + (
+            "\n\nIMPORTANT: Your previous attempt still contained Korean characters. "
+            "Rewrite from scratch in pure English with NO Hangul whatsoever."
+        )
+        for attempt, p in enumerate((base_prompt, retry_prompt), start=1):
+            try:
+                out = (await gemini_client.generate_text(p)).strip()
+                if not _has_korean(out):
+                    return out
+                logger.warning(f"_translate_text 시도 {attempt} — 한글 잔재")
+            except Exception as e:
+                logger.warning(f"_translate_text 시도 {attempt} 실패: {e}")
+        # 두 번 다 실패 — 한글을 강제 제거 (영문만 남김)
+        scrubbed = _HANGUL_RE.sub("", text).strip()
+        logger.warning(f"_translate_text 최종 실패 — 한글 강제 제거: '{text[:30]}...' → '{scrubbed[:30]}...'")
+        return scrubbed or text
 
     async def _translate_for_english(self, data: dict, label: str = "data") -> dict:
-        """dict 안의 모든 한국어 텍스트(중첩 포함)를 영어로 번역. 구조/키 보존."""
+        """dict 안의 모든 한국어 텍스트(중첩 포함)를 영어로 번역. 구조/키 보존.
+
+        부분 번역(한국어 잔재) 시 1회 재시도. 그래도 한국어가 남으면 원본 유지.
+        """
         if not data:
             return data
         try:
@@ -107,16 +126,22 @@ class MetaWriterAgent(BaseAgent):
         prompt = (
             "Translate every Korean string value in the following JSON to natural English. "
             "Keep the JSON structure, keys, numbers, booleans, and any already-English values "
-            "unchanged. Do NOT add commentary. Output a single JSON object only.\n\n"
+            "unchanged. Do NOT add commentary. Output a single JSON object only. "
+            "The output must contain NO Korean (Hangul) characters whatsoever.\n\n"
             f"{payload}"
         )
-        try:
-            result = await gemini_client.generate_json(prompt)
-            if isinstance(result, dict):
-                logger.info(f"영어 모드 — {label} 번역 완료")
-                return result
-        except Exception as e:
-            logger.warning(f"{label} 번역 실패(원문 유지): {e}")
+        for attempt in (1, 2):
+            try:
+                result = await gemini_client.generate_json(prompt)
+                if isinstance(result, dict):
+                    leftover = json.dumps(result, ensure_ascii=False)
+                    if not _has_korean(leftover):
+                        logger.info(f"영어 모드 — {label} 번역 완료 (시도 {attempt})")
+                        return result
+                    logger.warning(f"{label} 번역에 한글 잔재 — 시도 {attempt}")
+            except Exception as e:
+                logger.warning(f"{label} 번역 실패(시도 {attempt}): {e}")
+        logger.warning(f"{label} 번역 최종 실패 — 원문 유지")
         return data
 
     @staticmethod

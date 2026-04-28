@@ -22,6 +22,7 @@ class MetaDesignerAgent(BaseAgent):
         project_state: dict,
         channel_videos: list[dict] | None = None,
         instruction: str = "",
+        language: str = "ko",
     ) -> dict:
         """
         메타데이터 설계도 생성.
@@ -67,7 +68,65 @@ class MetaDesignerAgent(BaseAgent):
             for i, t in enumerate(tracks)
         )
 
-        prompt = f"""너는 YouTube 메타데이터 전략가야.
+        if language == "en":
+            # 영어 모드 — spec 자체를 영어로 생성. 사후 번역(부분 누출 위험)을 우회.
+            prompt = f"""[SYSTEM RULE — ABSOLUTE OVERRIDE]
+OUTPUT LANGUAGE: English only. Even if any input below is in Korean, output the spec in English.
+Do NOT include Korean (Hangul) characters in any string value.
+
+You are a YouTube metadata strategist. Analyze the inputs and produce a metadata design spec
+(for title / description / tags / comment) that an English-speaking writer agent will follow.
+
+━━ Project Concept ━━
+{concept_ref}
+
+━━ Tracklist ({len(tracks)} tracks) ━━
+{track_list}
+
+━━ Benchmark Video ━━
+{bench_ref}
+
+━━ Channel's Existing Videos ━━
+{channel_ref}
+
+━━ User Instruction ━━
+{instruction or "(none)"}
+
+Analyze:
+1. Channel's existing title/description/tag patterns (for consistency)
+2. Benchmark's SEO strategy (reference only — do NOT copy verbatim)
+3. Optimal metadata structure for this project's concept
+
+Return JSON (every string value MUST be in English):
+{{
+  "title_spec": {{
+    "style": "<title style description in English>",
+    "must_include": ["keyword", "..."],
+    "tone": "<tone in English, e.g. 'emotional', 'SEO-optimized'>",
+    "max_length": 50,
+    "template": "<title template, e.g. '[mood] + [genre] | [count] tracks'>"
+  }},
+  "description_spec": {{
+    "structure": ["1. Intro (2-3 lines)", "2. Tracklist", "3. Copyright/License", "4. Subscribe CTA"],
+    "tone": "<description tone in English>",
+    "must_include": ["required element", "..."],
+    "max_length": 1000
+  }},
+  "tags_spec": {{
+    "primary": ["primary tag 1", "..."],
+    "secondary": ["secondary tag 1", "..."],
+    "channel_consistent": ["channel-wide tag from existing videos", "..."],
+    "max_count": 30
+  }},
+  "comment_spec": {{
+    "style": "<comment tone in English>",
+    "include_tracklist": true,
+    "cta": "<CTA direction in English, e.g. 'Tell me your favorite track in the comments'>",
+    "max_length": 100
+  }}
+}}"""
+        else:
+            prompt = f"""너는 YouTube 메타데이터 전략가야.
 아래 정보를 분석하여 메타데이터(제목/설명/태그/댓글)의 설계도를 만들어줘.
 
 ━━ 프로젝트 컨셉 ━━

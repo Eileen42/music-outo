@@ -7,9 +7,55 @@ MetaDesigner의 설계도와 MetaWriter의 결과를 비교하여
 from __future__ import annotations
 
 import logging
+import re
+
 from agents.base import BaseAgent
 
 logger = logging.getLogger("meta_qa")
+
+_HANGUL_RE = re.compile(r"[가-힯ᄀ-ᇿ]")
+
+
+def _has_korean(text: str) -> bool:
+    return bool(_HANGUL_RE.search(text or ""))
+
+
+def _issue_text(code: str, language: str, **kw) -> str:
+    """이슈 메시지를 요청 언어로 생성. 영어 모드에선 fix 프롬프트가 영어 컨텍스트를 받아야 한다."""
+    en = {
+        "title_too_long": f"title too long ({kw.get('cur')}/{kw.get('max')} chars)",
+        "title_empty": "title is empty",
+        "title_missing_kw": f"title missing required keyword: {kw.get('kw')}",
+        "title_korean_leak": "title contains Korean characters but English output is required",
+        "desc_too_long": f"description too long ({kw.get('cur')} chars)",
+        "desc_empty": "description is empty",
+        "desc_no_tracklist": "tracklist not present in description",
+        "desc_korean_leak": "description contains Korean characters but English output is required",
+        "tags_too_many": f"too many tags ({kw.get('cur')})",
+        "tags_too_few": f"too few tags ({kw.get('cur')})",
+        "tags_missing_primary": f"missing primary tag: {kw.get('kw')}",
+        "tags_korean_leak": "tags contain Korean characters but English output is required",
+        "comment_too_long": f"comment too long ({kw.get('cur')} chars)",
+        "comment_korean_leak": "comment contains Korean characters but English output is required",
+    }
+    ko = {
+        "title_too_long": f"길이 초과 ({kw.get('cur')}/{kw.get('max')}자)",
+        "title_empty": "제목 비어있음",
+        "title_missing_kw": f"필수 키워드 누락: {kw.get('kw')}",
+        "title_korean_leak": "제목에 한글이 섞여있음",  # ko 모드에선 호출 안 됨
+        "desc_too_long": f"길이 초과 ({kw.get('cur')}자)",
+        "desc_empty": "설명 비어있음",
+        "desc_no_tracklist": "트랙리스트가 설명에 없음",
+        "desc_korean_leak": "설명에 한글이 섞여있음",
+        "tags_too_many": f"태그 수 초과 ({kw.get('cur')}개)",
+        "tags_too_few": f"태그 너무 적음 ({kw.get('cur')}개)",
+        "tags_missing_primary": f"핵심 태그 누락: {kw.get('kw')}",
+        "tags_korean_leak": "태그에 한글이 섞여있음",
+        "comment_too_long": f"길이 초과 ({kw.get('cur')}자)",
+        "comment_korean_leak": "댓글에 한글이 섞여있음",
+    }
+    table = en if language == "en" else ko
+    return table.get(code, code)
 
 
 class MetaQAAgent(BaseAgent):
@@ -34,53 +80,70 @@ class MetaQAAgent(BaseAgent):
         """
         issues = []
 
+        def add(field: str, code: str, severity: str = "error", **kw):
+            issues.append({
+                "field": field,
+                "issue": _issue_text(code, language, **kw),
+                "severity": severity,
+            })
+
         # 1. 제목 검수
         title = result.get("title", "")
         title_spec = spec.get("title_spec", {})
         max_len = title_spec.get("max_length", 50)
         if len(title) > max_len:
-            issues.append({"field": "title", "issue": f"길이 초과 ({len(title)}/{max_len}자)", "severity": "error"})
+            add("title", "title_too_long", cur=len(title), max=max_len)
         if not title.strip():
-            issues.append({"field": "title", "issue": "제목 비어있음", "severity": "error"})
+            add("title", "title_empty")
         for kw in title_spec.get("must_include", []):
             if kw.lower() not in title.lower():
-                issues.append({"field": "title", "issue": f"필수 키워드 누락: {kw}", "severity": "warning"})
+                add("title", "title_missing_kw", "warning", kw=kw)
+        if language == "en" and _has_korean(title):
+            add("title", "title_korean_leak")
 
         # 2. 설명 검수
         desc = result.get("description", "")
         desc_spec = spec.get("description_spec", {})
         if len(desc) > desc_spec.get("max_length", 1000):
-            issues.append({"field": "description", "issue": f"길이 초과 ({len(desc)}자)", "severity": "error"})
+            add("description", "desc_too_long", cur=len(desc))
         if not desc.strip():
-            issues.append({"field": "description", "issue": "설명 비어있음", "severity": "error"})
+            add("description", "desc_empty")
 
         # 트랙리스트 포함 확인
         tracks = project_state.get("designed_tracks", [])
         if tracks:
             first_title = tracks[0].get("title", "")
             if first_title and first_title.lower() not in desc.lower():
-                issues.append({"field": "description", "issue": "트랙리스트가 설명에 없음", "severity": "warning"})
+                add("description", "desc_no_tracklist", "warning")
+
+        if language == "en" and _has_korean(desc):
+            add("description", "desc_korean_leak")
 
         # 3. 태그 검수
         tags = result.get("tags", [])
         tags_spec = spec.get("tags_spec", {})
         if len(tags) > tags_spec.get("max_count", 30):
-            issues.append({"field": "tags", "issue": f"태그 수 초과 ({len(tags)}개)", "severity": "error"})
+            add("tags", "tags_too_many", cur=len(tags))
         if len(tags) < 5:
-            issues.append({"field": "tags", "issue": f"태그 너무 적음 ({len(tags)}개)", "severity": "warning"})
+            add("tags", "tags_too_few", "warning", cur=len(tags))
 
         # 핵심 태그 포함 확인
         primary = [t.lower() for t in tags_spec.get("primary", [])]
         tag_lower = [t.lower() for t in tags]
         for pt in primary[:5]:
             if pt not in tag_lower:
-                issues.append({"field": "tags", "issue": f"핵심 태그 누락: {pt}", "severity": "warning"})
+                add("tags", "tags_missing_primary", "warning", kw=pt)
+
+        if language == "en" and any(_has_korean(t) for t in tags):
+            add("tags", "tags_korean_leak")
 
         # 4. 댓글 검수
         comment = result.get("comment", "")
         comment_spec = spec.get("comment_spec", {})
         if len(comment) > comment_spec.get("max_length", 100):
-            issues.append({"field": "comment", "issue": f"길이 초과 ({len(comment)}자)", "severity": "error"})
+            add("comment", "comment_too_long", cur=len(comment))
+        if language == "en" and _has_korean(comment):
+            add("comment", "comment_korean_leak")
 
         errors = [i for i in issues if i["severity"] == "error"]
         passed = len(errors) == 0
@@ -105,20 +168,38 @@ class MetaQAAgent(BaseAgent):
         error_desc = "\n".join(f"- [{e['field']}] {e['issue']}" for e in errors)
 
         if language == "en":
-            prompt = f"""[SYSTEM RULE — ABSOLUTE]
-OUTPUT LANGUAGE: English only. Keep the original output language of the metadata
-(English) — do NOT translate to Korean even if the spec contains Korean fields.
+            # 영어 모드 — 현재 결과에 한글이 섞였을 수 있음. 컨텍스트로 전달하면 모델이
+            # 그 언어에 동조하므로 한국어 누출 필드는 길이만 알리고 본문은 잘라낸다.
+            cur_title = result.get("title", "")
+            cur_desc = result.get("description", "")
+            cur_comment = result.get("comment", "")
+            cur_tags = result.get("tags", [])
 
-The YouTube metadata below has issues. Fix ONLY the problematic fields.
+            def safe(text: str, cap: int) -> str:
+                """한국어가 섞였으면 컨텍스트에서 제거. 영어만 전달."""
+                if _has_korean(text):
+                    return f"<previous output had Korean leak — REWRITE FROM SCRATCH IN ENGLISH; length was {len(text)} chars>"
+                return text[:cap]
 
-━━ Issues ━━
+            tags_ctx = "<previous tags had Korean leak — REWRITE IN ENGLISH>" if any(_has_korean(t) for t in cur_tags) else ", ".join(cur_tags[:10])
+
+            prompt = f"""[SYSTEM RULE — ABSOLUTE OVERRIDE]
+OUTPUT LANGUAGE: English only.
+
+You are fixing YouTube metadata. The output language MUST be English.
+- Do NOT include any Korean (Hangul) characters in the output.
+- Do NOT mix Korean and English (e.g. 'Enjoy the 감성 vibes' is FORBIDDEN).
+- If the previous output leaked Korean, rewrite that field from scratch in idiomatic English.
+- Even Korean-style phrases (예: 환영해요, 어떠셨나요) must be replaced with natural English equivalents.
+
+━━ Issues to fix ━━
 {error_desc}
 
-━━ Current metadata ━━
-- title: {result.get('title', '')}
-- description: {result.get('description', '')[:300]}...
-- tag count: {len(result.get('tags', []))}
-- comment: {result.get('comment', '')}
+━━ Current metadata (Korean-leaking fields are masked — rewrite them in English) ━━
+- title: {safe(cur_title, 200)}
+- description: {safe(cur_desc, 300)}
+- tag count: {len(cur_tags)} (sample: {tags_ctx})
+- comment: {safe(cur_comment, 200)}
 
 ━━ Design limits ━━
 - title max: {spec.get('title_spec', {}).get('max_length', 50)} chars
