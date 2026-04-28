@@ -95,7 +95,10 @@ class MetaWriterAgent(BaseAgent):
             return text
 
     async def _translate_for_english(self, data: dict, label: str = "data") -> dict:
-        """dict 안의 모든 한국어 텍스트(중첩 포함)를 영어로 번역. 구조/키 보존."""
+        """dict 안의 모든 한국어 텍스트(중첩 포함)를 영어로 번역. 구조/키 보존.
+
+        부분 번역(한국어 잔재) 시 1회 재시도. 그래도 한국어가 남으면 원본 유지.
+        """
         if not data:
             return data
         try:
@@ -107,16 +110,22 @@ class MetaWriterAgent(BaseAgent):
         prompt = (
             "Translate every Korean string value in the following JSON to natural English. "
             "Keep the JSON structure, keys, numbers, booleans, and any already-English values "
-            "unchanged. Do NOT add commentary. Output a single JSON object only.\n\n"
+            "unchanged. Do NOT add commentary. Output a single JSON object only. "
+            "The output must contain NO Korean (Hangul) characters whatsoever.\n\n"
             f"{payload}"
         )
-        try:
-            result = await gemini_client.generate_json(prompt)
-            if isinstance(result, dict):
-                logger.info(f"영어 모드 — {label} 번역 완료")
-                return result
-        except Exception as e:
-            logger.warning(f"{label} 번역 실패(원문 유지): {e}")
+        for attempt in (1, 2):
+            try:
+                result = await gemini_client.generate_json(prompt)
+                if isinstance(result, dict):
+                    leftover = json.dumps(result, ensure_ascii=False)
+                    if not _has_korean(leftover):
+                        logger.info(f"영어 모드 — {label} 번역 완료 (시도 {attempt})")
+                        return result
+                    logger.warning(f"{label} 번역에 한글 잔재 — 시도 {attempt}")
+            except Exception as e:
+                logger.warning(f"{label} 번역 실패(시도 {attempt}): {e}")
+        logger.warning(f"{label} 번역 최종 실패 — 원문 유지")
         return data
 
     @staticmethod

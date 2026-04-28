@@ -87,8 +87,12 @@ class GeminiClient:
         raise last_err or RuntimeError("사용 가능한 Gemini 키/모델이 없습니다.")
 
     async def generate_json(self, prompt: str, model: str = "gemini-2.5-flash") -> dict | list:
-        """JSON 응답 생성. 마크다운 코드블록 자동 제거."""
-        full_prompt = prompt + "\n\n반드시 유효한 JSON만 응답하세요. 마크다운 코드블록 없이 순수 JSON만."
+        """JSON 응답 생성. 마크다운 코드블록 자동 제거.
+
+        주의: 트레일러는 언어 중립(영어)이어야 한다. 과거에 한국어 트레일러를 붙였는데,
+        영어 모드에서 모델이 마지막 지시 언어에 동조해 한국어로 응답하는 누출 원인이었다.
+        """
+        full_prompt = prompt + "\n\nRespond with a single valid JSON value only. No markdown, no code fences, no commentary."
         text = await self.generate_text(full_prompt, model)
         text = text.strip()
         if text.startswith("```"):
