@@ -7,6 +7,7 @@ Step 3: MetaQA → 설계도 vs 결과 검수 → 불일치 시 수정
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -23,6 +24,14 @@ _HANGUL_RE = re.compile(r"[가-힯ᄀ-ᇿ]")
 
 def _has_korean(text: str) -> bool:
     return bool(_HANGUL_RE.search(text or ""))
+
+
+def _safe_dump(data) -> str:
+    """dict/list를 한글 검사용 JSON 문자열로 직렬화. 실패 시 빈 문자열."""
+    try:
+        return json.dumps(data, ensure_ascii=False)
+    except Exception:
+        return ""
 
 
 class MetadataGenerator:
@@ -43,16 +52,19 @@ class MetadataGenerator:
         Returns: {"title": str, "description": str, "tags": list, "comment": str}
         """
         # ── Step 1: MetaDesigner — 설계도 ──
-        logger.info("[1/3] MetaDesigner: 메타데이터 설계 중...")
+        # language를 designer에 전달 — 영어 모드면 spec을 처음부터 영어로 생성.
+        # (과거: 한국어 spec → 사후 번역. 부분 누출 위험.)
+        logger.info(f"[1/3] MetaDesigner: 메타데이터 설계 중 ({language})...")
         spec = await meta_designer_agent.design(
-            project_state, channel_videos, instruction
+            project_state, channel_videos, instruction, language=language
         )
         logger.info(f"[1/3] 설계 완료")
 
-        # 영어 모드 — Writer/QA 프롬프트에 들어가는 모든 한국어 컨텍스트를 사전에 영어로 변환.
-        # (과거: 일부만 번역 → 모델이 남은 한국어 컨텍스트에 동조해 출력도 한국어로 누출)
+        # 영어 모드 안전망 — designer가 한글을 남겼을 가능성 대비.
         if language == "en":
-            spec = await meta_writer_agent._translate_for_english(spec, label="spec")
+            if _has_korean(_safe_dump(spec)):
+                logger.warning("[1/3] designer spec에 한글 잔재 — 추가 번역")
+                spec = await meta_writer_agent._translate_for_english(spec, label="spec")
             concept_translated = await meta_writer_agent._translate_for_english(
                 project_state.get("project_concept", {}), label="concept"
             )
@@ -122,23 +134,42 @@ class MetadataGenerator:
 
     @staticmethod
     async def _scrub_korean(result: dict) -> dict:
-        """결과 필드에 한국어가 남아있으면 영문으로 강제 재작성."""
-        if _has_korean(result.get("title", "")):
-            result["title"] = await meta_writer_agent._translate_text(result["title"])
-            logger.warning("영어 모드 가드 — title에 한글 남아 강제 영역 번역")
-        if _has_korean(result.get("description", "")):
-            result["description"] = await meta_writer_agent._translate_text(result["description"])
-            logger.warning("영어 모드 가드 — description에 한글 남아 강제 영역 번역")
-        if _has_korean(result.get("comment", "")):
-            result["comment"] = await meta_writer_agent._translate_text(result["comment"])
-            logger.warning("영어 모드 가드 — comment에 한글 남아 강제 영역 번역")
+        """결과 필드에 한국어가 남아있으면 영문으로 강제 재작성.
+
+        _translate_text는 자체적으로 검증/재시도/한글 강제 제거까지 수행하므로
+        여기서는 호출 후 한 번 더 검증만 한다.
+        """
+        scrubbed_fields: list[str] = []
+
+        for field in ("title", "description", "comment"):
+            val = result.get(field, "")
+            if isinstance(val, str) and _has_korean(val):
+                result[field] = await meta_writer_agent._translate_text(val)
+                scrubbed_fields.append(field)
+
         tags = result.get("tags", [])
-        if any(_has_korean(t) for t in tags):
+        if any(isinstance(t, str) and _has_korean(t) for t in tags):
             new_tags = []
             for t in tags:
-                new_tags.append(await meta_writer_agent._translate_text(t) if _has_korean(t) else t)
+                if isinstance(t, str) and _has_korean(t):
+                    new_tags.append(await meta_writer_agent._translate_text(t))
+                else:
+                    new_tags.append(t)
             result["tags"] = new_tags
-            logger.warning("영어 모드 가드 — tags에 한글 남아 강제 영역 번역")
+            scrubbed_fields.append("tags")
+
+        if scrubbed_fields:
+            logger.warning(f"영어 모드 가드 — 한글 누출 필드 강제 번역: {scrubbed_fields}")
+            # 최종 검증 — 그래도 한글이 남았는지 체크
+            still_leaking = [
+                f for f in ("title", "description", "comment")
+                if _has_korean(result.get(f, ""))
+            ]
+            if still_leaking:
+                logger.error(f"영어 모드 가드 후에도 한글 잔재: {still_leaking}")
+            elif any(_has_korean(t) for t in result.get("tags", []) if isinstance(t, str)):
+                logger.error("영어 모드 가드 후에도 tags에 한글 잔재")
+
         return result
 
 
