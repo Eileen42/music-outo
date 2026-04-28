@@ -15,11 +15,12 @@ logger = logging.getLogger("meta_qa")
 class MetaQAAgent(BaseAgent):
     name = "meta_qa"
 
-    async def verify(
+    async def verify(  # type: ignore[override]
         self,
         spec: dict,
         result: dict,
         project_state: dict,
+        language: str = "ko",
     ) -> dict:
         """
         설계도(spec) vs 결과(result) 매칭 검수.
@@ -93,17 +94,48 @@ class MetaQAAgent(BaseAgent):
 
         # error가 있으면 AI에게 수정 요청
         if errors:
-            fixes = await self._request_fixes(spec, result, errors)
+            fixes = await self._request_fixes(spec, result, errors, language)
             qa_result["fixes"] = fixes
 
         logger.info(f"MetaQA: {'PASS' if passed else 'FAIL'} — {len(errors)} errors, {len(issues)-len(errors)} warnings")
         return qa_result
 
-    async def _request_fixes(self, spec: dict, result: dict, errors: list[dict]) -> dict:
+    async def _request_fixes(self, spec: dict, result: dict, errors: list[dict], language: str = "ko") -> dict:
         """에러 항목만 AI에게 수정 요청."""
         error_desc = "\n".join(f"- [{e['field']}] {e['issue']}" for e in errors)
 
-        prompt = f"""아래 YouTube 메타데이터에 문제가 있습니다. 문제가 있는 항목만 수정해주세요.
+        if language == "en":
+            prompt = f"""[SYSTEM RULE — ABSOLUTE]
+OUTPUT LANGUAGE: English only. Keep the original output language of the metadata
+(English) — do NOT translate to Korean even if the spec contains Korean fields.
+
+The YouTube metadata below has issues. Fix ONLY the problematic fields.
+
+━━ Issues ━━
+{error_desc}
+
+━━ Current metadata ━━
+- title: {result.get('title', '')}
+- description: {result.get('description', '')[:300]}...
+- tag count: {len(result.get('tags', []))}
+- comment: {result.get('comment', '')}
+
+━━ Design limits ━━
+- title max: {spec.get('title_spec', {}).get('max_length', 50)} chars
+- description max: {spec.get('description_spec', {}).get('max_length', 1000)} chars
+- tags max: {spec.get('tags_spec', {}).get('max_count', 30)}
+- comment max: {spec.get('comment_spec', {}).get('max_length', 100)} chars
+
+Return ONLY problematic fields, fixed in English, as JSON:
+{{
+  "title": "fixed title (only if problematic)",
+  "description": "fixed description (only if problematic)",
+  "tags": ["fixed tags"] (only if problematic),
+  "comment": "fixed comment (only if problematic)"
+}}
+Do NOT include fields that are fine. Do NOT use any Korean in the output."""
+        else:
+            prompt = f"""아래 YouTube 메타데이터에 문제가 있습니다. 문제가 있는 항목만 수정해주세요.
 
 ━━ 문제 목록 ━━
 {error_desc}

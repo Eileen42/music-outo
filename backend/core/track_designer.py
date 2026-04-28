@@ -1,16 +1,19 @@
 """
-오케스트레이터 — 4개 에이전트를 조율하여 곡 설계 파이프라인 실행.
+오케스트레이터 — Designer + Lyricist 2~3회 Gemini 호출로 곡 설계 완료.
 
-Step 1: Analyzer  → 요청 분석 (채널+사용자+벤치마크 종합)
-Step 2: Designer  → 컨셉 설계 + 트랙리스트 설계
-Step 3: Composer  → Suno 프롬프트 생성
-Step 4: Lyricist  → 가사 생성 (has_lyrics 채널만)
+이전: 4~5회 (analyzer + concept + tracklist + composer + lyricist)
+현재: 2회 (instrumental) / 3회 (가사 채널)
+- Step 1: design_concept_full → analysis + concept
+- Step 2: design_tracks_full → tracklist + suno_prompt (composer 통합)
+- Step 3: write_lyrics_batch (가사 채널만)
+
+벤치마크 분석은 제거 (URL 입력 시에도 제대로 동작 안 함). 사용자 입력과 채널 프로필만 사용.
 """
 from __future__ import annotations
 
 import logging
+from typing import Callable
 
-from agents.analyzer import analyzer_agent
 from agents.designer import designer_agent
 from agents.composer import composer_agent
 from agents.lyricist import lyricist_agent
@@ -19,65 +22,50 @@ logger = logging.getLogger(__name__)
 
 
 class TrackDesigner:
-    """오케스트레이터: 4개 에이전트를 순서대로 호출."""
-
     async def design_tracks(
         self,
         channel_profile: dict,
-        benchmark: dict | None,
         count: int = 20,
         user_input: dict | None = None,
+        progress_cb: Callable[[str, str, int], None] | None = None,
     ) -> dict:
         """
-        4단계 곡 설계 파이프라인.
+        곡 설계 파이프라인.
+
+        progress_cb(phase, message, progress%) — 백그라운드 작업의 진행상황 보고용.
 
         Returns:
-            {
-                "analysis": { ... },
-                "concept": { ... },
-                "tracklist": [ ... ],
-                "tracks": [ ... ],  ← Suno 프롬프트 포함 최종 트랙
-            }
+            { "analysis": {...}, "concept": {...}, "tracklist": [...], "tracks": [...] }
         """
         ui = user_input or {}
         has_lyrics = channel_profile.get("has_lyrics", False)
+        cb = progress_cb or (lambda *_a, **_kw: None)
 
-        # ── Step 1: Analyzer — 요청 분석 ──
-        logger.info("[1/4] Analyzer: 요청 분석 중...")
-        analysis = await analyzer_agent.analyze(
-            channel_profile, benchmark, ui, count
+        # ── Step 1: 분석 + 컨셉 (1 Gemini call) ──
+        cb("step1", f"음악 방향성 + 컨셉 설계 중... ({count}곡)", 25)
+        logger.info("[1/2] 분석+컨셉 시작")
+        result1 = await designer_agent.design_concept_full(channel_profile, ui, count)
+        analysis = result1.get("analysis", {})
+        concept = result1.get("concept", {})
+        logger.info(f"[1/2] 컨셉: {concept.get('project_name', '(unnamed)')}")
+
+        # ── Step 2: 트랙리스트 + Suno 프롬프트 (1 Gemini call) ──
+        cb("step2", f"{count}곡 트랙리스트 + Suno 프롬프트 생성 중...", 60)
+        logger.info("[2/2] 트랙+프롬프트 시작")
+        tracks = await designer_agent.design_tracks_full(
+            concept=concept,
+            analysis=analysis,
+            channel_profile=channel_profile,
+            user_input=ui,
+            count=count,
         )
-        logger.info(f"[1/4] 분석 완료: {analysis.get('music_direction', '')[:60]}")
+        logger.info(f"[2/2] 완료: {len(tracks)}곡")
 
-        # ── Step 2: Designer — 컨셉 + 트랙리스트 설계 ──
-        logger.info("[2/4] Designer: 컨셉 설계 중...")
-        concept = await designer_agent.design_concept(analysis, channel_profile)
-        logger.info(f"[2/4] 컨셉: {concept.get('project_name', '')}")
-
-        logger.info("[2/4] Designer: 트랙리스트 설계 중...")
-        tracklist = await designer_agent.design_tracklist(
-            concept, analysis, channel_profile, count
-        )
-        logger.info(f"[2/4] 트랙리스트: {len(tracklist)}곡 설계")
-
-        # ── Step 3: Composer — Suno 프롬프트 생성 ──
-        logger.info("[3/4] Composer: Suno 프롬프트 생성 중...")
-        tracks = await composer_agent.compose_all(
-            tracklist, concept, channel_profile, ui
-        )
-        logger.info(f"[3/4] 프롬프트: {len(tracks)}곡 완료")
-
-        # ── Step 4: Lyricist — 가사 생성 (선택) ──
+        # ── Step 3 (옵션): 가사 (1 Gemini call) ──
         if has_lyrics and tracks:
-            logger.info("[4/4] Lyricist: 가사 생성 중...")
+            cb("step3", f"가사 {len(tracks)}곡 생성 중...", 85)
+            logger.info("[3/3] 가사 생성")
             try:
-                # tracklist의 lyrics_theme을 tracks에 매핑
-                theme_map = {t.get("index"): t.get("lyrics_theme", "") for t in tracklist}
-                for track in tracks:
-                    idx = track.get("index")
-                    if idx in theme_map:
-                        track["lyrics_theme"] = theme_map[idx]
-
                 lyrics_list = await lyricist_agent.write_lyrics_batch(
                     tracks, concept, channel_profile, ui
                 )
@@ -89,16 +77,15 @@ class TrackDesigner:
                     idx = track.get("index", 0)
                     if idx in lyrics_map and lyrics_map[idx]:
                         track["lyrics"] = lyrics_map[idx]
-                logger.info(f"[4/4] 가사: {len(lyrics_list)}곡 완료")
+                logger.info(f"[3/3] 가사: {len(lyrics_list)}곡")
             except Exception as e:
-                logger.warning(f"[4/4] 가사 생성 실패 (곡 설계는 유지): {e}")
-        else:
-            logger.info("[4/4] Lyricist: 건너뜀 (Instrumental)")
+                # 가사 실패해도 곡 설계는 살림
+                logger.warning(f"[3/3] 가사 생성 실패 (곡 설계는 유지): {e}")
 
         return {
             "analysis": analysis,
             "concept": concept,
-            "tracklist": tracklist,
+            "tracklist": tracks,
             "tracks": tracks,
         }
 
@@ -108,13 +95,12 @@ class TrackDesigner:
         channel_profile: dict,
         concept: dict | None = None,
     ) -> dict:
-        """개별 곡 재생성 (Composer 호출)."""
+        """개별 곡 재생성 — composer 단독 호출은 유지 (단일 곡이라 부담 없음)."""
         return await composer_agent.regenerate_single(
             track, concept or {}, channel_profile
         )
 
     async def generate_affirmations(self, count: int, mood: str) -> list[str]:
-        """확언 문구 생성 (Lyricist 호출)."""
         return await lyricist_agent.generate_affirmations(count, mood)
 
 

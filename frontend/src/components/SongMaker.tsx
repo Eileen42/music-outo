@@ -33,10 +33,19 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [channel, setChannel] = useState<Channel | null>(null)
   const [tracks, setTracks] = useState<DesignedTrack[]>(project.designed_tracks ?? [])
   const [concept, setConcept] = useState<ProjectConcept | null>(null)
-  const [benchmarkUrl, setBenchmarkUrl] = useState(project.benchmark_url || '')
+
+  // 외부에서 designed_tracks가 채워지면 자동 sync.
+  // 곡 설계 완료 후 handleDesign이 setTracks를 호출하지만, onRefresh로 부모가
+  // 새 project를 가져온 시점에도 reactive하게 반영되어야 "Suno 곡 생성하기" UI가
+  // 새로고침 없이 즉시 나타난다.
+  useEffect(() => {
+    const incoming = project.designed_tracks ?? []
+    if (incoming.length > 0) setTracks(incoming)
+  }, [project.designed_tracks])
   const [count, setCount] = useState(20)
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')
+  const [designPhase, setDesignPhase] = useState('')
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState<Partial<DesignedTrack>>({})
   const [regenIdx, setRegenIdx] = useState<number | null>(null)
@@ -50,9 +59,6 @@ export default function SongMaker({ project, onRefresh }: Props) {
   const [expandIdx, setExpandIdx] = useState<number | null>(null)
   const [dragTrackIdx, setDragTrackIdx] = useState<number | null>(null)
   const [dragOverTrackIdx, setDragOverTrackIdx] = useState<number | null>(null)
-  const [showBenchmarks, setShowBenchmarks] = useState(false)
-  const [editingBenchmarkIdx, setEditingBenchmarkIdx] = useState(-1)
-  const [editingBenchmarkUrl, setEditingBenchmarkUrl] = useState('')
   const [qaStatus, setQaStatus] = useState<{ status: string; tracks: { index: number; title: string; v1_exists: boolean; v2_exists: boolean; status: string }[] } | null>(null)
   const [userKeywords, setUserKeywords] = useState('')
   const [userMood, setUserMood] = useState('')
@@ -247,12 +253,12 @@ export default function SongMaker({ project, onRefresh }: Props) {
     if (!project.channel_id) return
     setDesigning(true)
     setDesignError('')
+    setDesignPhase('시작 중...')
     try {
-      const result = await api.trackDesign.design(
+      await api.trackDesign.designStart(
         project.channel_id,
         project.id,
         {
-          benchmarkUrl: benchmarkUrl.trim() || undefined,
           count,
           keywords: userKeywords.trim(),
           mood: userMood.trim(),
@@ -260,14 +266,46 @@ export default function SongMaker({ project, onRefresh }: Props) {
           extra: userExtra.trim(),
         },
       )
-      setTracks(result.tracks)
-      setConcept(result.concept ?? null)
-      onRefresh()
+
+      // 폴링 — 백엔드 BackgroundTask가 끝나거나 실패할 때까지
+      const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+      const startedAt = Date.now()
+      let idleCount = 0
+      while (true) {
+        await sleep(2000)
+        const status = await api.trackDesign.designStatus(project.id)
+        if (status.message) setDesignPhase(status.message)
+
+        if (status.status === 'completed') {
+          setTracks(status.tracks ?? [])
+          setConcept(status.concept ?? null)
+          onRefresh()
+          break
+        }
+        if (status.status === 'failed') {
+          throw new Error(status.error || '곡 설계 실패')
+        }
+        if (status.status === 'idle') {
+          // 서버 재시작 등으로 task가 사라진 경우. 시작 직후 한 번은 허용.
+          idleCount += 1
+          if (idleCount >= 2) {
+            throw new Error('서버 task가 사라졌습니다. 백엔드 재시작 또는 상태 초기화 필요.')
+          }
+        } else {
+          idleCount = 0
+        }
+
+        // 안전장치 — 10분 초과 시 폴링 중단 (백엔드는 계속 돌 수 있음)
+        if (Date.now() - startedAt > 10 * 60 * 1000) {
+          throw new Error('곡 설계가 10분을 초과했습니다. 백엔드 로그를 확인하세요.')
+        }
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '곡 설계 실패'
       setDesignError(msg)
     } finally {
       setDesigning(false)
+      setDesignPhase('')
     }
   }
 
@@ -430,78 +468,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   {channel.subtitle_type === 'affirmation' ? ' 확언자막' : channel.subtitle_type === 'lyrics' ? ' 가사자막' : ' 자막없음'}
                 </div>
               </div>
-              {channel.benchmark_history.length > 0 && (
-                <button
-                  onClick={() => setShowBenchmarks(v => !v)}
-                  className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  벤치마크 {channel.benchmark_history.length}개 {showBenchmarks ? '▲' : '▼'}
-                </button>
-              )}
             </div>
-
-            {/* 벤치마크 목록 */}
-            {showBenchmarks && channel.benchmark_history.length > 0 && (
-              <div className="mb-6 space-y-2">
-                {channel.benchmark_history.map((b: { url: string; video_id: string; title?: string }, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-2">
-                    <span className="text-xs text-gray-500 shrink-0">#{idx + 1}</span>
-                    <a
-                      href={b.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-400 hover:text-blue-300 truncate flex-1"
-                      title={b.url}
-                    >
-                      {b.title && b.title !== b.video_id ? b.title : b.url}
-                    </a>
-                    {editingBenchmarkIdx === idx ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          value={editingBenchmarkUrl}
-                          onChange={e => setEditingBenchmarkUrl(e.target.value)}
-                          className="bg-gray-700 text-white text-xs rounded px-2 py-1 w-64 border border-gray-600 focus:outline-none focus:border-indigo-500"
-                        />
-                        <button
-                          onClick={async () => {
-                            const updated = [...channel.benchmark_history]
-                            updated[idx] = { ...updated[idx], url: editingBenchmarkUrl }
-                            const result = await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
-                            setChannel(result)
-                            setEditingBenchmarkIdx(-1)
-                            onRefresh()
-                          }}
-                          className="text-xs text-green-400 hover:text-green-300 px-1"
-                        >✓</button>
-                        <button
-                          onClick={() => setEditingBenchmarkIdx(-1)}
-                          className="text-xs text-gray-500 hover:text-gray-300 px-1"
-                        >✕</button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => { setEditingBenchmarkIdx(idx); setEditingBenchmarkUrl(b.url) }}
-                          className="text-xs text-gray-500 hover:text-yellow-400 px-1"
-                          title="수정"
-                        >✏️</button>
-                        <button
-                          onClick={async () => {
-                            if (!confirm('이 벤치마크를 삭제하시겠습니까?')) return
-                            const updated = channel.benchmark_history.filter((_: unknown, i: number) => i !== idx)
-                            const result = await api.channels.update(channel.channel_id, { benchmark_history: updated } as Partial<Channel>)
-                            setChannel(result)
-                            onRefresh()
-                          }}
-                          className="text-xs text-gray-500 hover:text-red-400 px-1"
-                          title="삭제"
-                        >🗑️</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </>)}
 
           {/* 설계 폼 */}
@@ -584,6 +551,9 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   </button>
                 </div>
               </div>
+              {designing && designPhase && (
+                <p className="text-indigo-300 text-xs mt-3">⏳ {designPhase}</p>
+              )}
               {designError && (
                 <p className="text-red-400 text-xs mt-3">{designError}</p>
               )}
@@ -1416,6 +1386,9 @@ export default function SongMaker({ project, onRefresh }: Props) {
                     {designing ? '설계 중...' : '✨ 전체 재설계'}
                   </button>
                 </div>
+                {designing && designPhase && (
+                  <p className="text-indigo-300 text-xs mt-2">⏳ {designPhase}</p>
+                )}
                 {designError && <p className="text-red-400 text-xs mt-2">{designError}</p>}
               </div>
             </div>

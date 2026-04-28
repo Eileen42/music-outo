@@ -1,4 +1,3 @@
-from agents.analyzer import analyzer_agent
 from agents.designer import designer_agent
 from agents.composer import composer_agent
 from agents.lyricist import lyricist_agent

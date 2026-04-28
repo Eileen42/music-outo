@@ -52,6 +52,11 @@ class SunoAPIClient:
         self._cookies: dict[str, str] = {}
         self._headers: dict[str, str] = {}
         self._token_expires: float = 0
+        self._bearer_token: str | None = None
+        # 동시 토큰 갱신 직렬화 — 봇 감지 회피를 위해 Playwright 창은 동시에 1개만.
+        # 병렬 곡 생성(max_concurrent=3)이 동시에 401을 받으면 3개 task가 동시에
+        # refresh_token을 호출하여 브라우저 3개가 한꺼번에 떠 봇 감지 위험.
+        self._refresh_lock: asyncio.Lock | None = None
 
     # ━━━ 세션 관리 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -97,11 +102,27 @@ class SunoAPIClient:
           3. 받은 JWT를 __session 쿠키에 덮어쓰고 storage_state 갱신
 
         실패 시(예: __client 만료) Playwright fallback 호출.
-        """
-        if not self._cookies:
-            if not self.load_session():
-                return False
 
+        동시 호출 직렬화: 병렬 task가 동시에 401을 만나도 락으로 1회만 실행.
+        다른 task가 방금 갱신했으면 즉시 cache hit으로 통과 (브라우저 추가 launch X).
+        """
+        # asyncio.Lock은 사용 시점 이벤트 루프에 바인딩되므로 지연 생성
+        if self._refresh_lock is None:
+            self._refresh_lock = asyncio.Lock()
+
+        async with self._refresh_lock:
+            # 다른 task가 직전에 이미 갱신해 토큰이 유효하면 즉시 통과
+            if self._bearer_token and time.time() < self._token_expires - 5:
+                return True
+
+            if not self._cookies:
+                if not self.load_session():
+                    return False
+
+            return await self._refresh_token_locked()
+
+    async def _refresh_token_locked(self) -> bool:
+        """실제 갱신 로직 — 항상 _refresh_lock 안에서만 호출."""
         client_cookie = self._cookies.get("__client", "")
         if not client_cookie:
             logger.error("__client 쿠키 없음 — 로그인 만료")
@@ -743,6 +764,10 @@ class SunoAPIClient:
         semaphore = asyncio.Semaphore(max_concurrent)
         results_lock = asyncio.Lock()
 
+        # 곡당 전체 timeout — 어느 단계에서든 무한 hang 방지.
+        # create_song 30s + wait_for_audio 300s + download_clip 120s × 2 + 여유 = 약 8분 안전선.
+        PER_SONG_TIMEOUT = 600  # 10분
+
         async def _process_one(song: dict):
             async with semaphore:
                 idx = song.get("index", 0)
@@ -751,25 +776,33 @@ class SunoAPIClient:
                 lyrics = song.get("lyrics", "")
                 instrumental = song.get("is_instrumental", True)
 
-                try:
+                logger.info(f"[#{idx} {title}] 시작 (prompt_len={len(prompt)}, lyrics_len={len(lyrics)}, instrumental={instrumental})")
+                t_song = time.time()
+
+                async def _do_song():
                     if progress_cb:
                         try:
                             progress_cb({"phase": "creating", "current_title": title, "completed": len(results)})
                         except Exception:
                             pass
 
-                    # 생성
+                    logger.info(f"[#{idx} {title}] step1: create_song 호출")
+                    t0 = time.time()
                     clips = await self.create_song(prompt, title, lyrics, instrumental)
+                    logger.info(f"[#{idx} {title}] step1 OK ({time.time()-t0:.1f}s) clips={len(clips)}")
 
-                    # audio_url 대기
+                    logger.info(f"[#{idx} {title}] step2: wait_for_audio (timeout=300s)")
+                    t0 = time.time()
                     ready_clips = await self.wait_for_audio(clips, timeout=300)
+                    logger.info(f"[#{idx} {title}] step2 OK ({time.time()-t0:.1f}s) ready={len(ready_clips)}")
 
-                    # 다운로드 — 안전한 파일명 (Windows 금지문자 치환)
-                    # 끝의 "."은 download_clip 신호: 클린 파일명({prefix[:-1]}.mp3) 사용
                     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in title[:30])
                     for slot, clip in enumerate(ready_clips[:2], 1):
                         prefix = f"{idx:02d}_{safe_title}_v{slot}."
+                        logger.info(f"[#{idx} {title}] step3.{slot}: download_clip 호출")
+                        t0 = time.time()
                         file_path = await self.download_clip(clip, output_dir, prefix)
+                        logger.info(f"[#{idx} {title}] step3.{slot} {'OK' if file_path else 'FAIL'} ({time.time()-t0:.1f}s)")
                         track = {
                             "index": idx,
                             "title": title,
@@ -786,11 +819,27 @@ class SunoAPIClient:
                             except Exception:
                                 pass
 
-                    # 생성 간 딜레이 (rate limit 방지)
                     await asyncio.sleep(5)
 
+                try:
+                    await asyncio.wait_for(_do_song(), timeout=PER_SONG_TIMEOUT)
+                    logger.info(f"[#{idx} {title}] 완료 (총 {time.time()-t_song:.1f}s)")
+                except asyncio.TimeoutError:
+                    logger.error(f"[#{idx} {title}] 곡 전체 timeout ({PER_SONG_TIMEOUT}s 초과) — 다음 곡으로 진행")
+                    failed = {
+                        "index": idx, "title": title, "suno_id": "",
+                        "file_path": None, "status": "failed", "slot": 0,
+                        "error": f"곡 처리 {PER_SONG_TIMEOUT}s 초과",
+                    }
+                    async with results_lock:
+                        results.append(failed)
+                    if result_cb:
+                        try:
+                            result_cb(failed)
+                        except Exception:
+                            pass
                 except Exception as e:
-                    logger.error(f"곡 생성 실패 [{title}]: {e}")
+                    logger.error(f"[#{idx} {title}] 실패: {e}")
                     failed = {
                         "index": idx, "title": title, "suno_id": "",
                         "file_path": None, "status": "failed", "slot": 0,

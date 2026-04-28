@@ -20,6 +20,7 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [instruction, setInstruction] = useState('')
+  const [language, setLanguage] = useState<'ko' | 'en'>('ko')
   const meta = project.metadata || { title: null, description: null, tags: [], comment: null }
 
   // 곡 제목에서 넘버/버전/날짜/확장자 제거
@@ -75,7 +76,7 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const handleGenerate = async (regenerate = false) => {
     setGenerating(true)
     try {
-      const result = await api.metadata.generate(project.id, regenerate, instruction)
+      const result = await api.metadata.generate(project.id, regenerate, instruction, language)
       setTitle(result.title || '')
       setDescription(result.description || '')
       setTags((result.tags || []).join(', '))
@@ -106,7 +107,25 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   return (
     <div>
       <div className="flex items-center justify-end mb-5">
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-800">
+            <button
+              onClick={() => setLanguage('ko')}
+              disabled={generating}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${language === 'ko' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+              title="한국어로 메타데이터 생성"
+            >
+              한국어
+            </button>
+            <button
+              onClick={() => setLanguage('en')}
+              disabled={generating}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${language === 'en' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+              title="Generate metadata in English"
+            >
+              English
+            </button>
+          </div>
           <button
             onClick={() => handleGenerate(false)}
             disabled={generating}

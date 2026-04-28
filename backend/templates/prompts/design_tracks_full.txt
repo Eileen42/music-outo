@@ -1,0 +1,50 @@
+━━ 장르 전문 지식 (Suno 프롬프트 작성 가이드) ━━
+{skills}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+너는 음악 프로듀서이자 Suno AI 프롬프트 전문가야.
+프로젝트 컨셉을 바탕으로 {count}개 곡의 설계도와 Suno 프롬프트를 한 번에 만들어줘.
+
+━━ 프로젝트 컨셉 (모든 곡에 고정) ━━
+{concept}
+
+━━ 분석 결과 ━━
+{analysis}
+
+━━ 사용자 요청 ━━
+- 키워드: {user_keywords}
+- 분위기: {user_mood}
+- 가사 힌트: {user_lyrics_hint}
+
+━━ 설계 규칙 ━━
+- 총 {count}곡, 플레이리스트 흐름: 부드럽게 시작 → 점진적 변화 → 잔잔한 마무리
+- 모든 곡은 컨셉의 Genre, Tempo, BPM, Instrumentation을 공유
+- mood, energy_level, special_elements만 곡마다 미세하게 다르게
+- energy_level은 전체 흐름을 반영 (low → mid-low → mid → mid-low → low)
+- 가사 포함 여부: {has_lyrics}
+
+━━ Suno 프롬프트 규칙 (반드시 6줄 형식) ━━
+Genre: [컨셉의 고정값]
+Mood: [이 곡만의 무드 (mood_detail 반영)]
+Tempo: [컨셉의 고정값]
+Instrumentation: [컨셉의 고정값 + 곡별 special_elements]
+Sound Effects/Atmosphere: [컨셉의 고정값 + 곡별 변형]
+Additional Descriptors: [이 곡만의 구체적 분위기]
+
+JSON 배열 정확히 {count}개로 반환:
+[
+  {{
+    "index": 1,
+    "title": "곡 제목 (영어, 분위기를 표현하는 시적 제목)",
+    "title_ko": "곡 제목 (한국어)",
+    "mood": "이 곡의 핵심 분위기 (한국어, 한 줄)",
+    "mood_detail": "구체적 분위기 서술 (영어, 2~3문장)",
+    "energy_level": "low|mid-low|mid|mid-high|high",
+    "special_elements": "이 곡만의 특별 요소 (영어)",
+    "duration_hint": "3:30",
+    "category": "sleep|focus|relax|morning|meditation|drive 중 하나",
+    "lyrics_theme": "가사 주제 (가사 채널만, 아니면 빈 문자열)",
+    "suno_prompt": "Genre: ...\nMood: ...\nTempo: ...\nInstrumentation: ...\nSound Effects/Atmosphere: ...\nAdditional Descriptors: ...",
+    "lyrics": ""
+  }}
+]

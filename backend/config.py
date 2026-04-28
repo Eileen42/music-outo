@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     flow_generation_timeout: int = 120   # 이미지 생성 대기 최대 초
     flow_manual_timeout: int = 600       # 수동 fallback 대기 최대 초
 
+    # 관리자/인증
+    admin_secret: str = "admin1234"      # 관리자 페이지 접근 비밀번호. 배포 시 반드시 교체.
+    email_mode: str = "console"          # console | smtp — console 모드는 인증번호를 로그에 출력
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    smtp_from: str = ""                  # "Music Outo <noreply@domain.com>"
+
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")
 
     @property

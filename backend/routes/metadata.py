@@ -74,12 +74,15 @@ async def generate_metadata(project_id: str, body: dict = None):
     body = body or {}
     regenerate = body.get("regenerate", False)
     instruction = body.get("instruction", "")
+    language = body.get("language", "ko")
+    if language not in ("ko", "en"):
+        language = "ko"
 
     if existing.get("title") and not regenerate:
         return existing
 
     try:
-        generated = await metadata_generator.generate(state, instruction=instruction, channel_videos=[])
+        generated = await metadata_generator.generate(state, instruction=instruction, channel_videos=[], language=language)
     except Exception as e:
         logger.error(f"메타데이터 생성 실패: {e}", exc_info=True)
         raise HTTPException(500, f"메타데이터 생성 실패: {str(e)}")

@@ -135,6 +135,9 @@ async def main(project_id: str) -> None:
         "round": 0,
         "errors": [],
     }
+    # 시작 즉시 progress.json 초기화 — 사용자가 옛 errors/failed 메시지를
+    # 보지 않도록. (이전 stuck 정리 시 적어둔 errors가 남아있을 수 있음)
+    _write_progress(project_id, tracker)
 
     # 세션 로드
     if not suno_api.load_session():
