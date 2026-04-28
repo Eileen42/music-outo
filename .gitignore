@@ -34,6 +34,9 @@ backend/storage/*.json
 .next/
 server.log
 server_*.log
+server.err.log
+server_*.err
+server*.err.log
 backend/=*
 backend/_record_log.txt
 

@@ -1,0 +1,147 @@
+{
+  "channel": "7080",
+  "channel_name": "카윈더스",
+  "generated_from": "auto",
+  "categories": {
+    "7080디스코": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "lyrics"
+      }
+    },
+    "레트로": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "lyrics"
+      }
+    },
+    "펑키": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "lyrics"
+      }
+    },
+    "팝송": {
+      "mood": [
+        "warm",
+        "cozy",
+        "comforting"
+      ],
+      "music": {
+        "tempo": [
+          70,
+          100
+        ],
+        "instruments": [
+          "acoustic guitar",
+          "piano",
+          "ukulele"
+        ],
+        "energy": "medium",
+        "vocal": "humming"
+      },
+      "image": {
+        "color_tone": "warm",
+        "subjects": [
+          "cafe",
+          "cozy",
+          "autumn",
+          "books"
+        ],
+        "lighting": "soft",
+        "style": "cinematic"
+      },
+      "subtitle": {
+        "tone": "neutral",
+        "style": "lyrics"
+      }
+    }
+  }
+}
