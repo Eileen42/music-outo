@@ -6,11 +6,20 @@ MetaDesigner의 설계도(spec)를 받아 실제 제목/설명/태그/댓글을 
 """
 from __future__ import annotations
 
+import json
 import logging
+import re
+
 from agents.base import BaseAgent
 from core.gemini_client import gemini_client
 
 logger = logging.getLogger("meta_writer")
+
+_HANGUL_RE = re.compile(r"[가-힯ᄀ-ᇿ]")
+
+
+def _has_korean(text: str) -> bool:
+    return bool(_HANGUL_RE.search(text))
 
 
 class MetaWriterAgent(BaseAgent):
@@ -34,6 +43,11 @@ class MetaWriterAgent(BaseAgent):
         tracks = project_state.get("designed_tracks", [])
         concept = project_state.get("project_concept", {})
         playlist_title = project_state.get("playlist_title", "")
+
+        # spec/concept은 metadata_generator에서 이미 영어로 번역됨 (영어 모드).
+        # playlist_title만 한국어가 남아있을 수 있어 여기서 처리.
+        if language == "en" and _has_korean(playlist_title):
+            playlist_title = await self._translate_text(playlist_title)
 
         track_list = "\n".join(
             f"  {t.get('index', i+1)}. {t.get('title', '')}"
@@ -65,23 +79,99 @@ class MetaWriterAgent(BaseAgent):
         logger.info(f"메타데이터 작성 완료 ({language}): title={title[:40]}, tags={len(tags)}개")
         return result
 
+    async def _translate_text(self, text: str) -> str:
+        """짧은 텍스트 한국어 → 영어. 빈 문자열/이미 영어면 그대로."""
+        if not text or not _has_korean(text):
+            return text
+        prompt = (
+            "Translate the following Korean text to natural, idiomatic English suitable for a "
+            "YouTube music channel. Output ONLY the English translation, no explanation, no quotes.\n\n"
+            f"{text}"
+        )
+        try:
+            return (await gemini_client.generate_text(prompt)).strip()
+        except Exception as e:
+            logger.warning(f"번역 실패(원문 유지): {e}")
+            return text
+
+    async def _translate_for_english(self, data: dict, label: str = "data") -> dict:
+        """dict 안의 모든 한국어 텍스트(중첩 포함)를 영어로 번역. 구조/키 보존."""
+        if not data:
+            return data
+        try:
+            payload = json.dumps(data, ensure_ascii=False)
+        except Exception:
+            return data
+        if not _has_korean(payload):
+            return data
+        prompt = (
+            "Translate every Korean string value in the following JSON to natural English. "
+            "Keep the JSON structure, keys, numbers, booleans, and any already-English values "
+            "unchanged. Do NOT add commentary. Output a single JSON object only.\n\n"
+            f"{payload}"
+        )
+        try:
+            result = await gemini_client.generate_json(prompt)
+            if isinstance(result, dict):
+                logger.info(f"영어 모드 — {label} 번역 완료")
+                return result
+        except Exception as e:
+            logger.warning(f"{label} 번역 실패(원문 유지): {e}")
+        return data
+
     @staticmethod
     def _lang_directive(language: str) -> str:
-        """프롬프트 끝에 붙일 언어 지시. 영어 채널 대응."""
+        """프롬프트 맨 앞에 박는 강한 시스템 룰. spec/concept이 한국어여도 출력은 정확히 일치시킴."""
         if language == "en":
+            # 강한 강제 — spec·concept·instruction 등이 한국어로 와도 출력은 영어로.
             return (
-                "━━ Output Language ━━\n"
-                "Write the entire output in natural English. "
-                "Do NOT use Korean characters. Avoid translated-feeling phrasing — "
-                "use idiomatic English suitable for an English-speaking YouTube audience."
+                "[SYSTEM RULE — ABSOLUTE OVERRIDE]\n"
+                "OUTPUT LANGUAGE: English only.\n"
+                "\n"
+                "The design spec, project concept, must-include keywords, CTA, structure hints,\n"
+                "and user instruction below may contain Korean text. Treat them as design INTENT,\n"
+                "not as text to copy. You MUST translate or rewrite that intent into idiomatic English.\n"
+                "\n"
+                "Hard rules:\n"
+                "  1. Do NOT copy any Korean phrase from the spec verbatim into the output.\n"
+                "  2. Do NOT include any Korean (Hangul) characters in the output.\n"
+                "  3. Do NOT mix Korean and English (e.g. 'Enjoy the 감성 vibes' is FORBIDDEN).\n"
+                "  4. Write as a native English YouTube copywriter for an English-speaking audience.\n"
+                "  5. Even Korean-style emoticons/phrases (예: 환영해요, 어떠셨나요) must be replaced\n"
+                "     with natural English equivalents (e.g. 'Welcome!', 'How was it?').\n"
             )
         return (
-            "━━ 출력 언어 ━━\n"
-            "전체 출력을 자연스러운 한국어로 작성하세요."
+            "[SYSTEM RULE — ABSOLUTE]\n"
+            "출력 언어: 한국어.\n"
+            "전체 출력(제목·설명·태그·댓글)을 자연스러운 한국어로 작성하세요.\n"
         )
 
     async def _gen_title(self, spec: dict, concept: dict, playlist: str, count: int, instruction: str, language: str = "ko") -> str:
-        prompt = f"""YouTube 영상 제목을 작성하세요.
+        if language == "en":
+            prompt = f"""{self._lang_directive(language)}
+
+Write a YouTube video title.
+
+━━ Design Spec (may contain Korean — interpret the intent and write the OUTPUT in English) ━━
+- Style: {spec.get('style', '')}
+- Must include: {', '.join(spec.get('must_include', []))}
+- Tone: {spec.get('tone', '')}
+- Template: {spec.get('template', '')}
+- Max length: {spec.get('max_length', 50)} chars
+
+━━ Project ━━
+- Playlist: {playlist}
+- Genre: {concept.get('genre', '')}
+- Mood: {concept.get('core_mood', '')}
+- Track count: {count}
+
+{f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
+
+Follow the spec's style and structure exactly. Output ONLY the title text in English, no markdown."""
+        else:
+            prompt = f"""{self._lang_directive(language)}
+
+YouTube 영상 제목을 작성하세요.
 
 ━━ 설계도 ━━
 - 스타일: {spec.get('style', '')}
@@ -98,8 +188,6 @@ class MetaWriterAgent(BaseAgent):
 
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
-{self._lang_directive(language)}
-
 설계도의 스타일과 구조를 정확히 따라 제목을 작성하세요.
 마크다운 없이 제목 텍스트만 출력."""
 
@@ -107,7 +195,33 @@ class MetaWriterAgent(BaseAgent):
 
     async def _gen_description(self, spec: dict, concept: dict, title: str, track_list: str, instruction: str, language: str = "ko") -> str:
         structure = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(spec.get("structure", [])))
-        prompt = f"""YouTube 영상 설명란을 작성하세요.
+        if language == "en":
+            prompt = f"""{self._lang_directive(language)}
+
+Write a YouTube video description.
+
+━━ Design Spec (may contain Korean — interpret the intent and write the OUTPUT in English) ━━
+- Structure:
+{structure}
+- Tone: {spec.get('tone', '')}
+- Must include: {', '.join(spec.get('must_include', []))}
+- Max length: {spec.get('max_length', 1000)} chars
+
+━━ Video Info ━━
+- Title: {title}
+- Genre: {concept.get('genre', '')}
+- Mood: {concept.get('core_mood', '')}
+
+━━ Tracklist ━━
+{track_list}
+
+{f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
+
+Follow the spec's structure and tone exactly. Output text only in English, no markdown."""
+        else:
+            prompt = f"""{self._lang_directive(language)}
+
+YouTube 영상 설명란을 작성하세요.
 
 ━━ 설계도 ━━
 - 구조:
@@ -126,8 +240,6 @@ class MetaWriterAgent(BaseAgent):
 
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
-{self._lang_directive(language)}
-
 설계도의 구조와 톤을 정확히 따르세요. 마크다운 없이 텍스트만."""
 
         return (await gemini_client.generate_text(prompt)).strip()
@@ -137,7 +249,30 @@ class MetaWriterAgent(BaseAgent):
         secondary = ", ".join(spec.get("secondary", []))
         consistent = ", ".join(spec.get("channel_consistent", []))
 
-        prompt = f"""YouTube 태그를 생성하세요.
+        if language == "en":
+            prompt = f"""{self._lang_directive(language)}
+
+Generate YouTube tags.
+
+━━ Design Spec (may contain Korean — interpret the intent and OUTPUT tags in English) ━━
+- Primary tags: {primary}
+- Secondary tags: {secondary}
+- Channel-wide tags: {consistent}
+- Max count: {spec.get('max_count', 30)}
+
+━━ Project ━━
+- Genre: {concept.get('genre', '')}
+- Mood: {concept.get('core_mood', '')}
+
+{f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
+
+Up to {spec.get('max_count', 30)} tags ordered by relevance.
+Tags MUST be in English (lowercase preferred). Use natural English keywords an English-speaking audience would search.
+JSON array only: ["tag1", "tag2", ...]"""
+        else:
+            prompt = f"""{self._lang_directive(language)}
+
+YouTube 태그를 생성하세요.
 
 ━━ 설계도 ━━
 - 핵심 태그: {primary}
@@ -151,11 +286,9 @@ class MetaWriterAgent(BaseAgent):
 
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
-{self._lang_directive(language)}
-
 설계도의 핵심/보조/채널 태그를 기반으로 최대 {spec.get('max_count', 30)}개.
-태그 자체도 출력 언어에 맞게 작성하되, 일반화된 영문 음악 키워드(예: lofi, jazz)는 그대로 사용 가능.
-관련성 높은 순. JSON 배열만: ["tag1", "tag2", ...]"""
+태그는 한국어로. 일반화된 영문 음악 키워드(lofi, jazz)는 그대로 사용 가능.
+관련성 높은 순. JSON 배열만: ["태그1", "태그2", ...]"""
 
         result = await gemini_client.generate_json(prompt)
         if isinstance(result, list):
@@ -167,7 +300,31 @@ class MetaWriterAgent(BaseAgent):
         return []
 
     async def _gen_comment(self, spec: dict, title: str, track_list: str, count: int, instruction: str, language: str = "ko") -> str:
-        prompt = f"""YouTube 고정댓글을 작성하세요.
+        if language == "en":
+            prompt = f"""{self._lang_directive(language)}
+
+Write a YouTube pinned comment.
+
+━━ Design Spec (may contain Korean — interpret the intent and write the OUTPUT in English) ━━
+- Style: {spec.get('style', '')}
+- Include tracklist: {spec.get('include_tracklist', True)}
+- CTA: {spec.get('cta', '')}
+- Max length: {spec.get('max_length', 100)} chars
+
+━━ Video ━━
+- Title: {title}
+- Track count: {count}
+
+━━ Tracklist ━━
+{track_list}
+
+{f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
+
+Follow the spec's style and CTA. Output text only in English, no markdown."""
+        else:
+            prompt = f"""{self._lang_directive(language)}
+
+YouTube 고정댓글을 작성하세요.
 
 ━━ 설계도 ━━
 - 스타일: {spec.get('style', '')}
@@ -183,8 +340,6 @@ class MetaWriterAgent(BaseAgent):
 {track_list}
 
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
-
-{self._lang_directive(language)}
 
 설계도의 스타일과 CTA를 따르세요. 마크다운 없이 텍스트만."""
 

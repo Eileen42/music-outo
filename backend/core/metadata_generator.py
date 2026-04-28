@@ -42,6 +42,15 @@ class MetadataGenerator:
         )
         logger.info(f"[1/3] 설계 완료")
 
+        # 영어 모드 — spec을 한 번만 영어로 번역해 Writer + QA가 모두 영어 spec으로 동작.
+        # (이전: Writer만 번역 → QA가 한국어 spec 기준으로 영어 결과를 위반으로 보고 한국어로 수정)
+        if language == "en":
+            spec = await meta_writer_agent._translate_for_english(spec, label="spec")
+            concept_translated = await meta_writer_agent._translate_for_english(
+                project_state.get("project_concept", {}), label="concept"
+            )
+            project_state = {**project_state, "project_concept": concept_translated}
+
         # ── Step 2: MetaWriter — 작성 ──
         logger.info(f"[2/3] MetaWriter: 메타데이터 작성 중 ({language})...")
         result = await meta_writer_agent.write_all(spec, project_state, instruction, language)
@@ -50,7 +59,7 @@ class MetadataGenerator:
         # ── Step 3: MetaQA — 검수 (최대 2회 재시도) ──
         for attempt in range(MAX_QA_RETRIES + 1):
             logger.info(f"[3/3] MetaQA: 검수 중 (시도 {attempt + 1})...")
-            qa = await meta_qa_agent.verify(spec, result, project_state)
+            qa = await meta_qa_agent.verify(spec, result, project_state, language=language)
 
             if qa["passed"]:
                 logger.info("[3/3] QA PASS")
