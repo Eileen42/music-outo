@@ -107,8 +107,8 @@ export const api = {
   metadata: {
     get: (projectId: string) =>
       http.get<ProjectMetadata>(`/api/projects/${projectId}/metadata`).then(r => r.data),
-    generate: (projectId: string, regenerate = false, instruction = '') =>
-      http.post<ProjectMetadata>(`/api/projects/${projectId}/metadata/generate`, { regenerate, instruction }).then(r => r.data),
+    generate: (projectId: string, regenerate = false, instruction = '', language: 'ko' | 'en' = 'ko') =>
+      http.post<ProjectMetadata>(`/api/projects/${projectId}/metadata/generate`, { regenerate, instruction, language }).then(r => r.data),
     readThumbnail: (projectId: string) =>
       http.get<{ text: string }>(`/api/projects/${projectId}/metadata/read-thumbnail`).then(r => r.data),
     update: (projectId: string, data: Partial<ProjectMetadata>) =>

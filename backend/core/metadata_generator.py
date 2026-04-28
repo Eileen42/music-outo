@@ -26,9 +26,12 @@ class MetadataGenerator:
         project_state: dict,
         instruction: str = "",
         channel_videos: list[dict] | None = None,
+        language: str = "ko",
     ) -> dict:
         """
         3단계 메타데이터 생성.
+
+        language: "ko" (기본) | "en". 설계 구조는 동일하고 출력 언어만 변경.
 
         Returns: {"title": str, "description": str, "tags": list, "comment": str}
         """
@@ -37,11 +40,11 @@ class MetadataGenerator:
         spec = await meta_designer_agent.design(
             project_state, channel_videos, instruction
         )
-        logger.info(f"[1/3] 설계 완���")
+        logger.info(f"[1/3] 설계 완료")
 
         # ── Step 2: MetaWriter — 작성 ──
-        logger.info("[2/3] MetaWriter: 메타데이터 작성 중...")
-        result = await meta_writer_agent.write_all(spec, project_state, instruction)
+        logger.info(f"[2/3] MetaWriter: 메타데이터 작성 중 ({language})...")
+        result = await meta_writer_agent.write_all(spec, project_state, instruction, language)
         logger.info(f"[2/3] 작성 완료: title={result.get('title', '')[:40]}")
 
         # ── Step 3: MetaQA — 검수 (최대 2회 재시도) ──
