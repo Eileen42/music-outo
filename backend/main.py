@@ -17,7 +17,6 @@ from core.state_manager import state_manager
 from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
 from routes import channels, track_design, suno as suno_routes
 from routes import ontology_routes
-from routes import auth as auth_routes, admin as admin_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -107,8 +106,6 @@ app.include_router(channels.router)
 app.include_router(ontology_routes.router)
 app.include_router(track_design.router)
 app.include_router(suno_routes.router)
-app.include_router(auth_routes.router)
-app.include_router(admin_routes.router)
 
 # 정적 파일 서빙 (빌드된 영상 등)
 storage_static = settings.storage_dir
