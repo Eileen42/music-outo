@@ -3,14 +3,17 @@ import { neon } from '@neondatabase/serverless'
 
 const sql = neon(process.env.DATABASE_URL!)
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'admin-default-secret'
-
 function isAdmin(req: VercelRequest): boolean {
+  const expected = process.env.ADMIN_SECRET
+  if (!expected) return false
   const auth = req.headers.authorization
-  return auth === `Bearer ${ADMIN_SECRET}`
+  return auth === `Bearer ${expected}`
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!process.env.ADMIN_SECRET) {
+    return res.status(503).json({ error: 'ADMIN_SECRET 환경변수가 설정되지 않았습니다' })
+  }
   if (!isAdmin(req)) {
     return res.status(403).json({ error: '권한이 없습니다' })
   }

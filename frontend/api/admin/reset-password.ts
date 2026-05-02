@@ -4,11 +4,11 @@ import crypto from 'crypto'
 
 const sql = neon(process.env.DATABASE_URL!)
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'admin-default-secret'
-
 function isAdmin(req: VercelRequest): boolean {
+  const expected = process.env.ADMIN_SECRET
+  if (!expected) return false
   const auth = req.headers.authorization
-  return auth === `Bearer ${ADMIN_SECRET}`
+  return auth === `Bearer ${expected}`
 }
 
 function hashPassword(password: string): string {
@@ -21,6 +21,9 @@ function hashPassword(password: string): string {
 // 응답의 temporary_password 는 한 번만 보여주고(DB엔 해시만 저장됨)
 // 관리자가 사용자에게 카톡·문자 등으로 전달한다.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!process.env.ADMIN_SECRET) {
+    return res.status(503).json({ error: 'ADMIN_SECRET 환경변수가 설정되지 않았습니다' })
+  }
   if (!isAdmin(req)) {
     return res.status(403).json({ error: '권한이 없습니다' })
   }
