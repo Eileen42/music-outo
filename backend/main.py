@@ -113,6 +113,22 @@ if storage_static.exists():
     app.mount("/storage", StaticFiles(directory=str(storage_static)), name="storage")
 
 
+# ─── SPA 프론트엔드 서빙 ─────────────────────────────────────────────────────
+# 일반 Python 실행: backend/../frontend/dist
+# PyInstaller(frozen): sys._MEIPASS/frontend_dist 에 번들됨
+def _resolve_frontend_dist() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "frontend_dist"  # type: ignore[attr-defined]
+    return Path(__file__).parent.parent / "frontend" / "dist"
+
+
+_frontend_dist = _resolve_frontend_dist()
+if _frontend_dist.exists():
+    # html=True 가 디렉토리 접근 시 index.html 반환. /api/* 와 /ws/* 는 라우트 우선이므로 안전.
+    # ※ 라우터/Mount 모두 등록된 뒤 마지막 catch-all 로 동작하도록 파일 끝에서도 mount 가능.
+    pass  # 실제 mount 는 모든 라우터 등록 후 파일 끝에서 수행
+
+
 # ─── WebSocket (빌드 진행상황 실시간 전달) ─────────────────────────────────────
 
 class ConnectionManager:
@@ -407,3 +423,9 @@ async def trigger_update():
         return {"status": "updating", "message": "업데이트를 시작합니다. 잠시 후 새로고침해주세요."}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# ─── SPA mount (catch-all) ──────────────────────────────────────────────────
+# 모든 라우트 등록 뒤에 와야 /api/*, /ws/*, /health, /storage 가 우선순위 가짐.
+if _frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="spa")
