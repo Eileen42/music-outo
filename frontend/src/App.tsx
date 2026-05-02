@@ -289,7 +289,9 @@ export default function App() {
     }} />
   }
 
-  if (showAdmin) {
+  // 관리자 페이지는 Vercel 도메인에서만 의미 있음 (Neon DB 조회).
+  // 로컬 EXE에서 ?admin=true 박혀도 무시.
+  if (showAdmin && isVercel) {
     return <AdminPage onBack={() => setShowAdmin(false)} />
   }
 
