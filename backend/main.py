@@ -10,9 +10,11 @@ if sys.platform == "win32":
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import settings, ENV_FILE_PATH
+from core.errors import SunoUIChangedError, SunoGenerationError, SunoSessionError
 from core.state_manager import state_manager
 from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
 from routes import channels, track_design, suno_batch, suno as suno_routes
@@ -92,6 +94,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── 도메인 예외 → HTTP 응답 매핑 ────────────────────────────────────────────
+# 라우트에서 명시적으로 잡지 않고 raise SunoXxxError 만 해도 적절한 코드로 변환된다.
+# 라우트가 자체적으로 try/except 로 처리한 경우엔 거기서 끝나므로 이 핸들러까지 안 옴.
+
+@app.exception_handler(SunoUIChangedError)
+async def _suno_ui_changed_handler(_request: Request, exc: SunoUIChangedError) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"Suno 화면이 변경된 것 같습니다. 잠시 후 다시 시도해주세요. ({exc})"},
+    )
+
+
+@app.exception_handler(SunoGenerationError)
+async def _suno_generation_handler(_request: Request, exc: SunoGenerationError) -> JSONResponse:
+    # rate limit / insufficient credits / try again — 429 Too Many Requests
+    return JSONResponse(status_code=429, content={"detail": str(exc)})
+
+
+@app.exception_handler(SunoSessionError)
+async def _suno_session_handler(_request: Request, _exc: SunoSessionError) -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "Suno 로그인 세션이 만료되었습니다. 다시 로그인해주세요."},
+    )
+
 
 # 라우터 등록
 app.include_router(projects.router)
