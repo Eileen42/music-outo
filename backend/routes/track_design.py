@@ -27,11 +27,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tracks", tags=["track-design"])
 
 # 프로젝트별 Suno 자동화 진행 상태 (in-memory)
+# 디스크 영속: storage/projects/{id}/_suno_progress.json (별도 프로세스가 기록)
 _suno_tasks: dict[str, dict] = {}
 
-# 프로젝트별 곡 설계(/design) 진행 상태 (in-memory)
+# 프로젝트별 곡 설계(/design) 진행 상태 (in-memory + 디스크 미러)
 # Gemini 4단계 파이프라인이 30~60초 걸려 동기 응답 시 hang 위험. BackgroundTask로 분리.
+# 서버 재시작 시 메모리는 비지만 _design_progress.json 으로 마지막 상태 복원 가능.
 _design_tasks: dict[str, dict] = {}
+
+
+def _design_progress_path(project_id: str) -> Path:
+    return settings.storage_dir / "projects" / project_id / "_design_progress.json"
+
+
+def _persist_design_task(project_id: str) -> None:
+    """현재 _design_tasks[project_id] 를 디스크에 원자적으로 저장.
+    실패해도 메모리 진행 상황은 살아있으므로 경고만 남기고 계속 진행한다."""
+    task = _design_tasks.get(project_id)
+    if task is None:
+        return
+    path = _design_progress_path(project_id)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps(task, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        tmp.replace(path)
+    except Exception as e:
+        logger.warning(f"_design_progress 저장 실패 ({project_id}): {e}")
 
 
 # ──────────────────────────── schemas ────────────────────────────
@@ -80,6 +105,7 @@ async def design_tracks(body: DesignRequest, background_tasks: BackgroundTasks):
         "total":    body.count,
         "message":  "대기 중...",
     }
+    _persist_design_task(body.project_id)
 
     background_tasks.add_task(
         _run_design_task,
@@ -94,11 +120,27 @@ async def design_tracks(body: DesignRequest, background_tasks: BackgroundTasks):
 
 @router.get("/design-status/{project_id}", summary="곡 설계 진행 상태")
 async def design_status(project_id: str):
-    """폴링용. status: idle | running | completed | failed."""
+    """폴링용. status: idle | running | completed | failed.
+
+    서버가 재시작된 직후엔 메모리가 비어있을 수 있으니 디스크 미러를 fallback 으로 읽는다.
+    """
     task = _design_tasks.get(project_id)
-    if not task:
-        return {"status": "idle"}
-    return task
+    if task:
+        return task
+    # 서버 재시작 시: 메모리는 비었지만 디스크엔 마지막 상태가 남아있다.
+    path = _design_progress_path(project_id)
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            # running 상태 그대로 두면 영원히 running. 재시작이 일어났다는 것은
+            # 작업도 함께 죽었다는 뜻이므로 interrupted 로 강등.
+            if data.get("status") == "running":
+                data["status"] = "interrupted"
+                data["message"] = "서버 재시작으로 작업이 중단되었습니다. 다시 시작해주세요."
+            return data
+        except Exception:
+            pass
+    return {"status": "idle"}
 
 
 async def _run_design_task(
@@ -115,6 +157,7 @@ async def _run_design_task(
         task["message"] = message
         if progress is not None:
             task["progress"] = progress
+        _persist_design_task(project_id)
 
     try:
         _set("designing", "곡 설계 시작 (사용자 입력 + 채널 프로필 기반)...", 10)
@@ -153,6 +196,7 @@ async def _run_design_task(
             "concept":  concept,
             "total":    len(tracks),
         })
+        _persist_design_task(project_id)
         logger.info(f"[design] 완료: project={project_id}, {len(tracks)}곡")
 
     except Exception as e:
@@ -163,6 +207,7 @@ async def _run_design_task(
             "error":     f"[{type(e).__name__}] {e}",
             "traceback": _tb.format_exc()[-2000:],
         })
+        _persist_design_task(project_id)
         logger.error(f"[design] 실패: project={project_id}, {e}")
 
 
