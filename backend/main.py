@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Gemini keys loaded: {len(settings.gemini_api_keys)}")
     # 서버 재시작 시 stuck된 빌드 자동 초기화
     _cleanup_stuck_builds()
+    # 곡 설계 진행상황도 동일 처리 — running 으로 남은 task 는 interrupted 로 강등
+    _cleanup_stuck_design()
     yield
 
 
@@ -56,6 +58,33 @@ def _cleanup_stuck_builds():
                 state_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning(f"Stuck build cleanup failed for {state_file}: {e}")
+
+
+def _cleanup_stuck_design():
+    """곡 설계 백그라운드 task 가 서버 재시작으로 사라졌는데 _design_progress.json 에
+    running 으로 남아있으면 사용자 안내 메시지와 함께 interrupted 로 강등.
+
+    routes/track_design.py 의 GET 엔드포인트도 같은 강등을 on-demand 로 한다.
+    이쪽은 startup 시 디스크 상태를 미리 정리해두는 것이 다름 (UI 첫 폴링 전에도 OK).
+    """
+    import json
+    projects_dir = settings.storage_dir / "projects"
+    if not projects_dir.exists():
+        return
+    for progress_file in projects_dir.glob("*/_design_progress.json"):
+        try:
+            data = json.loads(progress_file.read_text(encoding="utf-8"))
+            if data.get("status") == "running":
+                pid = progress_file.parent.name
+                logger.info(f"Stuck design 초기화: project={pid}")
+                data["status"] = "interrupted"
+                data["message"] = "서버 재시작으로 작업이 중단되었습니다. 다시 시작해주세요."
+                progress_file.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        except Exception as e:
+            logger.warning(f"Stuck design cleanup failed for {progress_file}: {e}")
 
 
 app = FastAPI(
