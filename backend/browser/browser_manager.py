@@ -23,12 +23,8 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 # Edge 우선 → Chrome 순서 (Edge가 Google OAuth 차단 덜 받음)
-_BROWSER_EXES = [
-    (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", "Edge"),
-    (r"C:\Program Files\Microsoft\Edge\Application\msedge.exe", "Edge"),
-    (r"C:\Program Files\Google\Chrome\Application\chrome.exe", "Chrome"),
-    (r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe", "Chrome"),
-]
+# 경로 후보는 core.browser_locator 에 단일 출처로 모여 있음.
+from core.browser_locator import find_browser as _find_browser_path
 
 _STEALTH_SCRIPT = """
 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -50,10 +46,12 @@ _LAUNCH_ARGS = [
 
 
 def _find_browser_exe() -> tuple[str, str] | tuple[None, None]:
-    for path, name in _BROWSER_EXES:
-        if Path(path).exists():
-            return path, name
-    return None, None
+    """Edge/Chrome 실행 파일 경로 + 이름 (호환용 래퍼). 못 찾으면 (None, None)."""
+    p = _find_browser_path()
+    if p is None:
+        return None, None
+    name = "Edge" if "edge" in p.name.lower() else "Chrome"
+    return str(p), name
 
 
 class BrowserManager:

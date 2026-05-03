@@ -39,13 +39,18 @@ async def open_studio(project_id: str):
     except Exception:
         pass
 
+    from core.browser_locator import find_browser_str, kill_running_edge
+
     if not cdp_alive:
         def _launch_edge():
             import time as _t
-            os.system('taskkill /F /IM msedge.exe >nul 2>&1')
+            kill_running_edge()  # 플랫폼별 분기 (Win=taskkill, mac/linux=pkill)
             _t.sleep(2)
+            edge = find_browser_str()
+            if not edge:
+                raise RuntimeError("Edge/Chrome 을 찾을 수 없습니다. 설치 후 다시 시도해주세요.")
             subprocess.Popen([
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                edge,
                 "--remote-debugging-port=9224",
                 "--restore-last-session",
                 upload_url,
@@ -57,10 +62,9 @@ async def open_studio(project_id: str):
             async with httpx.AsyncClient(timeout=3) as client:
                 await client.put(f"http://localhost:9224/json/new?{upload_url}")
         except Exception:
-            await asyncio.to_thread(
-                subprocess.Popen,
-                [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", upload_url],
-            )
+            edge = find_browser_str()
+            if edge:
+                await asyncio.to_thread(subprocess.Popen, [edge, upload_url])
 
     if outputs_dir.exists():
         await asyncio.to_thread(os.startfile, str(outputs_dir))

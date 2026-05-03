@@ -218,14 +218,8 @@ class SunoAPIClient:
         try:
             from playwright.async_api import async_playwright
 
-            exe = None
-            for p in [
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            ]:
-                if Path(p).exists():
-                    exe = p
-                    break
+            from core.browser_locator import find_browser_str
+            exe = find_browser_str()
 
             pw = await async_playwright().start()
             browser = await pw.chromium.launch(
@@ -467,14 +461,8 @@ class SunoAPIClient:
             from playwright.async_api import async_playwright
 
             sp = _SESSION_DIR / "suno_context.json"
-            exe = None
-            for p in [
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            ]:
-                if Path(p).exists():
-                    exe = p
-                    break
+            from core.browser_locator import find_browser_str
+            exe = find_browser_str()
 
             pw = await async_playwright().start()
             browser = await pw.chromium.launch(

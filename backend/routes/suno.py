@@ -41,11 +41,6 @@ _login_state: dict = {
 _SESSION_NAME = "suno"
 _DEBUG_PORT    = 9222
 
-_EDGE_EXES = [
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-]
-
 _LOGGED_IN_SELECTORS = [
     "[data-testid='credits']",
     "[class*='credits']",
@@ -68,10 +63,9 @@ def _suno_profile_dir() -> Path:
 
 
 def _find_edge() -> str | None:
-    for p in _EDGE_EXES:
-        if Path(p).exists():
-            return p
-    return None
+    """Edge/Chrome 실행 파일. core.browser_locator 가 단일 출처."""
+    from core.browser_locator import find_browser_str
+    return find_browser_str()
 
 
 def _kill_debug_edge() -> None:

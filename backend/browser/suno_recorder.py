@@ -18,18 +18,8 @@ from config import settings
 
 logger = logging.getLogger("suno_recorder")
 
-_EDGE_EXES = [
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-]
-
-
-def _find_exe() -> str | None:
-    for p in _EDGE_EXES:
-        if Path(p).exists():
-            return p
-    return None
+# Edge/Chrome 경로는 core.browser_locator 가 단일 출처
+from core.browser_locator import find_browser_str as _find_exe  # noqa: E402
 
 
 def recipe_path() -> Path:

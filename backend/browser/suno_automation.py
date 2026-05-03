@@ -44,19 +44,8 @@ from browser.suno_selectors import (
 
 logger = logging.getLogger("suno_automation")
 
-# Edge 실행 파일 경로
-_EDGE_EXES = [
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-]
-
-
-def _find_exe() -> str | None:
-    for p in _EDGE_EXES:
-        if Path(p).exists():
-            return p
-    return None
+# Edge 실행 파일 경로 — core.browser_locator 가 단일 출처
+from core.browser_locator import find_browser_str as _find_exe  # noqa: E402
 
 
 def _session_path() -> Path:
