@@ -913,14 +913,65 @@ async def _run_suno_batch(
     if not task:
         return
 
+    from config import settings as _settings
+    progress_path = _settings.storage_dir / "projects" / project_id / "_suno_progress.json"
+
+    def _read_progress() -> None:
+        if progress_path.exists():
+            try:
+                data = json.loads(progress_path.read_text(encoding="utf-8"))
+                task["completed_batches"] = data.get("completed_batches", 0)
+                task["tracks_collected"]  = data.get("tracks_collected", 0)
+                if data.get("errors"):
+                    task["errors"] = data["errors"]
+            except Exception:
+                pass
+
+    def _read_final() -> None:
+        if progress_path.exists():
+            try:
+                final = json.loads(progress_path.read_text(encoding="utf-8"))
+                task.update({
+                    "status":           final.get("status", "failed"),
+                    "completed_batches": final.get("completed_batches", 0),
+                    "tracks_collected": final.get("tracks_collected", 0),
+                    "errors":           final.get("errors", []),
+                    "traceback":        final.get("traceback", ""),
+                })
+                if final.get("results"):
+                    task["results"] = final["results"]
+            except Exception as e:
+                task["status"] = "failed"
+                task["errors"].append(f"progress.json 읽기 실패: {e}")
+
+    # ── frozen(EXE) 환경: subprocess 안 됨 (.py 파일 디스크에 없음, sys.executable=EXE)
+    #    → runner 모듈을 직접 import 해서 같은 프로세스 asyncio task 로 실행
+    if getattr(sys, "frozen", False):
+        try:
+            import importlib
+            mod_name = "_suno_cookie_runner" if mode == "cookie" else "_suno_batch_runner"
+            runner_mod = importlib.import_module(mod_name)
+            logger.info(f"Suno runner 직접 호출 (frozen, mode={mode}): project={project_id}")
+            bg_task = asyncio.create_task(runner_mod.main(project_id))
+            while not bg_task.done():
+                await asyncio.sleep(2)
+                _read_progress()
+            _read_final()
+            if bg_task.exception() and task.get("status") != "completed":
+                task["status"] = "failed"
+                task["errors"].append(f"runner 예외: {bg_task.exception()}")
+        except Exception as e:
+            task["status"] = "failed"
+            task["errors"].append(f"runner 시작 실패: {e}")
+        return
+
+    # ── 개발 환경(venv): 별도 프로세스로 격리 (Playwright/이벤트루프 호환)
     import subprocess as _sp
-    backend_dir  = Path(__file__).parent.parent  # routes/ → backend/
-    progress_path = backend_dir / "storage" / "projects" / project_id / "_suno_progress.json"
+    backend_dir = Path(__file__).parent.parent  # routes/ → backend/
 
     runner_name = "_suno_cookie_runner.py" if mode == "cookie" else "_suno_batch_runner.py"
     runner = backend_dir / runner_name
     if not runner.exists():
-        # 안전장치: 쿠키 런너 없으면 브라우저 런너로 폴백
         runner = backend_dir / "_suno_batch_runner.py"
         mode = "browser"
 
@@ -929,33 +980,14 @@ async def _run_suno_batch(
             [sys.executable, str(runner), project_id],
             stdout=_sp.PIPE, stderr=_sp.PIPE,
         )
-        logger.info(f"Suno runner 시작 (mode={mode}): PID={proc.pid}, project={project_id}")
+        logger.info(f"Suno runner subprocess 시작 (mode={mode}): PID={proc.pid}, project={project_id}")
 
-        # progress.json 폴링 (2초 간격)
         while proc.poll() is None:
             await asyncio.sleep(2)
-            if progress_path.exists():
-                try:
-                    data = json.loads(progress_path.read_text(encoding="utf-8"))
-                    task["completed_batches"] = data.get("completed_batches", 0)
-                    task["tracks_collected"]  = data.get("tracks_collected", 0)
-                    if data.get("errors"):
-                        task["errors"] = data["errors"]
-                except Exception:
-                    pass
+            _read_progress()
 
-        # 프로세스 종료 후 최종 결과 읽기
         if progress_path.exists():
-            final = json.loads(progress_path.read_text(encoding="utf-8"))
-            task.update({
-                "status":           final.get("status", "failed"),
-                "completed_batches": final.get("completed_batches", 0),
-                "tracks_collected": final.get("tracks_collected", 0),
-                "errors":           final.get("errors", []),
-                "traceback":        final.get("traceback", ""),
-            })
-            if final.get("results"):
-                task["results"] = final["results"]
+            _read_final()
         else:
             rc = proc.returncode
             stderr = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""

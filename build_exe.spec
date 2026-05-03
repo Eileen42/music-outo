@@ -40,6 +40,8 @@ hiddenimports = [
     'core.audio_pipeline', 'core.lyrics_sync', 'core.visual_generator',
     'core.track_designer', 'core.gemini_client', 'core.state_manager',
     'core.packager', 'core.channel_profile', 'core.ontology',
+    # Suno 배치 runner (frozen 환경에선 subprocess 대신 직접 import 호출)
+    '_suno_cookie_runner', '_suno_batch_runner',
     # uvicorn 내부 (문자열 import)
     'uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto',
     'uvicorn.protocols', 'uvicorn.protocols.http',
