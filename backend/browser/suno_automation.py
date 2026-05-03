@@ -30,38 +30,16 @@ from playwright.async_api import (
 
 from config import settings
 from browser.suno_recorder import get_recipe
+from browser.suno_selectors import (
+    SELECTORS,
+    ADVANCED_TAB,
+    SEARCH_CLIPS_INPUT,
+    CREDITS_BADGE,
+    LYRICS_TEXTAREA_TESTID,
+    ERROR_TOAST,
+)
 
 logger = logging.getLogger("suno_automation")
-
-# ──────────────────────── UI 셀렉터 ─────────────────────────────────────────
-# 레코딩으로 확인된 v5.5 실제 셀렉터 우선, 하드코딩 fallback
-SELECTORS: dict[str, str] = {
-    # Lyrics — testid로 안정적
-    "lyrics_area": (
-        "[data-testid='lyrics-textarea'], "
-        "textarea[placeholder*='Write some lyrics'], "
-        "textarea[placeholder*='lyrics']"
-    ),
-    # 제목 — placeholder 안정적
-    "title_input": (
-        "input[placeholder='Song Title (Optional)'], "
-        "input[placeholder*='Song Title'], "
-        "input[placeholder*='Title']"
-    ),
-    # Create 버튼 — aria-label 녹화로 확인됨 (가장 안정적)
-    "create_btn": (
-        "[aria-label='Create song'], "
-        "button:has-text('Create'), "
-        "[data-testid='create-button']"
-    ),
-    # 곡 카드 (DOM 폴링 fallback용)
-    "song_card": (
-        "[data-testid='song-card'], "
-        "a[href*='/song/'], "
-        "[class*='SongCard'], "
-        "[class*='song-card']"
-    ),
-}
 
 # Edge 실행 파일 경로
 _EDGE_EXES = [
@@ -354,7 +332,7 @@ class SunoAutomation:
         """
         try:
             # 먼저 'Advanced' 텍스트 요소 존재 여부 확인
-            adv_el = await page.query_selector("text=Advanced")
+            adv_el = await page.query_selector(ADVANCED_TAB)
             if adv_el:
                 await adv_el.click()
                 logger.info("Advanced 탭 클릭 완료")
@@ -476,9 +454,10 @@ class SunoAutomation:
         Playwright visibility 체크를 우회해 React nativeValueSetter로 직접 입력.
         """
         try:
+            # 셀렉터는 suno_selectors.py 에서 주입 (UI 변경 시 한 곳만 수정)
             result = await page.evaluate("""
-                (text) => {
-                    const lyricsTA = document.querySelector('[data-testid="lyrics-textarea"]');
+                ([text, lyricsSel]) => {
+                    const lyricsTA = document.querySelector(lyricsSel);
                     const all = Array.from(document.querySelectorAll('textarea'));
                     let target = null;
 
@@ -506,7 +485,7 @@ class SunoAutomation:
                     target.dispatchEvent(new Event('change', {bubbles: true}));
                     return true;
                 }
-            """, style_prompt)
+            """, [style_prompt, LYRICS_TEXTAREA_TESTID])
             if result:
                 logger.info(f"스타일 입력 완료 (React setter): {style_prompt[:40]}...")
                 return True
@@ -614,8 +593,9 @@ class SunoAutomation:
                 break
             # Suno UI에서 에러/실패 감지 (5초마다)
             if tick > 0 and tick % 10 == 0:
+                # 에러 셀렉터는 suno_selectors.py 에서 주입 (UI 변경 시 한 곳만 수정)
                 fail_detected = await page.evaluate("""
-                    () => {
+                    (errSel) => {
                         const body = document.body.innerText || '';
                         // Suno의 에러 메시지 패턴
                         if (body.includes('Something went wrong') ||
@@ -627,14 +607,14 @@ class SunoAutomation:
                             return body.substring(0, 200);
                         }
                         // 에러 배너/toast 감지
-                        const errEls = document.querySelectorAll('[role="alert"], .error, .toast-error, [class*="error"], [class*="Error"]');
+                        const errEls = document.querySelectorAll(errSel);
                         for (const el of errEls) {
                             const t = (el.textContent || '').trim();
                             if (t && t.length > 5) return t.substring(0, 200);
                         }
                         return null;
                     }
-                """)
+                """, ERROR_TOAST)
                 if fail_detected:
                     logger.error(f"Suno UI 에러 감지: {fail_detected}")
                     page.remove_listener("response", on_response)
@@ -971,7 +951,7 @@ class SunoAutomation:
                 await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
                 await page.wait_for_timeout(3_000)
 
-                search_input = await page.query_selector('input[aria-label="Search clips"]')
+                search_input = await page.query_selector(SEARCH_CLIPS_INPUT)
                 if search_input:
                     await search_input.click()
                     await search_input.fill(title)
@@ -1028,7 +1008,7 @@ class SunoAutomation:
         try:
             await page.goto("https://suno.com", wait_until="domcontentloaded")
             await page.wait_for_timeout(2_000)
-            el = await page.query_selector("[data-testid='credits'], [class*='credits']")
+            el = await page.query_selector(CREDITS_BADGE)
             if el:
                 text = await el.inner_text()
                 m = re.search(r"\d+", text.replace(",", ""))
