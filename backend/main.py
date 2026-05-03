@@ -172,7 +172,6 @@ async def health():
 # ─── 버전 & 업데이트 ─────────────────────────────────────────────────────────
 
 from version import VERSION
-import subprocess
 import json
 
 
@@ -405,24 +404,31 @@ async def get_version():
     return {"version": VERSION}
 
 
-@app.post("/api/update")
-async def trigger_update():
-    """Docker 이미지를 최신으로 pull하고 컨테이너를 재시작합니다."""
+@app.get("/api/update/check")
+async def check_update():
+    """GitHub Releases 에서 최신 버전 확인. EXE 사용자는 새 EXE 받아서 재설치."""
+    import urllib.request
     try:
-        result = subprocess.run(
-            ["docker", "compose", "-f", "docker-compose.prod.yml", "pull", "backend"],
-            capture_output=True, text=True, timeout=120,
+        req = urllib.request.Request(
+            "https://api.github.com/repos/Eileen42/music-outo/releases/latest",
+            headers={"Accept": "application/vnd.github+json"},
         )
-        if result.returncode != 0:
-            return {"status": "error", "message": result.stderr}
-
-        # 백그라운드에서 재시작 (현재 요청은 응답 후 종료됨)
-        subprocess.Popen(
-            ["docker", "compose", "-f", "docker-compose.prod.yml", "up", "-d", "--force-recreate", "backend"],
-        )
-        return {"status": "updating", "message": "업데이트를 시작합니다. 잠시 후 새로고침해주세요."}
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+        latest = (data.get("tag_name") or "").lstrip("v")
+        return {
+            "current": VERSION,
+            "latest": latest,
+            "update_available": bool(latest) and latest != VERSION,
+            "release_url": data.get("html_url"),
+            "exe_download_url": next(
+                (a["browser_download_url"] for a in data.get("assets", [])
+                 if a.get("name", "").endswith(".exe")),
+                None,
+            ),
+        }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"error": str(e), "current": VERSION}
 
 
 # ─── SPA mount (catch-all) ──────────────────────────────────────────────────
