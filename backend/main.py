@@ -191,14 +191,20 @@ async def set_gemini_keys(body: dict):
     if not keys or not any(k.strip() for k in keys):
         return {"error": "API 키를 입력해주세요"}, 400
 
-    # .env 파일 업데이트
+    # .env 위치: 사용자별 데이터 폴더 (storage_dir 부모) → 없으면 EXE 폴더 옆
+    # PyInstaller frozen 환경에선 backend/ 가 임시 압축해제 폴더라 storage_dir.parent 가 안전
     env_path = Path(settings.storage_dir).parent / ".env"
-    if not env_path.exists():
-        env_path = Path("/app/.env")
+    try:
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        return {"error": f".env 디렉토리 생성 실패: {e}"}, 500
 
     env_lines = []
     if env_path.exists():
-        env_lines = env_path.read_text(encoding="utf-8").splitlines()
+        try:
+            env_lines = env_path.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            env_lines = []
 
     # GEMINI_API_KEYS 라인 교체 또는 추가
     new_line = f'GEMINI_API_KEYS={json.dumps(keys)}'
@@ -211,12 +217,15 @@ async def set_gemini_keys(body: dict):
     if not found:
         env_lines.append(new_line)
 
-    env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    try:
+        env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    except Exception as e:
+        return {"error": f".env 저장 실패 ({env_path}): {e}"}, 500
 
-    # 런타임에도 반영
+    # 런타임에도 반영 (다음 재시작 안 해도 즉시 사용 가능)
     settings.gemini_api_keys = [k.strip() for k in keys if k.strip()]
 
-    return {"status": "ok", "key_count": len(settings.gemini_api_keys)}
+    return {"status": "ok", "key_count": len(settings.gemini_api_keys), "saved_to": str(env_path)}
 
 
 # ─── 에이전트 스킬 관리 ──────────────────────────────────────────────────────
