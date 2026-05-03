@@ -3,6 +3,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { Project, DesignedTrack, Channel, ProjectConcept, SunoTrack } from '../types'
 import { api } from '../api/client'
 import TrackEditor from './TrackEditor'
+import { categoryIcon, resolveAudioUrl } from './songMaker/utils'
+import { useSunoSession } from './songMaker/useSunoSession'
+import { useRecipeRecording } from './songMaker/useRecipeRecording'
 
 interface Props {
   project: Project
@@ -10,23 +13,6 @@ interface Props {
 }
 
 type Tab = 'auto' | 'upload'
-
-const CATEGORY_ICON: Record<string, string> = {
-  morning: '🌅', sleep: '😴', drive: '🚗', focus: '💡',
-  relax: '☁️', meditation: '🧘', workout: '💪', cafe: '☕',
-  night: '🌙', default: '🎵',
-}
-
-function categoryIcon(cat: string): string {
-  return CATEGORY_ICON[cat] || CATEGORY_ICON.default
-}
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-function resolveAudioUrl(url: string): string {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return API_BASE + url
-}
 
 export default function SongMaker({ project, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>('auto')
@@ -164,63 +150,23 @@ export default function SongMaker({ project, onRefresh }: Props) {
     }
   }, [sunoTracks])
 
-  // Suno 세션 상태
-  const [sunoSession, setSunoSession] = useState<{ session_exists: boolean; login_status: string } | null>(null)
-  const [sunoLoginLoading, setSunoLoginLoading] = useState(false)
-  const [sunoLoginMsg, setSunoLoginMsg] = useState('')
+  // Suno 세션 + 레시피 녹화 — 커스텀 훅으로 추출되어 있음 (songMaker/)
+  const {
+    sunoSession, sunoLoginLoading, sunoLoginMsg,
+    handleSunoLogin, handleSunoConfirm, handleSunoLogout,
+  } = useSunoSession()
 
-  // 레시피 녹화 상태
-  const [recipe, setRecipe] = useState<{ exists: boolean; action_count?: number; recorded_at?: string } | null>(null)
-  const [recipeRecording, setRecipeRecording] = useState(false)
-  const [recipeActionCount, setRecipeActionCount] = useState(0)
-  const [recipeMsg, setRecipeMsg] = useState('')
+  const {
+    recipe, recipeRecording, recipeActionCount, recipeMsg,
+    handleRecordStart, handleRecordStop, handleRecordCancel, handleDeleteRecipe,
+  } = useRecipeRecording()
 
-  // 초기 데이터 병렬 로드 (채널 + Suno 세션 + 레시피)
+  // 채널 정보만 로드 (Suno 세션·레시피는 위 훅이 자체 mount effect 로 로드)
   useEffect(() => {
-    const loads: Promise<void>[] = [
-      api.suno.status().then(setSunoSession).catch(() => setSunoSession(null)),
-      api.suno.getRecipe().then(setRecipe).catch(() => setRecipe(null)),
-    ]
     if (project.channel_id) {
-      loads.push(api.channels.get(project.channel_id).then(setChannel).catch(() => setChannel(null)))
+      api.channels.get(project.channel_id).then(setChannel).catch(() => setChannel(null))
     }
-    Promise.all(loads)
   }, [project.channel_id])
-
-  const handleSunoLogin = async () => {
-    setSunoLoginLoading(true)
-    setSunoLoginMsg('')
-    try {
-      const res = await api.suno.openLogin()
-      setSunoLoginMsg(res.message)
-      setSunoSession(prev => ({ ...prev!, login_status: 'waiting' }))
-    } catch (e: unknown) {
-      setSunoLoginMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '브라우저 열기 실패')
-    } finally {
-      setSunoLoginLoading(false)
-    }
-  }
-
-  const handleSunoConfirm = async () => {
-    setSunoLoginLoading(true)
-    try {
-      const res = await api.suno.confirmLogin()
-      setSunoLoginMsg(res.message)
-      const status = await api.suno.status()
-      setSunoSession(status)
-    } catch (e: unknown) {
-      setSunoLoginMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '세션 저장 실패')
-    } finally {
-      setSunoLoginLoading(false)
-    }
-  }
-
-  const handleSunoLogout = async () => {
-    await api.suno.cancelLogin().catch(() => {})
-    await api.suno.deleteSession()
-    setSunoSession({ session_exists: false, login_status: 'idle' })
-    setSunoLoginMsg('')
-  }
 
   // 초기 suno 트랙 + 활성 세트 + QA 병렬 로드
   useEffect(() => {
@@ -343,57 +289,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
     }
   }
 
-  const handleRecordStart = async () => {
-    setRecipeMsg('')
-    try {
-      await api.suno.record.start()
-      setRecipeRecording(true)
-      setRecipeActionCount(0)
-      setRecipeMsg('브라우저가 열렸습니다. 가사→스타일→제목→Create 순서로 시연하세요.')
-    } catch (e: unknown) {
-      setRecipeMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '녹화 시작 실패')
-    }
-  }
-
-  const handleRecordStop = async () => {
-    try {
-      const res = await api.suno.record.stop()
-      setRecipeRecording(false)
-      setRecipeMsg(`✅ 레시피 저장 완료 (${res.action_count}개 동작)`)
-      const r = await api.suno.getRecipe()
-      setRecipe(r)
-    } catch (e: unknown) {
-      setRecipeMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '녹화 완료 실패')
-    }
-  }
-
-  const handleRecordCancel = async () => {
-    await api.suno.record.cancel().catch(() => {})
-    setRecipeRecording(false)
-    setRecipeMsg('')
-  }
-
-  const handleDeleteRecipe = async () => {
-    await api.suno.deleteRecipe()
-    setRecipe({ exists: false })
-    setRecipeMsg('')
-  }
-
-  // 녹화 중 폴링
-  useEffect(() => {
-    if (!recipeRecording) return
-    const timer = setInterval(async () => {
-      try {
-        const s = await api.suno.record.status()
-        setRecipeActionCount(s.action_count)
-        if (s.auto_done) {
-          clearInterval(timer)
-          await handleRecordStop()
-        }
-      } catch { clearInterval(timer) }
-    }, 2000)
-    return () => clearInterval(timer)
-  }, [recipeRecording])
+  // 레시피 녹화 핸들러는 useRecipeRecording 훅에서 가져온다 (handleRecordStart/Stop/Cancel/DeleteRecipe).
+  // 폴링도 훅 내부에 있음.
 
   const handleBatchStop = async () => {
     try {
