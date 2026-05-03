@@ -12,7 +12,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from config import settings
+from config import settings, ENV_FILE_PATH
 from core.state_manager import state_manager
 from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
 from routes import channels, track_design, suno as suno_routes
@@ -191,9 +191,8 @@ async def set_gemini_keys(body: dict):
     if not keys or not any(k.strip() for k in keys):
         return {"error": "API 키를 입력해주세요"}, 400
 
-    # .env 위치: 사용자별 데이터 폴더 (storage_dir 부모) → 없으면 EXE 폴더 옆
-    # PyInstaller frozen 환경에선 backend/ 가 임시 압축해제 폴더라 storage_dir.parent 가 안전
-    env_path = Path(settings.storage_dir).parent / ".env"
+    # config.py 의 _resolve_env_file() 과 동일 위치에 저장 (저장/읽기 일관성)
+    env_path = ENV_FILE_PATH
     try:
         env_path.parent.mkdir(parents=True, exist_ok=True)
     except Exception as e:
