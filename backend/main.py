@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from config import settings, ENV_FILE_PATH
 from core.state_manager import state_manager
 from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
-from routes import channels, track_design, suno as suno_routes
+from routes import channels, track_design, suno_batch, suno as suno_routes
 from routes import ontology_routes
 
 logging.basicConfig(level=logging.INFO)
@@ -104,6 +104,9 @@ app.include_router(youtube.router)
 app.include_router(flow_images.router)
 app.include_router(channels.router)
 app.include_router(ontology_routes.router)
+# suno_batch 의 명시적 /{pid}/suno-* 라우트가 track_design 의 catch-all
+# /{pid}/{track_index} 보다 먼저 매칭되도록 등록 순서를 명시한다.
+app.include_router(suno_batch.router)
 app.include_router(track_design.router)
 app.include_router(suno_routes.router)
 
