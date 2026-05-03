@@ -8,7 +8,7 @@ from pathlib import Path
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -184,9 +184,20 @@ async def get_gemini_status():
     return {"configured": has_keys, "key_count": len(settings.gemini_api_keys)}
 
 
+_LOCALHOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
 @app.post("/api/settings/gemini")
-async def set_gemini_keys(body: dict):
-    """Gemini API 키 저장 (.env 파일에 기록)"""
+async def set_gemini_keys(request: Request, body: dict):
+    """Gemini API 키 저장 (.env 파일에 기록).
+
+    이 엔드포인트는 .env 파일을 직접 덮어쓰므로 외부에서 호출되면 위험하다.
+    1인 로컬 도구라는 정체성을 지키기 위해 클라이언트가 localhost 일 때만 허용한다.
+    """
+    client_host = request.client.host if request.client else ""
+    if client_host not in _LOCALHOSTS:
+        raise HTTPException(403, "이 엔드포인트는 로컬에서만 호출 가능합니다.")
+
     keys = body.get("keys", [])
     if not keys or not any(k.strip() for k in keys):
         return {"error": "API 키를 입력해주세요"}, 400
