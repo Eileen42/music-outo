@@ -9,9 +9,8 @@ routes/track_design.py 에서 추출 (Phase 1-2a). 라우트는 그대로 두고
                     디스크 영속은 별도 프로세스가 _suno_progress.json 에 기록한다.
 
 함수:
-    run_suno_batch              ── /batch-create 백그라운드. runner 프로세스 띄우고 진행 폴링.
-    run_sibling_scan_http       ── /scan-siblings 백그라운드. Suno 피드 HTTP 검색 + CDN 다운로드.
-    run_sibling_scan_subprocess ── (legacy) Playwright subprocess 로 누락곡 검색.
+    run_suno_batch         ── /batch-create 백그라운드. runner 프로세스 띄우고 진행 폴링.
+    run_sibling_scan_http  ── /scan-siblings 백그라운드. Suno 피드 HTTP 검색 + CDN 다운로드.
 """
 from __future__ import annotations
 
@@ -287,96 +286,5 @@ async def run_sibling_scan_http(
         logger.error(f"[HTTP 스캔] 실패: {e}")
 
 
-# ─── (legacy) Playwright subprocess 로 검색·다운로드 ────────────────────────
-
-async def run_sibling_scan_subprocess(
-    project_id: str,
-    titles: list[str],
-    missing_indices: list[int],
-) -> None:
-    """누락곡 제목으로 Suno 검색 + 다운로드. 기존 해당 index 삭제 후 교체.
-
-    HTTP API(run_sibling_scan_http) 가 동작하지 않을 때의 fallback.
-    별도 Python 프로세스를 띄워 Playwright SunoAutomation 으로 검색한다.
-    """
-    import subprocess as _sp
-
-    backend_dir = Path(__file__).parent.parent  # core/ → backend/
-    project_dir = backend_dir / "storage" / "projects" / project_id / "tracks"
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    script = f"""
-import asyncio, sys, json
-sys.path.insert(0, r'{backend_dir}')
-asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-async def main():
-    from browser.suno_automation import SunoAutomation
-    from core.state_manager import state_manager
-
-    titles = {json.dumps(titles, ensure_ascii=False)}
-    missing_indices = {json.dumps(missing_indices)}
-
-    # title → index 매핑
-    title_to_index = {{}}
-    for dt in designed:
-        title_to_index[dt.get('title', '')] = dt.get('index', 0)
-
-    async with SunoAutomation(max_concurrent=1, headless=False) as suno:
-        results = await suno.find_siblings_by_search(
-            titles=titles,
-            known_ids=set(),
-            output_dir=r'{project_dir}',
-            title_to_index=title_to_index,
-        )
-
-    if not results:
-        print("검색 결과 없음", file=sys.stderr)
-        return
-
-    state = state_manager.get('{project_id}') or {{}}
-    old_tracks = state.get('suno_tracks') or []
-    designed = state.get('designed_tracks') or []
-
-    # 제목 → index 매핑
-    title_to_index = {{}}
-    for dt in designed:
-        title_to_index[dt.get('title', '')] = dt.get('index', 0)
-
-    # 검색된 index의 기존 항목 삭제
-    indices_to_replace = set(missing_indices)
-    old_tracks = [t for t in old_tracks if t.get('index') not in indices_to_replace]
-
-    # 새 결과 추가
-    for r in results:
-        idx = title_to_index.get(r.get('title', ''), 0)
-        old_tracks.append({{
-            'index': idx,
-            'title': r.get('title', ''),
-            'suno_id': r['suno_id'],
-            'file_path': r.get('file_path', ''),
-            'status': r.get('status', 'failed'),
-            'slot': r.get('slot', 1),
-        }})
-
-    old_tracks.sort(key=lambda t: (t.get('index', 0), t.get('slot', 0)))
-    state_manager.update('{project_id}', {{'suno_tracks': old_tracks}})
-    print(f"{{len(results)}}곡 다운로드, {{len(indices_to_replace)}}곡 교체", file=sys.stderr)
-
-asyncio.run(main())
-"""
-    try:
-        proc = _sp.Popen(
-            [sys.executable, "-c", script],
-            stdout=_sp.PIPE, stderr=_sp.PIPE,
-        )
-        logger.info(f"누락곡 검색 시작: PID={proc.pid}, {len(titles)}곡")
-
-        while proc.poll() is None:
-            await asyncio.sleep(2)
-
-        stderr = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""
-        logger.info(f"누락곡 검색 완료: {stderr.strip()}")
-
-    except Exception as e:
-        logger.error(f"누락곡 검색 실패: {e}")
+# run_sibling_scan_subprocess (legacy Playwright fallback) 는 실제로 호출되는 곳이
+# 한 군데도 없어 제거됨. 필요해지면 git history (commit aefb949 이전) 에서 복구.
