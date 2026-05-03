@@ -30,6 +30,7 @@ from playwright.async_api import (
 
 from config import settings
 from browser.suno_recorder import get_recipe
+from core.errors import SunoUIChangedError, SunoGenerationError
 from browser.suno_selectors import (
     SELECTORS,
     ADVANCED_TAB,
@@ -525,7 +526,7 @@ class SunoAutomation:
             logger.info(f"Create 클릭됨 (JS fallback): {title}")
             return
 
-        raise RuntimeError(f"Create 버튼을 찾을 수 없습니다: {title}")
+        raise SunoUIChangedError(f"Create 버튼을 찾을 수 없습니다: {title}")
 
     async def _click_create_and_wait(self, page: Page, title: str) -> list[dict]:
         """
@@ -620,7 +621,9 @@ class SunoAutomation:
                 if fail_detected:
                     logger.error(f"Suno UI 에러 감지: {fail_detected}")
                     page.remove_listener("response", on_response)
-                    raise RuntimeError(f"Suno 생성 실패: {fail_detected}")
+                    # fail_detected 는 'Insufficient credits', 'rate limit', 'try again' 등
+                    # Suno 가 띄운 사용자 메시지. UI 자체는 정상이라 GenerationError.
+                    raise SunoGenerationError(f"Suno 생성 실패: {fail_detected}")
             await asyncio.sleep(0.5)
 
         if len(clips) < 2:
@@ -782,7 +785,7 @@ class SunoAutomation:
                 return
             except Exception:
                 continue
-        raise RuntimeError(f"셀렉터 없음: {label} ({selector})")
+        raise SunoUIChangedError(f"셀렉터 없음: {label} ({selector})")
 
     async def find_siblings(
         self,
