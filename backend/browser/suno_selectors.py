@@ -63,3 +63,13 @@ SELECTORS: dict[str, str] = {
     "credits": CREDITS_BADGE,
     "error_toast": ERROR_TOAST,
 }
+
+
+def parse_chain(s: str) -> list[str]:
+    """콤마 구분 fallback chain 셀렉터 문자열을 리스트로 파싱. 빈 토큰 제거."""
+    return [t.strip() for t in s.split(",") if t.strip()]
+
+
+def selectors_list(key: str) -> list[str]:
+    """SELECTORS[key] 를 fallback chain 리스트로 반환 (parse_chain 의 dict 버전)."""
+    return parse_chain(SELECTORS[key])

@@ -37,6 +37,8 @@ from browser.suno_selectors import (
     CREDITS_BADGE,
     LYRICS_TEXTAREA_TESTID,
     ERROR_TOAST,
+    parse_chain,
+    selectors_list,
 )
 
 logger = logging.getLogger("suno_automation")
@@ -384,7 +386,7 @@ class SunoAutomation:
 
     async def _react_fill(self, page: Page, selector: str, value: str, label: str) -> None:
         """React nativeValueSetter로 textarea/input을 채운다. 셀렉터 목록을 순서대로 시도."""
-        for sel in [s.strip() for s in selector.split(",")]:
+        for sel in parse_chain(selector):
             try:
                 ok = await page.evaluate("""
                     ([sel, text]) => {
@@ -407,7 +409,7 @@ class SunoAutomation:
             except Exception:
                 pass
         # fallback: Playwright fill
-        for sel in [s.strip() for s in selector.split(",")]:
+        for sel in parse_chain(selector):
             try:
                 el = await page.wait_for_selector(sel, timeout=5_000)
                 await el.click()
@@ -497,7 +499,7 @@ class SunoAutomation:
     async def _click_create_btn(self, page: Page, title: str) -> None:
         """Create 버튼 클릭. aria-label → text → JS 순으로 시도."""
         # 1) CSS selector 시도
-        for sel in [s.strip() for s in SELECTORS["create_btn"].split(",")]:
+        for sel in selectors_list("create_btn"):
             try:
                 await page.wait_for_selector(sel, timeout=5_000)
                 await page.click(sel)
@@ -772,7 +774,7 @@ class SunoAutomation:
     # ── 헬퍼 ─────────────────────────────────────────────────────────────────
 
     async def _click(self, page: Page, selector: str, label: str) -> None:
-        for sel in [s.strip() for s in selector.split(",")]:
+        for sel in parse_chain(selector):
             try:
                 await page.wait_for_selector(sel, timeout=8_000)
                 await page.click(sel)
