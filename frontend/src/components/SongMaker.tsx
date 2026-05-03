@@ -42,7 +42,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
     const incoming = project.designed_tracks ?? []
     if (incoming.length > 0) setTracks(incoming)
   }, [project.designed_tracks])
-  const [count, setCount] = useState(20)
+  // 곡 수 디폴트: 이미 설계된 트랙이 있으면 그 수, 없으면 20.
+  // → 재설계 시 사용자가 처음에 정한 수가 자동 유지됨.
+  const [count, setCount] = useState(() => project.designed_tracks?.length || 20)
+
+  // designed_tracks 가 외부에서 갱신되면(설계 완료, 다른 화면에서 돌아옴 등)
+  // count 도 거기 맞춰서 동기화.
+  useEffect(() => {
+    const n = project.designed_tracks?.length
+    if (n && n > 0) setCount(n)
+  }, [project.designed_tracks?.length])
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')
   const [designPhase, setDesignPhase] = useState('')
@@ -1378,6 +1387,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
                     placeholder="분위기"
                     className="flex-1 bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
                   />
+                  <select
+                    value={count}
+                    onChange={e => setCount(Number(e.target.value))}
+                    title="재설계할 곡 수"
+                    className="bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {[5, 10, 15, 20, 25, 30].map(n => (
+                      <option key={n} value={n}>{n}곡</option>
+                    ))}
+                  </select>
                   <button
                     onClick={handleDesign}
                     disabled={designing || !project.channel_id}
