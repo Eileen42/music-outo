@@ -12,11 +12,27 @@ from __future__ import annotations
 import sys
 import threading
 import time
+import os
 import webbrowser
 from pathlib import Path
 
 PORT = 8000
 URL = f"http://localhost:{PORT}"
+
+
+def _open_browser(url: str = URL) -> None:
+    """Windows 우선 os.startfile → 실패 시 webbrowser fallback.
+    PyInstaller frozen 환경에서 webbrowser.open 이 침묵 실패하는 경우 대비."""
+    try:
+        if sys.platform == "win32":
+            os.startfile(url)  # type: ignore[attr-defined]
+            return
+    except Exception:
+        pass
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
 
 
 def _ensure_cwd_on_path():
@@ -68,7 +84,7 @@ def _start_tray_icon() -> None:
     icon_img = Image.new("RGB", (24, 24), "#7c3aed")
 
     def on_open(icon, item):
-        webbrowser.open(URL)
+        _open_browser()
 
     def on_quit(icon, item):
         icon.stop()
@@ -92,7 +108,7 @@ def main() -> None:
 
     # 서버 부팅 대기 후 브라우저 오픈
     if _wait_for_server(timeout=30):
-        webbrowser.open(URL)
+        _open_browser()
     else:
         # 서버가 안 떴으면 그래도 트레이는 띄움 — 사용자가 로그 보고 종료할 수 있게
         pass
