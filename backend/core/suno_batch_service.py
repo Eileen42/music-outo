@@ -169,10 +169,26 @@ async def run_sibling_scan_http(
         if auth:
             headers["Authorization"] = auth
 
-        # 피드 조회 (최근 100곡)
-        all_clips = []
+        # 피드 조회 (최근 100곡) — transient 5xx/네트워크 오류는 with_retry 가 자동 복구
+        from core.retry import with_retry as _retry
+
+        async def _fetch_page(payload_: dict) -> list:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{SUNO_BASE_URL}/api/feed/v3",
+                    json=payload_, headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status != 200:
+                        # 5xx 는 재시도 후보, 4xx 는 즉시 실패
+                        body = (await resp.text())[:200]
+                        raise RuntimeError(f"feed/v3 HTTP {resp.status}: {body}")
+                    data = await resp.json()
+                    return data if isinstance(data, list) else data.get("clips", [])
+
+        all_clips: list = []
         cursor = None
-        for _ in range(3):  # 최대 3페이지 (60곡)
+        for page_idx in range(3):  # 최대 3페이지 (60곡)
             payload = {
                 "cursor": cursor,
                 "limit": 20,
@@ -182,25 +198,25 @@ async def run_sibling_scan_http(
                     "workspace": {"presence": "True", "workspaceId": "default"},
                 },
             }
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{SUNO_BASE_URL}/api/feed/v3",
-                    json=payload, headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        logger.error(f"[HTTP 스캔] 피드 조회 실패: HTTP {resp.status}")
-                        break
-                    data = await resp.json()
-                    clips = data if isinstance(data, list) else data.get("clips", [])
-                    if not clips:
-                        break
-                    all_clips.extend(clips)
-                    # 다음 페이지 커서
-                    if isinstance(clips, list) and clips:
-                        cursor = clips[-1].get("id")
-                    else:
-                        break
+            try:
+                clips = await _retry(
+                    lambda p=payload: _fetch_page(p),
+                    max_attempts=3,
+                    base_delay=1.0,
+                    label=f"[HTTP 스캔] 피드 page {page_idx + 1}",
+                    logger=logger,
+                )
+            except Exception as e:
+                logger.error(f"[HTTP 스캔] 피드 조회 실패 (재시도 모두 소진): {e}")
+                break
+            if not clips:
+                break
+            all_clips.extend(clips)
+            # 다음 페이지 커서
+            if isinstance(clips, list) and clips:
+                cursor = clips[-1].get("id")
+            else:
+                break
 
         logger.info(f"[HTTP 스캔] 피드에서 {len(all_clips)}개 clip 조회")
 
