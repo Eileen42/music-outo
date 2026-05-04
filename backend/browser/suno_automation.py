@@ -48,6 +48,17 @@ logger = logging.getLogger("suno_automation")
 from core.browser_locator import find_browser_str as _find_exe  # noqa: E402
 
 
+# 봇 탐지 회피용 init script — browser_manager.py 와 동일한 패턴.
+# add_init_script 로 context 에 등록하면 모든 page 의 매 navigation 직후 실행됨.
+_STEALTH_SCRIPT = """
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+delete navigator.__proto__.webdriver;
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+window.chrome = { runtime: {} };
+"""
+
+
 def _session_path() -> Path:
     return settings.browser_sessions_dir / "suno_context.json"
 
@@ -64,7 +75,19 @@ class SunoAutomation:
     """
 
     def __init__(self, max_concurrent: int = 3, headless: bool = False) -> None:
-        self._max_concurrent = max_concurrent
+        # 봇 탐지 회피: headless=False (= 사용자가 화면을 보는 mode=browser) 일 때
+        # 동시 3페이지 = 동일 IP·동일 UA·동일 쿠키로 동시 요청 → 매우 의심스러운 패턴.
+        # 환경변수 SUNO_BROWSER_MAX_CONCURRENT 로 명시 override 가능.
+        import os as _os
+        env_override = _os.getenv("SUNO_BROWSER_MAX_CONCURRENT", "").strip()
+        if env_override.isdigit():
+            self._max_concurrent = max(1, int(env_override))
+        elif not headless:
+            # browser mode (headless=False) 는 1 강제 — 속도 1/3 이지만 봇 탐지 위험 ↓
+            self._max_concurrent = 1
+        else:
+            # headless 면 봇 탐지 위험은 비슷하지만 사용자 시각 부담은 없음 → 원래 값 유지
+            self._max_concurrent = max_concurrent
         self._headless = headless
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
@@ -109,7 +132,14 @@ class SunoAutomation:
                 "Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0"
             ),
         )
-        logger.info(f"SunoAutomation 시작: exe={exe}, headless={self._headless}")
+        # 봇 탐지 회피: navigator.webdriver 등 자동화 흔적을 페이지 로드 직후 숨김.
+        # 모든 page 에 자동 적용되며, 이전엔 browser_manager 만 적용하고 SunoAutomation
+        # 은 누락된 상태였음.
+        await self._context.add_init_script(_STEALTH_SCRIPT)
+        logger.info(
+            f"SunoAutomation 시작: exe={exe}, headless={self._headless}, "
+            f"max_concurrent={self._max_concurrent}"
+        )
 
     async def _stop(self) -> None:
         for obj in (self._context, self._browser):
