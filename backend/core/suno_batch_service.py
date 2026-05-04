@@ -112,29 +112,53 @@ async def run_suno_batch(
         runner = backend_dir / "_suno_batch_runner.py"
         mode = "browser"
 
+    # ⚠️ 중요: stdout/stderr 를 PIPE 로 두면 Windows 익명 파이프 버퍼(~4KB) 가
+    # 가득 차는 순간 child 의 write() 가 block 되어 deadlock. 4-5곡 후 멈춤의
+    # 가장 큰 원인이었음. PIPE 대신 로그 파일에 직접 redirect → 버퍼 자체 제거.
+    log_path = _settings.storage_dir / "projects" / project_id / "_suno_runner.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_fp = open(log_path, "w", encoding="utf-8", buffering=1)  # line-buffered
+
     try:
         proc = _sp.Popen(
             [sys.executable, str(runner), project_id],
-            stdout=_sp.PIPE, stderr=_sp.PIPE,
+            stdout=log_fp,
+            stderr=_sp.STDOUT,  # stderr 도 같은 로그 파일로
         )
-        logger.info(f"Suno runner subprocess 시작 (mode={mode}): PID={proc.pid}, project={project_id}")
+        logger.info(
+            f"Suno runner subprocess 시작 (mode={mode}): PID={proc.pid}, "
+            f"project={project_id}, log={log_path.name}"
+        )
 
         while proc.poll() is None:
             await asyncio.sleep(2)
             _read_progress()
 
+        # subprocess 가 fd 를 잡고 있을 수 있어 close 는 종료 후
+        try:
+            log_fp.close()
+        except Exception:
+            pass
+
         if progress_path.exists():
             _read_final()
         else:
             rc = proc.returncode
-            stderr = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""
+            try:
+                tail = log_path.read_text(encoding="utf-8", errors="replace")[-1500:]
+            except Exception:
+                tail = ""
             task["status"] = "failed"
-            task["errors"].append(f"runner 종료 (code={rc}): {stderr[-500:]}")
+            task["errors"].append(f"runner 종료 (code={rc}): {tail[-500:]}")
 
         logger.info(f"Suno 배치 완료: {project_id}, status={task['status']}, {task['tracks_collected']}곡")
 
     except Exception as e:
         import traceback as _tb
+        try:
+            log_fp.close()
+        except Exception:
+            pass
         task["status"] = "failed"
         task["errors"].append(f"[{type(e).__name__}] {e}")
         task["traceback"] = _tb.format_exc()
