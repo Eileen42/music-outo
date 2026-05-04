@@ -655,10 +655,20 @@ class SunoAPIClient:
                     logger.warning(f"상태 조회 실패: HTTP {resp.status}")
                     return []
 
-    async def wait_for_audio(self, clips: list[dict], timeout: int = 300) -> list[dict]:
+    async def wait_for_audio(
+        self,
+        clips: list[dict],
+        timeout: int = 300,
+        progress_cb=None,
+        title_hint: str = "",
+    ) -> list[dict]:
         """
         clip들의 audio_url이 채워질 때까지 폴링.
         timeout: 최대 대기 시간 (초).
+
+        progress_cb 가 있으면 폴링마다 (10초 주기) "audio 대기 N/M" 형태로
+        현재 상태를 보고한다. 이전엔 이 구간이 통째로 progress 무업데이트
+        블랙홀 (최대 300초) 이라 프론트가 "멈췄다"고 오인했음.
         """
         clip_ids = [c.get("id", "") for c in clips if c.get("id")]
         if not clip_ids:
@@ -667,15 +677,26 @@ class SunoAPIClient:
         deadline = time.time() + timeout
         while time.time() < deadline:
             statuses = await self.get_clip_status(clip_ids)
-            all_ready = True
-            for s in statuses:
-                audio = s.get("audio_url") or s.get("stream_audio_url", "")
-                if not audio:
-                    all_ready = False
-                    break
+            ready = sum(
+                1 for s in statuses
+                if s.get("audio_url") or s.get("stream_audio_url", "")
+            )
+            total = len(statuses)
 
-            if all_ready and statuses:
-                logger.info(f"전체 audio_url 준비 완료: {len(statuses)}개")
+            if progress_cb:
+                try:
+                    progress_cb({
+                        "phase": "waiting",
+                        "current_title": (
+                            f"{title_hint} — Suno 처리 중 ({ready}/{total})"
+                            if title_hint else f"Suno 처리 중 ({ready}/{total})"
+                        ),
+                    })
+                except Exception:
+                    pass
+
+            if ready == total and total > 0:
+                logger.info(f"전체 audio_url 준비 완료: {total}개")
                 return statuses
 
             await asyncio.sleep(10)
@@ -781,11 +802,24 @@ class SunoAPIClient:
 
                     logger.info(f"[#{idx} {title}] step2: wait_for_audio (timeout=300s)")
                     t0 = time.time()
-                    ready_clips = await self.wait_for_audio(clips, timeout=300)
+                    ready_clips = await self.wait_for_audio(
+                        clips,
+                        timeout=300,
+                        progress_cb=progress_cb,
+                        title_hint=f"#{idx} {title}",
+                    )
                     logger.info(f"[#{idx} {title}] step2 OK ({time.time()-t0:.1f}s) ready={len(ready_clips)}")
 
                     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in title[:30])
                     for slot, clip in enumerate(ready_clips[:2], 1):
+                        if progress_cb:
+                            try:
+                                progress_cb({
+                                    "phase": "collecting",
+                                    "current_title": f"#{idx} {title} — 다운로드 v{slot}",
+                                })
+                            except Exception:
+                                pass
                         prefix = f"{idx:02d}_{safe_title}_v{slot}."
                         logger.info(f"[#{idx} {title}] step3.{slot}: download_clip 호출")
                         t0 = time.time()
