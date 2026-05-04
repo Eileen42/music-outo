@@ -33,6 +33,41 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tracks", tags=["track-design"])
 
 
+# ──────────────────────── stale 감지 헬퍼 ────────────────────────
+
+# 진행파일이 이 시간(초) 이상 갱신 안 됐으면 죽은 task 로 간주
+_STALE_PROGRESS_THRESHOLD_SEC = 90
+
+
+def _is_suno_task_stale(project_id: str) -> bool:
+    """메모리 _suno_tasks 는 running 인데 실제로는 죽은 task 인지 판별.
+
+    True 면 memory dict 의 running 을 무시하고 새 요청 허용 (자동 reset).
+    이전 batch-create 가 deadlock / 비정상 종료된 후 사용자가 다시 누를 때
+    매번 batch-reset 을 명시적으로 호출하지 않아도 되도록.
+
+    판정 기준 (하나라도 해당하면 stale):
+      1) _suno_progress.json 자체가 없음 (시작도 안 됐는데 dict 만 있음)
+      2) 진행파일이 90초 이상 갱신 안 됨 (subprocess 가 죽은 후 갱신 끊김)
+      3) 진행파일 status 가 이미 완료/실패/중단 (메모리만 stuck)
+    """
+    import time as _time
+    progress_path = settings.storage_dir / "projects" / project_id / "_suno_progress.json"
+    if not progress_path.exists():
+        return True
+    try:
+        age = _time.time() - progress_path.stat().st_mtime
+        if age > _STALE_PROGRESS_THRESHOLD_SEC:
+            return True
+        data = json.loads(progress_path.read_text(encoding="utf-8"))
+        if data.get("status") in ("completed", "failed", "interrupted"):
+            return True
+    except Exception:
+        # 파싱 실패 등 비정상 → stale 로 간주해 새 요청 허용
+        return True
+    return False
+
+
 # ──────────────────────────── schemas ────────────────────────────
 
 class BatchCreateRequest(BaseModel):
@@ -62,7 +97,12 @@ async def batch_create(
     # 진행 중일 때만 중복 방지 (failed/completed는 재시작 허용)
     existing = _suno_tasks.get(project_id, {})
     if existing.get("status") == "running":
-        raise HTTPException(409, "이미 Suno 생성이 진행 중입니다. 취소하려면 /batch-reset을 호출하세요.")
+        if _is_suno_task_stale(project_id):
+            # 진행파일 갱신이 멈춘 / 종료된 task 인데 메모리만 stuck — 자동 reset
+            logger.info(f"stale Suno task 자동 reset: project={project_id}")
+            _suno_tasks.pop(project_id, None)
+        else:
+            raise HTTPException(409, "이미 Suno 생성이 진행 중입니다. 취소하려면 /batch-reset을 호출하세요.")
 
     try:
         profile = channel_profile.load(body.channel_id)
