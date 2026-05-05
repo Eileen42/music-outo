@@ -49,3 +49,6 @@ tests/screenshots/
 # PyInstaller 빌드 산출물
 build/
 dist/
+
+# 사용자 학습 자료 (저작권 포함 가능)
+genre_materials/
