@@ -56,18 +56,29 @@ def _build_folder_label(state: dict) -> str:
     return "_".join(parts) or state.get("id", "unknown")[:8]
 
 
-def _ensure_friendly_junction(project_id: str, state: dict) -> Path:
-    """`storage/downloads/{label}/` 정션이 프로젝트의 tracks/ 폴더를 가리키도록 보장.
+_PID_MARKER = "_project.txt"  # 라벨 폴더 안에 두는 프로젝트 식별 파일
 
-    - 기존 UUID 폴더(`storage/projects/{uuid}/tracks/`)는 그대로 둠 → 모든 코드 무영향.
-    - 정션은 cmd `mklink /J` (관리자 권한 불필요, 디렉터리 전용 junction) 로 생성.
-    - 같은 프로젝트의 옛 라벨 정션은 정리 (이름 변경/채널 변경 후 stale 정션 제거).
-    - 윈도우 외 OS 는 심볼릭 링크로 폴백.
 
-    return: 정션 경로 (열기 대상)
+def _ensure_friendly_folder(project_id: str, state: dict) -> Path:
+    """`storage/downloads/{label}/{set_A,set_B}/` 구조로 mp3 를 깔끔히 정리.
+
+    설계 원칙:
+    - 원본 `storage/projects/{uuid}/tracks/` 는 그대로 둠 → 기존 코드 모두 무영향.
+    - downloads 하위는 **하드링크**로 동기화. 같은 NTFS 볼륨이면 추가 디스크 소비 0,
+      원본 파일을 절대 변형하지 않음 (복사도 아니라 inode 공유). 다른 볼륨이거나
+      하드링크 실패 시 안전 복사(shutil.copy2)로 폴백.
+    - 슬롯 1 → set_A/, 슬롯 2 → set_B/ 로 분리. 사용자가 곡당 두 버전 중 하나를
+      골라 다른 프로젝트에 재활용하기 쉽게.
+    - 파일명은 `{idx:02d}_{title}.mp3` (원본의 _v1/_v2 suffix 제거).
+    - 이름이 바뀐 옛 라벨 폴더는 stale 표시(_project.txt 의 project_id 일치)로 찾아 정리.
+    - 매 호출마다 desired set 과 실제 set 을 비교해 sync (트랙 삭제/추가에 즉시 반응).
+
+    return: 라벨 폴더 경로 (열기 대상). 이 폴더 안에 set_A/set_B/_project.txt 가 있다.
     """
-    actual = settings.storage_dir / "projects" / project_id / "tracks"
-    actual.mkdir(parents=True, exist_ok=True)
+    import shutil
+
+    actual_tracks = settings.storage_dir / "projects" / project_id / "tracks"
+    actual_tracks.mkdir(parents=True, exist_ok=True)
 
     downloads_root = settings.storage_dir / "downloads"
     downloads_root.mkdir(exist_ok=True)
@@ -75,35 +86,99 @@ def _ensure_friendly_junction(project_id: str, state: dict) -> Path:
     label = _build_folder_label(state)
     target = downloads_root / label
 
-    # 같은 프로젝트를 가리키는 다른 라벨 정션 정리 (stale).
-    # 정션을 readlink 로 풀어 actual 와 같은지 비교.
-    actual_resolved = actual.resolve()
-    for existing in downloads_root.iterdir():
+    # 같은 project_id 를 가리키지만 라벨이 바뀐 옛 폴더 정리 (이름·채널 변경 후 stale).
+    # 폴더가 정션이면 단순 rmdir 로 끊고, 일반 폴더면 _project.txt 마커 일치하면 통째 삭제.
+    for existing in list(downloads_root.iterdir()):
         if existing.name == label or not existing.is_dir():
             continue
         try:
-            if existing.resolve() == actual_resolved:
-                # 정션만 끊어내야 안전. rmdir 은 디렉터리 정션을 안전하게 끊음.
-                # 실파일이 들어찬 디렉터리라도 정션은 링크만 제거되고 실데이터는 보존.
-                existing.rmdir()
-                logger.info(f"stale 정션 제거: {existing.name}")
+            marker = existing / _PID_MARKER
+            if marker.exists() and marker.read_text(encoding="utf-8").strip() == project_id:
+                shutil.rmtree(existing, ignore_errors=True)
+                logger.info(f"stale 라벨 폴더 제거: {existing.name}")
+                continue
+            # 옛 버전이 만든 디렉터리 정션도 정리 — 같은 tracks/ 를 가리키면 끊는다.
+            try:
+                if existing.is_dir() and existing.resolve() == actual_tracks.resolve():
+                    existing.rmdir()
+                    logger.info(f"stale 정션 제거: {existing.name}")
+            except OSError:
+                pass
         except OSError:
             pass
 
-    if target.exists():
-        # 이미 올바른 라벨 정션이 있는 경우. 그대로 사용.
-        return target
+    target.mkdir(exist_ok=True)
+    (target / _PID_MARKER).write_text(project_id, encoding="utf-8")
 
-    if sys.platform == "win32":
-        # mklink /J 는 관리자 권한 없이 디렉터리 정션 생성. /D 는 심볼릭 링크라 권한 필요.
-        proc = subprocess.run(
-            ["cmd", "/c", "mklink", "/J", str(target), str(actual)],
-            capture_output=True, text=True,
-        )
-        if proc.returncode != 0:
-            raise HTTPException(500, f"폴더 정션 생성 실패: {proc.stderr.strip() or proc.stdout.strip()}")
-    else:
-        os.symlink(actual, target)
+    set_a = target / "set_A"
+    set_b = target / "set_B"
+    set_a.mkdir(exist_ok=True)
+    set_b.mkdir(exist_ok=True)
+
+    # 슬롯별로 보내야 할 파일 set 계산
+    suno_tracks = state.get("suno_tracks") or []
+    desired: dict[str, dict[str, Path]] = {"set_A": {}, "set_B": {}}
+    for t in suno_tracks:
+        if t.get("status") != "completed":
+            continue
+        fp = t.get("file_path", "")
+        if not fp:
+            continue
+        src = Path(fp)
+        if not src.exists():
+            continue
+        slot = t.get("slot")
+        idx = t.get("index", 0)
+        title = _sanitize_name(t.get("title", "untitled"))
+        clean_name = f"{idx:02d}_{title}.mp3"
+        if slot == 1:
+            desired["set_A"][clean_name] = src
+        elif slot == 2:
+            desired["set_B"][clean_name] = src
+
+    # 동기화: 각 set 폴더의 실제 내용을 desired 와 맞춤
+    linked = {"set_A": 0, "set_B": 0}
+    copied = {"set_A": 0, "set_B": 0}
+    for set_name, set_dir in (("set_A", set_a), ("set_B", set_b)):
+        wanted = desired[set_name]
+        # 더이상 필요없는 파일 제거
+        for existing in list(set_dir.iterdir()):
+            if existing.name not in wanted:
+                try:
+                    existing.unlink()
+                except OSError:
+                    pass
+        # 하드링크 생성 (이미 같은 inode 면 스킵)
+        for name, src in wanted.items():
+            dst = set_dir / name
+            try:
+                if dst.exists():
+                    # 같은 inode 면 OK, 다르면 재링크
+                    same = False
+                    try:
+                        same = dst.stat().st_ino == src.stat().st_ino and dst.stat().st_size == src.stat().st_size
+                    except OSError:
+                        same = False
+                    if same:
+                        continue
+                    dst.unlink()
+                # 우선 하드링크 시도
+                try:
+                    os.link(src, dst)
+                    linked[set_name] += 1
+                except OSError:
+                    # 다른 볼륨 / 권한 / 기타 → 복사로 폴백 (원본 손상 없음)
+                    shutil.copy2(src, dst)
+                    copied[set_name] += 1
+            except OSError as e:
+                logger.warning(f"set 동기화 실패 {set_name}/{name}: {e}")
+
+    logger.info(
+        f"[open-folder] {label}: set_A={len(desired['set_A'])} "
+        f"(link {linked['set_A']}, copy {copied['set_A']}), "
+        f"set_B={len(desired['set_B'])} "
+        f"(link {linked['set_B']}, copy {copied['set_B']})"
+    )
 
     return target
 
@@ -117,7 +192,7 @@ async def open_project_folder(project_id: str):
     원본 mp3 는 `storage/projects/{uuid}/tracks/` 그대로 — 정션은 링크일 뿐.
     """
     state = state_manager.require(project_id)
-    folder = _ensure_friendly_junction(project_id, state)
+    folder = _ensure_friendly_folder(project_id, state)
 
     try:
         if sys.platform == "win32":
