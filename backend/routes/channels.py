@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -5,6 +8,12 @@ from core.channel_profile import channel_profile, init_default_channels
 from core.ontology import ontology as _ontology
 
 router = APIRouter(prefix="/api/channels", tags=["channels"])
+
+# composer 스킬 .md 파일들의 첫 줄을 파싱해 장르 목록을 노출하는 용도.
+# 프론트 채널 설정 화면이 검증된 장르 목록을 chip 으로 보여줄 때 사용.
+_SKILLS_COMPOSER_DIR = Path(__file__).parent.parent / "templates" / "skills" / "composer"
+# H1 패턴 — "# 클래식록 (Classic Rock) — Suno 5.5 프롬프트 가이드"
+_GENRE_TITLE_RE = re.compile(r"^#\s+([^(]+?)\s*\(([^)]+)\)")
 
 
 # ──────────────────────────── schemas ────────────────────────────
@@ -40,6 +49,36 @@ class ChannelUpdate(BaseModel):
 
 
 # ──────────────────────────── routes ────────────────────────────
+
+@router.get("/_/genres", summary="검증된 장르 목록 (composer 스킬 기반)")
+async def list_supported_genres():
+    """프론트 채널 설정 화면이 chip 형태로 보여줄 검증된 장르 목록.
+
+    composer/*.md 첫 줄 ("# 한글명 (English Name) — ...") 을 파싱해서 추출.
+    default.md 는 제외. 정렬은 한글 가나다순.
+    """
+    if not _SKILLS_COMPOSER_DIR.exists():
+        return {"genres": []}
+
+    genres: list[dict] = []
+    for md_file in sorted(_SKILLS_COMPOSER_DIR.glob("*.md")):
+        if md_file.stem == "default":
+            continue
+        try:
+            first_line = md_file.read_text(encoding="utf-8").splitlines()[0]
+        except Exception:
+            continue
+        m = _GENRE_TITLE_RE.match(first_line)
+        if not m:
+            continue
+        kr = m.group(1).strip()
+        en = m.group(2).strip()
+        genres.append({"id": md_file.stem, "kr_name": kr, "en_name": en})
+
+    # 한글 가나다순
+    genres.sort(key=lambda g: g["kr_name"])
+    return {"genres": genres, "count": len(genres)}
+
 
 @router.get("", summary="전체 채널 목록")
 async def list_channels():

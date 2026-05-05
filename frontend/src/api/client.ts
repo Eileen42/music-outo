@@ -237,6 +237,10 @@ export const api = {
   channels: {
     list: () => http.get<Channel[]>('/api/channels').then(r => r.data),
     get: (id: string) => http.get<Channel>(`/api/channels/${id}`).then(r => r.data),
+    listGenres: () =>
+      http.get<{ genres: { id: string; kr_name: string; en_name: string }[]; count: number }>(
+        '/api/channels/_/genres',
+      ).then(r => r.data),
     create: (data: Omit<Channel, 'benchmark_history' | 'created_at' | 'updated_at'>) =>
       http.post<Channel>('/api/channels', data).then(r => r.data),
     update: (id: string, data: Partial<Channel>) =>
