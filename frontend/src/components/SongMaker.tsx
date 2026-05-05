@@ -307,9 +307,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
       const s = await api.trackDesign.sunoStatus(project.id)
       setBatchStatus(s)
     } catch (e: unknown) {
-      // 409 Conflict = 이전 배치가 stuck → 자동 리셋 후 재시도
-      const err = e as { response?: { status?: number } }
-      if (err?.response?.status === 409) {
+      // 409 Conflict = 이전 배치가 stuck → 자동 리셋 후 재시도.
+      // 인터셉터가 Error 로 감싸도 status 가 살아있도록 client.ts 가 response/status/
+      // axiosError 세 경로로 노출. 어디로 들어와도 잡히게 fallback 체인 사용.
+      const err = e as {
+        response?: { status?: number }
+        status?: number
+        axiosError?: { response?: { status?: number } }
+      }
+      const status = err?.response?.status ?? err?.status ?? err?.axiosError?.response?.status
+      if (status === 409) {
         try {
           await api.trackDesign.batchStop(project.id)
           await api.trackDesign.batchCreate(project.id, project.channel_id)

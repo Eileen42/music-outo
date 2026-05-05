@@ -35,8 +35,15 @@ router = APIRouter(prefix="/api/tracks", tags=["track-design"])
 
 # ──────────────────────── stale 감지 헬퍼 ────────────────────────
 
-# 진행파일이 이 시간(초) 이상 갱신 안 됐으면 죽은 task 로 간주
-_STALE_PROGRESS_THRESHOLD_SEC = 90
+# 진행파일이 이 시간(초) 이상 갱신 안 됐으면 죽은 task 로 간주.
+# runner 의 polling/sleep 주기가 2초이므로 30초만 갱신 끊겨도 비정상.
+# (이전 90초는 폴링 행이 있을 때 너무 관대해서 stuck 회복이 늦었음)
+_STALE_PROGRESS_THRESHOLD_SEC = 30
+
+# 시작 후 이 시간(초) 이상 지나면 진행파일 상태와 무관하게 stale 로 강제 처리.
+# 가장 큰 배치라도 30분 안엔 끝나야 함. 이 안전망이 없으면 progress 파일이
+# 계속 갱신되지만 진짜로는 hang 상태인 케이스를 영영 못 빠져나옴.
+_ABSOLUTE_RUN_TIMEOUT_SEC = 30 * 60
 
 
 def _is_suno_task_stale(project_id: str) -> bool:
@@ -47,11 +54,19 @@ def _is_suno_task_stale(project_id: str) -> bool:
     매번 batch-reset 을 명시적으로 호출하지 않아도 되도록.
 
     판정 기준 (하나라도 해당하면 stale):
-      1) _suno_progress.json 자체가 없음 (시작도 안 됐는데 dict 만 있음)
-      2) 진행파일이 90초 이상 갱신 안 됨 (subprocess 가 죽은 후 갱신 끊김)
-      3) 진행파일 status 가 이미 완료/실패/중단 (메모리만 stuck)
+      1) 메모리 task 의 started_at 이 절대 타임아웃을 넘김 (안전망)
+      2) _suno_progress.json 자체가 없음 (시작도 안 됐는데 dict 만 있음)
+      3) 진행파일이 30초 이상 갱신 안 됨 (subprocess 가 죽은 후 갱신 끊김)
+      4) 진행파일 status 가 running 이 아님
+         — completed/failed/interrupted 는 명백히 끝
+         — runner 가 비정상 종료해 status 가 그 외 값이거나 누락되어도 정리
     """
     import time as _time
+    task = _suno_tasks.get(project_id, {})
+    started_at = task.get("started_at")
+    if started_at and _time.time() - started_at > _ABSOLUTE_RUN_TIMEOUT_SEC:
+        return True
+
     progress_path = settings.storage_dir / "projects" / project_id / "_suno_progress.json"
     if not progress_path.exists():
         return True
@@ -60,7 +75,9 @@ def _is_suno_task_stale(project_id: str) -> bool:
         if age > _STALE_PROGRESS_THRESHOLD_SEC:
             return True
         data = json.loads(progress_path.read_text(encoding="utf-8"))
-        if data.get("status") in ("completed", "failed", "interrupted"):
+        # status 가 명시적으로 running 이 아니면 stale 로 간주 (메모리만 stuck).
+        # 기존엔 완료/실패/중단 만 체크해 그 외 비정상 상태(or 누락)를 놓쳤음.
+        if data.get("status") != "running":
             return True
     except Exception:
         # 파싱 실패 등 비정상 → stale 로 간주해 새 요청 허용
@@ -111,12 +128,16 @@ async def batch_create(
 
     total_batches = len(tracks)  # 곡별 개별 생성 (1곡 = 1 Suno 호출 → 2 클립)
 
+    import time as _time
     _suno_tasks[project_id] = {
         "status":           "running",
         "total_batches":    total_batches,
         "completed":        0,
         "tracks_collected": 0,
         "errors":           [],
+        # 절대 타임아웃 안전망 — _is_suno_task_stale 이 사용. 시작 후 30분 넘으면
+        # progress 파일 mtime 과 무관하게 stale 처리해 hang 회복.
+        "started_at":       _time.time(),
     }
 
     background_tasks.add_task(

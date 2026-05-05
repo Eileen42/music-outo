@@ -35,6 +35,10 @@ async def lifespan(app: FastAPI):
     _cleanup_stuck_builds()
     # 곡 설계 진행상황도 동일 처리 — running 으로 남은 task 는 interrupted 로 강등
     _cleanup_stuck_design()
+    # Suno 일괄 생성도 동일 처리. 서버 재시작 시 in-memory _suno_tasks 는 비어있어
+    # 무관하지만, _suno_progress.json 디스크 상태가 "running" 으로 남아있으면
+    # /suno-status 폴링이나 stale 감지가 헷갈려 새 batch-create 가 409 로 떨어질 수 있음.
+    _cleanup_stuck_suno()
     yield
 
 
@@ -85,6 +89,34 @@ def _cleanup_stuck_design():
                 )
         except Exception as e:
             logger.warning(f"Stuck design cleanup failed for {progress_file}: {e}")
+
+
+def _cleanup_stuck_suno():
+    """Suno 일괄 생성 runner subprocess 가 서버 재시작 / 비정상 종료로 사라졌는데
+    _suno_progress.json 이 "running" 으로 남아있으면 interrupted 로 강등.
+
+    in-memory _suno_tasks 는 서버 재시작 시 자동으로 비워지지만, 디스크 진행파일은
+    그대로 남아 stale 감지(age/status)를 통과해버려 새 batch-create 가 영영 409 로
+    떨어지는 케이스를 차단한다.
+    """
+    import json
+    projects_dir = settings.storage_dir / "projects"
+    if not projects_dir.exists():
+        return
+    for progress_file in projects_dir.glob("*/_suno_progress.json"):
+        try:
+            data = json.loads(progress_file.read_text(encoding="utf-8"))
+            if data.get("status") == "running":
+                pid = progress_file.parent.name
+                logger.info(f"Stuck Suno 초기화: project={pid}")
+                data["status"] = "interrupted"
+                data["message"] = "서버 재시작으로 작업이 중단되었습니다. 다시 시작해주세요."
+                progress_file.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        except Exception as e:
+            logger.warning(f"Stuck Suno cleanup failed for {progress_file}: {e}")
 
 
 app = FastAPI(

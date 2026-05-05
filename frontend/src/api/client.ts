@@ -29,8 +29,20 @@ http.interceptors.response.use(
     } else {
       msg = err.message || '알 수 없는 오류'
     }
-    const wrapped = new Error(msg)
-    ;(wrapped as Error & { axiosError?: AxiosError }).axiosError = err
+    // wrapped Error 에 axios 응답 필드를 함께 노출.
+    // 호출부가 `err.response?.status === 409` 처럼 axios-style 로 분기할 수 있게
+    // 하기 위함 (SongMaker handleBatchCreate 의 409 자동 복구 등). 이게 빠지면
+    // 인터셉터에서 새 Error 로 감싸는 순간 status 정보가 사라져 분기가 죽는다.
+    const wrapped = new Error(msg) as Error & {
+      axiosError?: AxiosError
+      response?: AxiosError['response']
+      status?: number
+    }
+    wrapped.axiosError = err
+    if (err.response) {
+      wrapped.response = err.response
+      wrapped.status = err.response.status
+    }
     return Promise.reject(wrapped)
   },
 )
