@@ -267,8 +267,11 @@ export default function SongMaker({ project, onRefresh }: Props) {
 
   const handleDelete = async (idx: number) => {
     await api.trackDesign.delete(project.id, idx)
-    const updated = tracks.filter((_, i) => i !== idx).map((t, i) => ({ ...t, index: i + 1 }))
-    setTracks(updated)
+    // ⚠️ .index 를 재할당하지 않는다. designed_tracks.index 는 영구 ID 로,
+    // suno_tracks.index 와 mp3 파일명(`{idx:02d}_*.mp3`)이 모두 이 값을 참조한다.
+    // 재할당하면 이미 다운로드된 곡들과의 연결이 어긋나 "옛 노래 재생" / "▶ 사라짐"
+    // 증상이 발생함. 표시 번호는 화면에서 배열 위치(idx + 1)로 따로 그린다.
+    setTracks(tracks.filter((_, i) => i !== idx))
   }
 
   const handleSaveEdit = async () => {
@@ -518,6 +521,25 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   )}
                 </div>
                 <div className="flex gap-2">
+                  {/* 다운받은 mp3 폴더를 탐색기로 열기 — 음악 재활용용. 백엔드가 사람이
+                      구분하기 쉬운 라벨(YYMMDD_채널_프로젝트) 정션을 자동 생성한 뒤 연다. */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await api.projects.openFolder(project.id)
+                        if (!r.opened && r.error) {
+                          alert(`폴더 자동 열기 실패. 직접 여세요:\n${r.folder}`)
+                        }
+                      } catch (e) {
+                        const msg = e instanceof Error ? e.message : '폴더 열기 실패'
+                        alert(msg)
+                      }
+                    }}
+                    className="text-xs text-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors"
+                    title="다운받은 mp3 폴더를 탐색기에서 엽니다 (재활용용)"
+                  >
+                    📂 음악 폴더 열기
+                  </button>
                   <button
                     onClick={() => { setTracks([]); setDesignError('') }}
                     className="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
@@ -723,12 +745,14 @@ export default function SongMaker({ project, onRefresh }: Props) {
                         const newTracks = [...tracks]
                         const [moved] = newTracks.splice(dragTrackIdx, 1)
                         newTracks.splice(dragOverTrackIdx, 0, moved)
-                        // index 재할당
-                        const reindexed = newTracks.map((tr, i) => ({ ...tr, index: i + 1 }))
-                        setTracks(reindexed)
+                        // ⚠️ .index 는 영구 ID — 재할당하지 않는다. 재할당하면 suno_tracks
+                        //   와 mp3 파일명(idx prefix)과의 연결이 어긋나 "다른 곡 재생" /
+                        //   "▶ 안 보임" 증상 발생. 순서는 배열 위치로만 표현, 표시 번호도
+                        //   배열 위치(idx + 1)로 따로 그린다.
+                        setTracks(newTracks)
                         // 백엔드 저장
                         try {
-                          await api.projects.update(project.id, { designed_tracks: reindexed } as Partial<Pick<Project, 'name' | 'playlist_title' | 'status' | 'channel_id'>>)
+                          await api.projects.update(project.id, { designed_tracks: newTracks } as Partial<Pick<Project, 'name' | 'playlist_title' | 'status' | 'channel_id'>>)
                         } catch { /* ignore */ }
                       }
                       setDragTrackIdx(null)
@@ -745,7 +769,14 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       onClick={() => setExpandIdx(expandIdx === idx ? null : idx)}
                     >
                       <span className="text-gray-500 cursor-grab active:cursor-grabbing mr-1 select-none" title="드래그하여 순서 변경">⠿</span>
-                      <span className="text-gray-600 text-xs w-5 text-center shrink-0">{t.index}</span>
+                      {/* 표시 번호는 배열 위치(현재 순서) 기준. t.index 는 mp3 파일/Suno 연결을
+                          위한 영구 ID 라 재할당하지 않으며, 작은 회색 보조 텍스트로만 보여준다. */}
+                      <span
+                        className="text-gray-400 text-xs w-5 text-center shrink-0 font-medium"
+                        title={`원본 ID: ${t.index}`}
+                      >
+                        {idx + 1}
+                      </span>
                       {/* 생성 중 로딩 / QA 상태 표시 */}
                       {batchStatus?.status === 'running' && batchStatus?.current_song === t.title ? (
                         <span className="shrink-0 flex items-center gap-1.5">

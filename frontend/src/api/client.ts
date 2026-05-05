@@ -60,6 +60,12 @@ export const api = {
     delete: (id: string) => http.delete(`/api/projects/${id}`).then(r => r.data),
     updateRepeat: (id: string, repeat: RepeatConfig) =>
       http.patch<Project>(`/api/projects/${id}`, { repeat }).then(r => r.data),
+    // 다운받은 음악 mp3 폴더를 OS 탐색기로 열기. 백엔드가 storage/downloads/{YYMMDD_채널_프로젝트}/
+    // 정션을 자동 생성·갱신한 뒤 그 폴더를 연다 (UUID 원본 폴더는 그대로 보존).
+    openFolder: (id: string) =>
+      http.post<{ folder: string; label: string; opened: boolean; error?: string }>(
+        `/api/projects/${id}/open-folder`,
+      ).then(r => r.data),
   },
 
   tracks: {
