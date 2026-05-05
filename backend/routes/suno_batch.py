@@ -387,7 +387,39 @@ async def reorder_suno_tracks(project_id: str, body: dict):
 
     reordered = [tracks[i] for i in order]
     state_manager.update(project_id, {"suno_tracks": reordered})
-    return {"tracks": reordered}
+
+    # ⚠️ audio_url 은 state.json 에 저장되지 않고 GET /suno-tracks 에서 매번
+    # file_path → /storage URL 로 변환된다. 여기서도 동일하게 채워주지 않으면
+    # 프론트가 받은 트랙들의 audio_url 이 비어 <audio src=""> 가 되거나 이전에
+    # 로드된 src 가 그대로 남아 "순서 바꿨는데 옛날 노래가 재생됨" 으로 보임.
+    storage_root = settings.storage_dir
+    try:
+        storage_root_resolved = storage_root.resolve()
+    except OSError:
+        storage_root_resolved = storage_root
+
+    enriched = []
+    for t in reordered:
+        fp = t.get("file_path", "")
+        audio_url = ""
+        if fp:
+            try:
+                fp_path = Path(fp)
+                try:
+                    fp_resolved = fp_path.resolve()
+                except OSError:
+                    fp_resolved = fp_path
+                try:
+                    rel = fp_resolved.relative_to(storage_root_resolved)
+                except ValueError:
+                    rel = fp_path.relative_to(storage_root)
+                mtime = int(fp_resolved.stat().st_mtime) if fp_resolved.exists() else 0
+                audio_url = f"/storage/{rel.as_posix()}?t={mtime}"
+            except (ValueError, OSError):
+                audio_url = fp
+        enriched.append({**t, "audio_url": audio_url, "slot": t.get("slot", 0)})
+
+    return {"tracks": enriched}
 
 
 @router.delete("/{project_id}/suno-tracks/{track_index}", summary="Suno 트랙 삭제")
