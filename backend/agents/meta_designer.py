@@ -64,10 +64,8 @@ class MetaDesignerAgent(BaseAgent):
         bench_ref = self._format_benchmark(benchmark)
         concept_ref = self._format_concept(concept)
         template_ref = self._format_template(template)
-        track_list = "\n".join(
-            f"  {t.get('index', i+1)}. {t.get('title', '')}"
-            for i, t in enumerate(tracks)
-        )
+        track_list = self._format_tracks_detailed(tracks)
+        mood_summary = self._summarize_track_moods(tracks)
 
         prompt = f"""너는 YouTube 메타데이터 전략가야.
 아래 정보를 분석하여 메타데이터(제목/설명/태그/댓글)의 설계도를 만들어줘.
@@ -75,8 +73,11 @@ class MetaDesignerAgent(BaseAgent):
 ━━ 프로젝트 컨셉 ━━
 {concept_ref}
 
-━━ 트랙리스트 ({len(tracks)}곡) ━━
+━━ 트랙리스트 ({len(tracks)}곡) — 곡별 mood/category 포함 ━━
 {track_list}
+
+━━ 곡 분위기 요약 ━━
+{mood_summary}
 
 ━━ 벤치마크 영상 ━━
 {bench_ref}
@@ -168,6 +169,59 @@ JSON으로 반환:
             f"- {k}: {v}" for k, v in concept.items()
             if v and k in ("project_name", "genre", "core_mood", "tempo", "bpm_range", "instrumentation", "atmosphere")
         )
+
+    @staticmethod
+    def _format_tracks_detailed(tracks: list[dict]) -> str:
+        """트랙리스트를 mood/category 포함해 표시. 길이 절약을 위해 한 줄당 한 곡.
+
+        이전엔 제목만 노출했으나, 메타데이터 작성 시 곡들의 다양성·분위기를 못 봐서
+        결과가 generic 해지는 문제 (진단 보고서 #7).
+        """
+        if not tracks:
+            return "(트랙 없음)"
+        lines: list[str] = []
+        for i, t in enumerate(tracks):
+            idx = t.get("index", i + 1)
+            title = (t.get("title") or "").strip() or "(제목 없음)"
+            mood = (t.get("mood") or "").strip()
+            category = (t.get("category") or "").strip()
+            extras = []
+            if mood:
+                extras.append(f"mood={mood}")
+            if category:
+                extras.append(f"category={category}")
+            extras_str = f"  [{' / '.join(extras)}]" if extras else ""
+            lines.append(f"  {idx}. {title}{extras_str}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _summarize_track_moods(tracks: list[dict]) -> str:
+        """곡들의 mood/category 분포 요약 — 메타데이터가 다양성을 반영하도록.
+
+        예시 출력:
+          - 무드 분포: 잔잔한(8곡), 감성적인(5곡), 따뜻한(4곡), ...
+          - 카테고리 분포: cafe(12곡), morning(5곡), focus(3곡)
+        """
+        if not tracks:
+            return "(분포 없음)"
+        from collections import Counter
+        mood_counts = Counter()
+        cat_counts = Counter()
+        for t in tracks:
+            m = (t.get("mood") or "").strip()
+            c = (t.get("category") or "").strip()
+            if m:
+                mood_counts[m] += 1
+            if c:
+                cat_counts[c] += 1
+        parts: list[str] = []
+        if mood_counts:
+            top_moods = ", ".join(f"{m}({n}곡)" for m, n in mood_counts.most_common(8))
+            parts.append(f"- 무드 분포: {top_moods}")
+        if cat_counts:
+            top_cats = ", ".join(f"{c}({n}곡)" for c, n in cat_counts.most_common(8))
+            parts.append(f"- 카테고리 분포: {top_cats}")
+        return "\n".join(parts) if parts else "(분포 없음)"
 
     @staticmethod
     def _format_template(template) -> str:

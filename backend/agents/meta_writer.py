@@ -51,10 +51,10 @@ class MetaWriterAgent(BaseAgent):
         if language == "en" and _has_korean(playlist_title):
             playlist_title = await self._translate_text(playlist_title)
 
-        track_list = "\n".join(
-            f"  {t.get('index', i+1)}. {t.get('title', '')}"
-            for i, t in enumerate(tracks)
-        )
+        # 트랙리스트는 mood/category 포함해서 작성. 메타데이터가 곡 다양성을
+        # 반영하도록. 별도 mood_summary 도 description/tags/comment 컨텍스트로 사용.
+        track_list = self._format_tracks_detailed(tracks)
+        mood_summary = self._summarize_moods(tracks)
 
         title_spec = spec.get("title_spec", {})
         desc_spec = spec.get("description_spec", {})
@@ -70,11 +70,11 @@ class MetaWriterAgent(BaseAgent):
         # 제목 생성
         title = await self._gen_title(title_spec, concept, playlist_title, len(tracks), instruction, language, template_ref=tpl_title)
 
-        # 설명, 태그, 댓글 병렬 생성
+        # 설명, 태그, 댓글 병렬 생성 (각자 mood_summary 도 컨텍스트로 받음)
         import asyncio
-        desc_task = self._gen_description(desc_spec, concept, title, track_list, instruction, language, template_ref=tpl_desc)
-        tags_task = self._gen_tags(tags_spec, concept, track_list, instruction, language, template_ref=tpl_tags)
-        comment_task = self._gen_comment(comment_spec, title, track_list, len(tracks), instruction, language, template_ref=tpl_comment)
+        desc_task = self._gen_description(desc_spec, concept, title, track_list, instruction, language, template_ref=tpl_desc, mood_summary=mood_summary)
+        tags_task = self._gen_tags(tags_spec, concept, track_list, instruction, language, template_ref=tpl_tags, mood_summary=mood_summary)
+        comment_task = self._gen_comment(comment_spec, title, track_list, len(tracks), instruction, language, template_ref=tpl_comment, mood_summary=mood_summary)
 
         description, tags, comment = await asyncio.gather(desc_task, tags_task, comment_task)
 
@@ -110,6 +110,48 @@ class MetaWriterAgent(BaseAgent):
                 val = ", ".join(str(x) for x in val)
             return str(val).strip()
         return ""
+
+    @staticmethod
+    def _format_tracks_detailed(tracks: list[dict]) -> str:
+        """트랙리스트를 mood/category 포함해 표시 (meta_designer 와 동일 패턴)."""
+        if not tracks:
+            return "(트랙 없음)"
+        lines: list[str] = []
+        for i, t in enumerate(tracks):
+            idx = t.get("index", i + 1)
+            title = (t.get("title") or "").strip() or "(제목 없음)"
+            mood = (t.get("mood") or "").strip()
+            category = (t.get("category") or "").strip()
+            extras = []
+            if mood:
+                extras.append(f"mood={mood}")
+            if category:
+                extras.append(f"category={category}")
+            extras_str = f"  [{' / '.join(extras)}]" if extras else ""
+            lines.append(f"  {idx}. {title}{extras_str}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _summarize_moods(tracks: list[dict]) -> str:
+        """곡들의 mood/category 분포 요약 (meta_designer 와 동일 패턴)."""
+        if not tracks:
+            return ""
+        from collections import Counter
+        mood_counts = Counter()
+        cat_counts = Counter()
+        for t in tracks:
+            m = (t.get("mood") or "").strip()
+            c = (t.get("category") or "").strip()
+            if m:
+                mood_counts[m] += 1
+            if c:
+                cat_counts[c] += 1
+        parts: list[str] = []
+        if mood_counts:
+            parts.append("- 무드: " + ", ".join(f"{m}({n})" for m, n in mood_counts.most_common(6)))
+        if cat_counts:
+            parts.append("- 카테고리: " + ", ".join(f"{c}({n})" for c, n in cat_counts.most_common(6)))
+        return "\n".join(parts)
 
     @staticmethod
     def _template_block(template_ref: str, language: str = "ko") -> str:
@@ -245,9 +287,14 @@ YouTube 영상 제목을 작성하세요.
 
         return (await gemini_client.generate_text(prompt)).strip()
 
-    async def _gen_description(self, spec: dict, concept: dict, title: str, track_list: str, instruction: str, language: str = "ko", template_ref: str = "") -> str:
+    async def _gen_description(self, spec: dict, concept: dict, title: str, track_list: str, instruction: str, language: str = "ko", template_ref: str = "", mood_summary: str = "") -> str:
         structure = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(spec.get("structure", [])))
         tpl_block = self._template_block(template_ref, language)
+        mood_block = (
+            f"\n━━ Track Mood Distribution ━━\n{mood_summary}\n" if mood_summary and language == "en"
+            else f"\n━━ 곡 분위기 분포 (반영 권장) ━━\n{mood_summary}\n" if mood_summary
+            else ""
+        )
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
 
@@ -267,11 +314,13 @@ Write a YouTube video description.
 
 ━━ Tracklist ━━
 {track_list}
-{tpl_block}
+{mood_block}{tpl_block}
 {f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
 
 ★ If a User Reference Template is provided above, mirror its sectioning, line breaks,
    emoji placement, hashtag style. Replace topic-specific copy with this project's content.
+★ The Track Mood Distribution shows the actual variety in this playlist — reflect it
+   when describing the listening journey.
 Follow the spec's structure and tone exactly. Output text only in English, no markdown."""
         else:
             prompt = f"""{self._lang_directive(language)}
@@ -292,20 +341,26 @@ YouTube 영상 설명란을 작성하세요.
 
 ━━ 트랙리스트 ━━
 {track_list}
-{tpl_block}
+{mood_block}{tpl_block}
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
 ★ 위에 사용자 참고 템플릿이 있으면 그 섹션 구조·줄바꿈·이모지 위치·해시태그 스타일을
    그대로 미러링하되 주제는 이 프로젝트에 맞게 교체하세요.
+★ 곡 분위기 분포는 실제 플레이리스트의 다양성을 보여줍니다 — 청취 여정 묘사 시 반영.
 설계도의 구조와 톤을 정확히 따르세요. 마크다운 없이 텍스트만."""
 
         return (await gemini_client.generate_text(prompt)).strip()
 
-    async def _gen_tags(self, spec: dict, concept: dict, track_list: str, instruction: str, language: str = "ko", template_ref: str = "") -> list[str]:
+    async def _gen_tags(self, spec: dict, concept: dict, track_list: str, instruction: str, language: str = "ko", template_ref: str = "", mood_summary: str = "") -> list[str]:
         primary = ", ".join(spec.get("primary", []))
         secondary = ", ".join(spec.get("secondary", []))
         consistent = ", ".join(spec.get("channel_consistent", []))
         tpl_block = self._template_block(template_ref, language)
+        mood_block = (
+            f"\n━━ Track Mood Distribution (use as keyword source) ━━\n{mood_summary}\n" if mood_summary and language == "en"
+            else f"\n━━ 곡 분위기 분포 (태그 소스로 활용) ━━\n{mood_summary}\n" if mood_summary
+            else ""
+        )
 
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
@@ -321,12 +376,13 @@ Generate YouTube tags.
 ━━ Project ━━
 - Genre: {concept.get('genre', '')}
 - Mood: {concept.get('core_mood', '')}
-{tpl_block}
+{mood_block}{tpl_block}
 {f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
 
 ★ If a User Reference Template is provided above (sample tags), include those exact tags
    when relevant + add complementary tags for this project. Match the template's style
    (lowercase vs CamelCase, length, hashtag format).
+★ Mine the Track Mood Distribution as additional tag candidates (each distinct mood/category).
 Up to {spec.get('max_count', 30)} tags ordered by relevance.
 Tags MUST be in English (lowercase preferred). Use natural English keywords an English-speaking audience would search.
 JSON array only: ["tag1", "tag2", ...]"""
@@ -344,11 +400,12 @@ YouTube 태그를 생성하세요.
 ━━ 프로젝트 ━━
 - 장르: {concept.get('genre', '')}
 - 분위기: {concept.get('core_mood', '')}
-{tpl_block}
+{mood_block}{tpl_block}
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
 ★ 위에 사용자 참고 템플릿(예시 태그) 이 있으면 그 중 관련 있는 것은 그대로 포함 +
    이 프로젝트에 맞는 보완 태그 추가. 템플릿 스타일(소문자/카멜케이스/해시태그 형식) 맞춤.
+★ 곡 분위기 분포의 각 무드/카테고리도 태그 후보로 활용.
 설계도의 핵심/보조/채널 태그를 기반으로 최대 {spec.get('max_count', 30)}개.
 태그는 한국어로. 일반화된 영문 음악 키워드(lofi, jazz)는 그대로 사용 가능.
 관련성 높은 순. JSON 배열만: ["태그1", "태그2", ...]"""
@@ -362,8 +419,14 @@ YouTube 태그를 생성하세요.
                     return [str(t) for t in v[:spec.get("max_count", 30)]]
         return []
 
-    async def _gen_comment(self, spec: dict, title: str, track_list: str, count: int, instruction: str, language: str = "ko", template_ref: str = "") -> str:
+    async def _gen_comment(self, spec: dict, title: str, track_list: str, count: int, instruction: str, language: str = "ko", template_ref: str = "", mood_summary: str = "") -> str:
         tpl_block = self._template_block(template_ref, language)
+        # 댓글은 짧으니 mood_summary 한 줄만 힌트로
+        mood_hint = (
+            f"\n(Mood mix: {mood_summary.replace(chr(10), ' | ')})\n" if mood_summary and language == "en"
+            else f"\n(곡 분위기 믹스: {mood_summary.replace(chr(10), ' | ')})\n" if mood_summary
+            else ""
+        )
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
 
