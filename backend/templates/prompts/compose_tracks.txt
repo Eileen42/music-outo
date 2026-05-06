@@ -15,10 +15,20 @@
 {suno_base}
 ※ 이 텍스트가 "(없음)" 이 아니면 곡마다 핵심 키워드를 반드시 반영할 것.
 
-━━ 사용자 요청 (이번 곡 설계 시) ━━
+━━ 사용자 요청 (이번 곡 설계 시) ━━ ★ 반드시 반영 ★
 - 키워드: {user_keywords}
 - 분위기: {user_mood}
 - 가사 힌트: {user_lyrics_hint}
+
+★★★ 사용자 키워드/분위기 강제 반영 규칙 ★★★
+- user_keywords 가 "(없음)" 이 아니면, **각 곡의 Mood 또는 Additional Descriptors
+  에 user_keywords 의 핵심 단어 (영어 변환) 가 최소 1개 이상 반드시 등장**해야 한다.
+  예: user_keywords="비 오는 날 카페" → 곡별 Mood 에 "rainy", "wet streets",
+  "cafe ambiance", "windowpane raindrops" 등 비/카페 의미가 자연스럽게 들어가야 함.
+- user_mood 가 "(없음)" 이 아니면, **모든 곡의 Mood 에 user_mood 의 톤이 반영**되어야
+  한다. 예: user_mood="잔잔하고 감성적" → 곡별 Mood 에 "calm", "emotional",
+  "introspective", "tender" 등이 베이스로 깔려야 함.
+- 키워드 무시 시 QA Agent 가 검출해 재작성을 요청한다.
 
 ━━ 가사 채널 여부 ━━
 {has_lyrics}
