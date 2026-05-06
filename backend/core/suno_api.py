@@ -707,15 +707,29 @@ class SunoAPIClient:
     # ━━━ 다운로드 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def download_clip(self, clip: dict, output_dir: Path, prefix: str = "") -> Optional[str]:
-        """clip 1개 MP3 다운로드."""
+        """clip 1개 MP3 다운로드.
+
+        URL 후보를 순차 시도 + 모두 실패 시 backoff 재시도.
+        Suno CDN propagation 이 늦을 때 (특히 곡 생성 직후) 한 번에 안 받아지는
+        케이스를 자동 복구.
+
+        시도 순서: audio_url → cdn1 → cdn2  (총 3개)
+        모두 실패 → 5s 대기 → 다시 3개 시도 → 15s 대기 → 마지막 3개 시도
+        최악 = 약 9 attempts × 평균 ~10s = 90s 정도. 그래도 못 받으면 None.
+        """
         clip_id = clip.get("id", "")
         audio_url = clip.get("audio_url") or clip.get("stream_audio_url", "")
 
-        urls_to_try = [u for u in [
-            audio_url,
-            f"{CDN_URLS[0]}/{clip_id}.mp3",
-            f"{CDN_URLS[1]}/{clip_id}.mp3",
-        ] if u]
+        # clip_id 없으면 cdn URL 도 무효 — audio_url 만 있으면 그것만 시도
+        urls_to_try: list[str] = []
+        if audio_url:
+            urls_to_try.append(audio_url)
+        if clip_id:
+            urls_to_try.append(f"{CDN_URLS[0]}/{clip_id}.mp3")
+            urls_to_try.append(f"{CDN_URLS[1]}/{clip_id}.mp3")
+        if not urls_to_try:
+            logger.error(f"download_clip: 시도할 URL 없음 (clip_id 도 없고 audio_url 도 없음)")
+            return None
 
         output_dir.mkdir(parents=True, exist_ok=True)
         # 파일명: {prefix}mp3 (QA 패턴 호환: {idx:02d}_*_v{slot}.mp3)
@@ -731,24 +745,45 @@ class SunoAPIClient:
             "Cookie": self._cookie_header(),
         }
 
-        async with aiohttp.ClientSession() as session:
-            for url in urls_to_try:
-                try:
-                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                        if resp.status == 200:
-                            content = await resp.read()
-                            if len(content) > 10_000:  # 최소 10KB
-                                dest.write_bytes(content)
-                                # Suno MP3 헤더 교정 (container/Xing 재mux)
-                                from core.mp3_fix import fix_mp3_header
-                                await fix_mp3_header(dest)
-                                logger.info(f"다운로드 완료: {dest.name} ({len(content) // 1024}KB)")
-                                return str(dest)
-                except Exception as e:
-                    logger.warning(f"다운로드 실패 ({url[:40]}): {e}")
-                    continue
+        # CDN propagation 늦을 때 대비 backoff retry
+        # (5s, 15s) 두 번 더 시도 → 총 3 라운드 × 최대 3 URL = 최대 9 시도
+        retry_delays = [5, 15]
 
-        logger.error(f"모든 URL 실패: clip_id={clip_id}")
+        async with aiohttp.ClientSession() as session:
+            for round_idx in range(len(retry_delays) + 1):
+                for url in urls_to_try:
+                    try:
+                        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                            if resp.status == 200:
+                                content = await resp.read()
+                                if len(content) > 10_000:  # 최소 10KB
+                                    dest.write_bytes(content)
+                                    # Suno MP3 헤더 교정 (container/Xing 재mux)
+                                    from core.mp3_fix import fix_mp3_header
+                                    await fix_mp3_header(dest)
+                                    logger.info(
+                                        f"다운로드 완료: {dest.name} ({len(content) // 1024}KB)"
+                                        + (f" — round {round_idx + 1}" if round_idx > 0 else "")
+                                    )
+                                    return str(dest)
+                                else:
+                                    logger.warning(f"파일 크기 부족 ({len(content)} bytes): {url[:40]}")
+                            else:
+                                logger.warning(f"HTTP {resp.status}: {url[:40]}")
+                    except Exception as e:
+                        logger.warning(f"다운로드 실패 ({url[:40]}): {e}")
+                        continue
+
+                # 이번 라운드 모두 실패 — 다음 라운드 있으면 backoff
+                if round_idx < len(retry_delays):
+                    delay = retry_delays[round_idx]
+                    logger.info(
+                        f"다운로드 round {round_idx + 1} 모두 실패 — {delay}s 대기 후 재시도 "
+                        f"(clip_id={clip_id[:8] if clip_id else 'N/A'})"
+                    )
+                    await asyncio.sleep(delay)
+
+        logger.error(f"모든 URL × 모든 round 실패: clip_id={clip_id}")
         return None
 
     # ━━━ 배치 생성 (병렬) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
