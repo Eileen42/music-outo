@@ -22,6 +22,7 @@ class MetaDesignerAgent(BaseAgent):
         project_state: dict,
         channel_videos: list[dict] | None = None,
         instruction: str = "",
+        template: str | dict = "",
     ) -> dict:
         """
         메타데이터 설계도 생성.
@@ -62,6 +63,7 @@ class MetaDesignerAgent(BaseAgent):
         channel_ref = self._format_channel_videos(channel_videos)
         bench_ref = self._format_benchmark(benchmark)
         concept_ref = self._format_concept(concept)
+        template_ref = self._format_template(template)
         track_list = "\n".join(
             f"  {t.get('index', i+1)}. {t.get('title', '')}"
             for i, t in enumerate(tracks)
@@ -82,13 +84,18 @@ class MetaDesignerAgent(BaseAgent):
 ━━ 내 채널 기존 영상 ━━
 {channel_ref}
 
+━━ ★ 사용자 참고 템플릿 (있으면 이 형식·톤·스타일을 우선) ━━
+{template_ref}
+
 ━━ 사용자 지시사항 ━━
 {instruction or "(없음)"}
 
 분석해야 할 것:
-1. 채널 기존 영상의 제목/설명/태그 패턴 (일관성 유지를 위해)
-2. 벤치마크의 SEO 전략 (참고만, 복사 X)
-3. 이 프로젝트 컨셉에 맞는 최적 메타데이터 구조
+1. ★ 사용자 참고 템플릿이 "(없음)" 이 아니면, 그 형식·톤·구조를 최우선으로 반영
+   (예: 템플릿의 제목 패턴이 "[분위기] 음악 | [용도]" 면 우리 결과도 같은 패턴으로)
+2. 채널 기존 영상의 제목/설명/태그 패턴 (템플릿 다음 우선)
+3. 벤치마크의 SEO 전략 (참고만, 복사 X)
+4. 이 프로젝트 컨셉에 맞는 최적 메타데이터 구조
 
 JSON으로 반환:
 {{
@@ -161,6 +168,37 @@ JSON으로 반환:
             f"- {k}: {v}" for k, v in concept.items()
             if v and k in ("project_name", "genre", "core_mood", "tempo", "bpm_range", "instrumentation", "atmosphere")
         )
+
+    @staticmethod
+    def _format_template(template) -> str:
+        """사용자 참고 템플릿 포맷팅. dict / str / 빈 값 모두 처리.
+
+        dict 형식 권장: {"title": "...", "description": "...", "tags": "...", "comment": "..."}
+        str 도 허용: 통째로 던지면 모든 항목 참고.
+        빈 값 → "(없음)" 반환 → 프롬프트에서 자연스럽게 무시.
+        """
+        if not template:
+            return "(없음 — 자유 설계)"
+        if isinstance(template, str):
+            t = template.strip()
+            return t if t else "(없음 — 자유 설계)"
+        if isinstance(template, dict):
+            lines: list[str] = []
+            for key, label in (
+                ("title", "제목"),
+                ("description", "설명"),
+                ("tags", "태그"),
+                ("comment", "고정댓글"),
+            ):
+                val = template.get(key)
+                if val:
+                    if isinstance(val, list):
+                        val = ", ".join(str(x) for x in val)
+                    val_str = str(val).strip()
+                    if val_str:
+                        lines.append(f"- {label} 템플릿:\n{val_str}")
+            return "\n".join(lines) if lines else "(없음 — 자유 설계)"
+        return "(없음 — 자유 설계)"
 
 
 meta_designer_agent = MetaDesignerAgent()

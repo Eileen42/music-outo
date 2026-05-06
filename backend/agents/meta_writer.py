@@ -31,12 +31,14 @@ class MetaWriterAgent(BaseAgent):
         project_state: dict,
         instruction: str = "",
         language: str = "ko",
+        template: str | dict = "",
     ) -> dict:
         """
         설계도(spec)에 따라 제목, 설명, 태그, 고정댓글 생성.
 
         language: "ko" (한국어 기본) | "en" (영어). 구조/스타일/태그 개수는 동일,
         출력 언어만 바뀐다.
+        template: 사용자 참고 템플릿. dict 면 항목별로, str 이면 모든 항목에 통째로 전달.
 
         Returns: {"title": str, "description": str, "tags": list, "comment": str}
         """
@@ -59,14 +61,20 @@ class MetaWriterAgent(BaseAgent):
         tags_spec = spec.get("tags_spec", {})
         comment_spec = spec.get("comment_spec", {})
 
+        # 사용자 템플릿 항목별 추출 (dict 면 해당 키, str 이면 전체 텍스트 공유)
+        tpl_title = self._template_for(template, "title")
+        tpl_desc = self._template_for(template, "description")
+        tpl_tags = self._template_for(template, "tags")
+        tpl_comment = self._template_for(template, "comment")
+
         # 제목 생성
-        title = await self._gen_title(title_spec, concept, playlist_title, len(tracks), instruction, language)
+        title = await self._gen_title(title_spec, concept, playlist_title, len(tracks), instruction, language, template_ref=tpl_title)
 
         # 설명, 태그, 댓글 병렬 생성
         import asyncio
-        desc_task = self._gen_description(desc_spec, concept, title, track_list, instruction, language)
-        tags_task = self._gen_tags(tags_spec, concept, track_list, instruction, language)
-        comment_task = self._gen_comment(comment_spec, title, track_list, len(tracks), instruction, language)
+        desc_task = self._gen_description(desc_spec, concept, title, track_list, instruction, language, template_ref=tpl_desc)
+        tags_task = self._gen_tags(tags_spec, concept, track_list, instruction, language, template_ref=tpl_tags)
+        comment_task = self._gen_comment(comment_spec, title, track_list, len(tracks), instruction, language, template_ref=tpl_comment)
 
         description, tags, comment = await asyncio.gather(desc_task, tags_task, comment_task)
 
@@ -76,8 +84,47 @@ class MetaWriterAgent(BaseAgent):
             "tags": tags,
             "comment": comment,
         }
-        logger.info(f"메타데이터 작성 완료 ({language}): title={title[:40]}, tags={len(tags)}개")
+        logger.info(
+            f"메타데이터 작성 완료 ({language}): title={title[:40]}, tags={len(tags)}개"
+            f"{' (템플릿 적용)' if template else ''}"
+        )
         return result
+
+    @staticmethod
+    def _template_for(template, key: str) -> str:
+        """write_all 의 template 인자를 항목별로 추출.
+
+        dict 형식: {"title":"...", "description":"..."} → 해당 key 값 반환
+        str 형식: 모든 항목에 통째로 전달 (사용자가 구분 안 한 경우)
+        빈 값/누락: "" → 프롬프트에서 자연스럽게 무시
+        """
+        if not template:
+            return ""
+        if isinstance(template, str):
+            return template.strip()
+        if isinstance(template, dict):
+            val = template.get(key)
+            if val is None:
+                return ""
+            if isinstance(val, list):
+                val = ", ".join(str(x) for x in val)
+            return str(val).strip()
+        return ""
+
+    @staticmethod
+    def _template_block(template_ref: str, language: str = "ko") -> str:
+        """프롬프트에 끼워 넣을 '사용자 참고 템플릿' 블록 생성. 비어있으면 빈 문자열."""
+        if not template_ref:
+            return ""
+        if language == "en":
+            return (
+                f"\n━━ ★ User Reference Template (follow this style/structure first) ━━\n"
+                f"{template_ref}\n"
+            )
+        return (
+            f"\n━━ ★ 사용자 참고 템플릿 (이 형식·구조를 우선 반영) ━━\n"
+            f"{template_ref}\n"
+        )
 
     async def _translate_text(self, text: str) -> str:
         """짧은 텍스트 한국어 → 영어. 빈 문자열/이미 영어면 그대로."""
@@ -146,7 +193,8 @@ class MetaWriterAgent(BaseAgent):
             "전체 출력(제목·설명·태그·댓글)을 자연스러운 한국어로 작성하세요.\n"
         )
 
-    async def _gen_title(self, spec: dict, concept: dict, playlist: str, count: int, instruction: str, language: str = "ko") -> str:
+    async def _gen_title(self, spec: dict, concept: dict, playlist: str, count: int, instruction: str, language: str = "ko", template_ref: str = "") -> str:
+        tpl_block = self._template_block(template_ref, language)
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
 
@@ -164,9 +212,11 @@ Write a YouTube video title.
 - Genre: {concept.get('genre', '')}
 - Mood: {concept.get('core_mood', '')}
 - Track count: {count}
-
+{tpl_block}
 {f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ If a User Reference Template is provided above, mirror its format (length, capitalization,
+   punctuation pattern, emoji usage) while replacing topic-specific words with this project's.
 Follow the spec's style and structure exactly. Output ONLY the title text in English, no markdown."""
         else:
             prompt = f"""{self._lang_directive(language)}
@@ -185,16 +235,19 @@ YouTube 영상 제목을 작성하세요.
 - 장르: {concept.get('genre', '')}
 - 분위기: {concept.get('core_mood', '')}
 - 곡 수: {count}곡
-
+{tpl_block}
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ 위에 사용자 참고 템플릿이 있으면 그 형식(길이·이모지·구분자 패턴)을 그대로
+   미러링하되 주제·키워드는 이 프로젝트에 맞게 교체하세요.
 설계도의 스타일과 구조를 정확히 따라 제목을 작성하세요.
 마크다운 없이 제목 텍스트만 출력."""
 
         return (await gemini_client.generate_text(prompt)).strip()
 
-    async def _gen_description(self, spec: dict, concept: dict, title: str, track_list: str, instruction: str, language: str = "ko") -> str:
+    async def _gen_description(self, spec: dict, concept: dict, title: str, track_list: str, instruction: str, language: str = "ko", template_ref: str = "") -> str:
         structure = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(spec.get("structure", [])))
+        tpl_block = self._template_block(template_ref, language)
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
 
@@ -214,9 +267,11 @@ Write a YouTube video description.
 
 ━━ Tracklist ━━
 {track_list}
-
+{tpl_block}
 {f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ If a User Reference Template is provided above, mirror its sectioning, line breaks,
+   emoji placement, hashtag style. Replace topic-specific copy with this project's content.
 Follow the spec's structure and tone exactly. Output text only in English, no markdown."""
         else:
             prompt = f"""{self._lang_directive(language)}
@@ -237,17 +292,20 @@ YouTube 영상 설명란을 작성하세요.
 
 ━━ 트랙리스트 ━━
 {track_list}
-
+{tpl_block}
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ 위에 사용자 참고 템플릿이 있으면 그 섹션 구조·줄바꿈·이모지 위치·해시태그 스타일을
+   그대로 미러링하되 주제는 이 프로젝트에 맞게 교체하세요.
 설계도의 구조와 톤을 정확히 따르세요. 마크다운 없이 텍스트만."""
 
         return (await gemini_client.generate_text(prompt)).strip()
 
-    async def _gen_tags(self, spec: dict, concept: dict, track_list: str, instruction: str, language: str = "ko") -> list[str]:
+    async def _gen_tags(self, spec: dict, concept: dict, track_list: str, instruction: str, language: str = "ko", template_ref: str = "") -> list[str]:
         primary = ", ".join(spec.get("primary", []))
         secondary = ", ".join(spec.get("secondary", []))
         consistent = ", ".join(spec.get("channel_consistent", []))
+        tpl_block = self._template_block(template_ref, language)
 
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
@@ -263,9 +321,12 @@ Generate YouTube tags.
 ━━ Project ━━
 - Genre: {concept.get('genre', '')}
 - Mood: {concept.get('core_mood', '')}
-
+{tpl_block}
 {f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ If a User Reference Template is provided above (sample tags), include those exact tags
+   when relevant + add complementary tags for this project. Match the template's style
+   (lowercase vs CamelCase, length, hashtag format).
 Up to {spec.get('max_count', 30)} tags ordered by relevance.
 Tags MUST be in English (lowercase preferred). Use natural English keywords an English-speaking audience would search.
 JSON array only: ["tag1", "tag2", ...]"""
@@ -283,9 +344,11 @@ YouTube 태그를 생성하세요.
 ━━ 프로젝트 ━━
 - 장르: {concept.get('genre', '')}
 - 분위기: {concept.get('core_mood', '')}
-
+{tpl_block}
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ 위에 사용자 참고 템플릿(예시 태그) 이 있으면 그 중 관련 있는 것은 그대로 포함 +
+   이 프로젝트에 맞는 보완 태그 추가. 템플릿 스타일(소문자/카멜케이스/해시태그 형식) 맞춤.
 설계도의 핵심/보조/채널 태그를 기반으로 최대 {spec.get('max_count', 30)}개.
 태그는 한국어로. 일반화된 영문 음악 키워드(lofi, jazz)는 그대로 사용 가능.
 관련성 높은 순. JSON 배열만: ["태그1", "태그2", ...]"""
@@ -299,7 +362,8 @@ YouTube 태그를 생성하세요.
                     return [str(t) for t in v[:spec.get("max_count", 30)]]
         return []
 
-    async def _gen_comment(self, spec: dict, title: str, track_list: str, count: int, instruction: str, language: str = "ko") -> str:
+    async def _gen_comment(self, spec: dict, title: str, track_list: str, count: int, instruction: str, language: str = "ko", template_ref: str = "") -> str:
+        tpl_block = self._template_block(template_ref, language)
         if language == "en":
             prompt = f"""{self._lang_directive(language)}
 
@@ -317,9 +381,11 @@ Write a YouTube pinned comment.
 
 ━━ Tracklist ━━
 {track_list}
-
+{tpl_block}
 {f'━━ User Instruction ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ If a User Reference Template is provided above, mirror its emoji usage, sentence count,
+   and CTA pattern. Replace topic-specific words with this project's.
 Follow the spec's style and CTA. Output text only in English, no markdown."""
         else:
             prompt = f"""{self._lang_directive(language)}
@@ -338,9 +404,11 @@ YouTube 고정댓글을 작성하세요.
 
 ━━ 트랙리스트 ━━
 {track_list}
-
+{tpl_block}
 {f'━━ 사용자 지시 ━━{chr(10)}{instruction}' if instruction else ''}
 
+★ 위에 사용자 참고 템플릿이 있으면 이모지·문장 수·CTA 패턴을 그대로 미러링하되
+   주제는 이 프로젝트에 맞게 교체하세요.
 설계도의 스타일과 CTA를 따르세요. 마크다운 없이 텍스트만."""
 
         return (await gemini_client.generate_text(prompt)).strip()

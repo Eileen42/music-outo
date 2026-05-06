@@ -21,6 +21,13 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const [saving, setSaving] = useState(false)
   const [instruction, setInstruction] = useState('')
   const [language, setLanguage] = useState<'ko' | 'en'>('ko')
+  // 사용자 참고 템플릿 — 비워두면 자동 설계, 입력하면 그 형식·톤·구조 우선 반영.
+  // 항목별로 따로 줄 수 있도록 4개 분리 (제목·설명·태그·고정댓글).
+  const [tplTitle, setTplTitle] = useState('')
+  const [tplDescription, setTplDescription] = useState('')
+  const [tplTags, setTplTags] = useState('')
+  const [tplComment, setTplComment] = useState('')
+  const [showTemplate, setShowTemplate] = useState(false)
   const meta = project.metadata || { title: null, description: null, tags: [], comment: null }
 
   // 곡 제목에서 넘버/버전/날짜/확장자 제거
@@ -76,7 +83,21 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
   const handleGenerate = async (regenerate = false) => {
     setGenerating(true)
     try {
-      const result = await api.metadata.generate(project.id, regenerate, instruction, language)
+      // 항목별 템플릿 dict — 비어있는 키는 백엔드가 무시하고 자동 설계.
+      const template = {
+        title: tplTitle.trim(),
+        description: tplDescription.trim(),
+        tags: tplTags.trim(),
+        comment: tplComment.trim(),
+      }
+      const hasTemplate = Object.values(template).some(v => v)
+      const result = await api.metadata.generate(
+        project.id,
+        regenerate,
+        instruction,
+        language,
+        hasTemplate ? template : undefined,
+      )
       setTitle(result.title || '')
       setDescription(result.description || '')
       setTags((result.tags || []).join(', '))
@@ -160,6 +181,75 @@ export default function MetadataPreview({ project, onRefresh }: Props) {
           <p className="text-[10px] text-gray-600 mt-1">
             채널 연결됨 — YouTube 인증 시 기존 영상 스타일을 자동 참조합니다
           </p>
+        )}
+      </div>
+
+      {/* ★ 사용자 참고 템플릿 — 항목별로 따로 입력. 비워두면 자동 설계. */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setShowTemplate(s => !s)}
+          className="text-xs text-purple-300/80 hover:text-purple-200 flex items-center gap-1.5 mb-1.5"
+        >
+          <span>{showTemplate ? '▼' : '▶'}</span>
+          <span>참고 템플릿</span>
+          <span className="text-[10px] text-gray-600">
+            (선택) 항목별로 형식·예시를 주면 그 스타일을 우선 반영. 비우면 자동 설계.
+          </span>
+          {[tplTitle, tplDescription, tplTags, tplComment].some(v => v.trim()) && (
+            <span className="text-[10px] text-purple-300 bg-purple-900/40 border border-purple-700/50 px-1.5 py-0.5 rounded ml-1">
+              사용 중
+            </span>
+          )}
+        </button>
+
+        {showTemplate && (
+          <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-3 space-y-3">
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-1">제목 템플릿</label>
+              <textarea
+                value={tplTitle}
+                onChange={e => setTplTitle(e.target.value)}
+                placeholder={'예: [잔잔한 피아노] 비 오는 카페 음악 | 30분 연속재생'}
+                rows={1}
+                className="w-full bg-gray-950 border border-gray-800 text-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-purple-500/50 resize-y placeholder:text-gray-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-1">설명 템플릿</label>
+              <textarea
+                value={tplDescription}
+                onChange={e => setTplDescription(e.target.value)}
+                placeholder={'예시 (구조·이모지·해시태그 패턴):\n☕ 잔잔한 카페 음악으로 하루를 마무리하세요\n\n📋 트랙리스트:\n00:00 ...\n\n💬 좋아요 / 구독 부탁드립니다\n\n#카페음악 #LoFi #힐링'}
+                rows={6}
+                className="w-full bg-gray-950 border border-gray-800 text-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-purple-500/50 resize-y placeholder:text-gray-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-1">태그 템플릿 (예시 태그 — 관련성 있는 건 그대로 포함됨)</label>
+              <textarea
+                value={tplTags}
+                onChange={e => setTplTags(e.target.value)}
+                placeholder={'예: 카페음악, 잔잔한피아노, 빗소리, lofi cafe, study music, rainy day'}
+                rows={2}
+                className="w-full bg-gray-950 border border-gray-800 text-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-purple-500/50 resize-y placeholder:text-gray-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-1">고정댓글 템플릿</label>
+              <textarea
+                value={tplComment}
+                onChange={e => setTplComment(e.target.value)}
+                placeholder={'예: ☕ 오늘 가장 끌리는 곡은 몇 번이신가요? 댓글로 공유해주세요 ✨'}
+                rows={2}
+                className="w-full bg-gray-950 border border-gray-800 text-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-purple-500/50 resize-y placeholder:text-gray-700"
+              />
+            </div>
+            <p className="text-[10px] text-gray-600">
+              ※ 입력한 항목만 템플릿으로 반영, 비어있는 항목은 자동 설계됩니다.
+              주제·키워드는 이 프로젝트에 맞게 자동 교체됩니다.
+            </p>
+          </div>
         )}
       </div>
 

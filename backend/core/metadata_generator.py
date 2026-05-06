@@ -27,18 +27,20 @@ class MetadataGenerator:
         instruction: str = "",
         channel_videos: list[dict] | None = None,
         language: str = "ko",
+        template: str | dict = "",
     ) -> dict:
         """
         3단계 메타데이터 생성.
 
         language: "ko" (기본) | "en". 설계 구조는 동일하고 출력 언어만 변경.
+        template: 사용자가 참고로 제공하는 템플릿 (dict 또는 str). 빈 값이면 기본 동작.
 
         Returns: {"title": str, "description": str, "tags": list, "comment": str}
         """
         # ── Step 1: MetaDesigner — 설계도 ──
-        logger.info("[1/3] MetaDesigner: 메타데이터 설계 중...")
+        logger.info(f"[1/3] MetaDesigner: 메타데이터 설계 중... (template={'있음' if template else '없음'})")
         spec = await meta_designer_agent.design(
-            project_state, channel_videos, instruction
+            project_state, channel_videos, instruction, template=template,
         )
         logger.info(f"[1/3] 설계 완료")
 
@@ -53,7 +55,9 @@ class MetadataGenerator:
 
         # ── Step 2: MetaWriter — 작성 ──
         logger.info(f"[2/3] MetaWriter: 메타데이터 작성 중 ({language})...")
-        result = await meta_writer_agent.write_all(spec, project_state, instruction, language)
+        result = await meta_writer_agent.write_all(
+            spec, project_state, instruction, language, template=template,
+        )
         logger.info(f"[2/3] 작성 완료: title={result.get('title', '')[:40]}")
 
         # ── Step 3: MetaQA — 검수 (최대 2회 재시도) ──
