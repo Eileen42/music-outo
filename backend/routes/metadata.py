@@ -61,7 +61,9 @@ async def read_thumbnail_text(project_id: str):
 @router.get("", summary="메타데이터 조회")
 async def get_metadata(project_id: str):
     state = state_manager.require(project_id)
-    return state.get("metadata", {})
+    meta = state.get("metadata", {}) or {}
+    # _spec / _spec_key 등 내부 캐시는 응답에서 제외
+    return {k: v for k, v in meta.items() if not k.startswith("_")}
 
 
 @router.post("/generate", summary="메타데이터 AI 생성 (Gemini)")
@@ -103,8 +105,11 @@ async def generate_metadata(project_id: str, body: dict = None):
         logger.error(f"메타데이터 생성 실패: {e}", exc_info=True)
         raise HTTPException(500, f"메타데이터 생성 실패: {str(e)}")
 
+    # _spec / _spec_key 는 다음 재생성 시 designer 스킵용 캐시 — 디스크엔 저장하되
+    # 프론트 응답에선 제외해 노이즈/페이로드 절감.
     state_manager.update(project_id, {"metadata": generated})
-    return generated
+    public = {k: v for k, v in generated.items() if not k.startswith("_")}
+    return public
 
 
 @router.put("", summary="메타데이터 수동 수정")
