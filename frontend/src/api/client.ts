@@ -243,6 +243,23 @@ export const api = {
     skillContent: (agent: string, skillId: string) => http.get<{ id: string; agent: string; content: string }>(`/api/agents/skills/${agent}/${skillId}`).then(r => r.data),
   },
 
+  // 자동 업데이트: 현재/최신 버전 비교, 원클릭 설치
+  update: {
+    check: () =>
+      http.get<{
+        current: string
+        latest?: string
+        update_available?: boolean
+        release_url?: string
+        exe_download_url?: string
+        error?: string
+      }>('/api/update/check').then(r => r.data),
+    install: () =>
+      http.post<{ ok: boolean; installing?: boolean; latest?: string; error?: string }>(
+        '/api/update/install',
+      ).then(r => r.data),
+  },
+
   channels: {
     list: () => http.get<Channel[]>('/api/channels').then(r => r.data),
     get: (id: string) => http.get<Channel>(`/api/channels/${id}`).then(r => r.data),

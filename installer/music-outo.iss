@@ -41,7 +41,14 @@ Name: "autostart"; Description: "PC 시작 시 자동 실행"; GroupDescription:
 [Files]
 ; PyInstaller 가 dist/music-outo/ 폴더에 EXE + 의존 dll/data 를 모두 풀어둔다.
 ; 여기서 그 폴더 통째로 설치 디렉토리에 복사.
-Source: "..\dist\music-outo\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; ★ Excludes: 사용자 데이터는 절대 덮어쓰지 않는다 (업데이트 안전성의 핵심).
+;   - backend\storage\* : 프로젝트·채널·세션 등 실제 작업물
+;   - .env             : 사용자가 입력한 Gemini 키 등
+;   - *.log            : 실행 로그
+;   이 항목들이 패키지에 섞여도 설치/업데이트 시 복사에서 제외되어 기존 데이터가 보존된다.
+Source: "..\dist\music-outo\*"; DestDir: "{app}"; \
+  Flags: ignoreversion recursesubdirs createallsubdirs; \
+  Excludes: "backend\storage\*,*.log,.env"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(SPECPATH)
 BACKEND = ROOT / 'backend'
 FRONTEND_DIST = ROOT / 'frontend' / 'dist'
+FFMPEG_DIR = ROOT / 'vendor' / 'ffmpeg'   # ffmpeg.exe, ffprobe.exe (install.bat/수동으로 미리 복사)
 
 # ─── 데이터 파일 ────────────────────────────────────────────────────────────
 # (소스, 번들 내 경로)
@@ -19,6 +20,14 @@ datas = [
     (str(FRONTEND_DIST), 'frontend_dist'),       # SPA 정적 — main.py 가 sys._MEIPASS/frontend_dist 로 찾음
     (str(BACKEND / 'templates'), 'templates'),   # 에이전트 스킬 .md 파일들
 ]
+
+# ffmpeg/ffprobe 동봉 — 받는 PC 에 ffmpeg 가 없어도 영상 빌드가 되도록.
+# run_local.py 가 시작 시 이 폴더를 PATH 앞에 붙여 subprocess "ffmpeg" 호출이 동작.
+# (datas 로 넣어 PyInstaller 의 DLL 의존성 분석을 건너뜀 — full static 빌드라 단독 실행됨)
+for _exe in ('ffmpeg.exe', 'ffprobe.exe'):
+    _p = FFMPEG_DIR / _exe
+    if _p.exists():
+        datas.append((str(_p), 'ffmpeg'))
 
 # ─── 동적 import 보호 ──────────────────────────────────────────────────────
 # uvicorn 이 'main:app' 을 문자열로 import → 정적 분석 실패 방지
@@ -91,7 +100,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=True,             # 디버깅 위해 콘솔 유지 (안정화 후 False 로 전환)
+    console=False,            # 배포용: 검은 콘솔창 없이 트레이 아이콘만 (run_local.py 가 트레이 제공)
     disable_windowed_traceback=False,
     icon=None,
 )

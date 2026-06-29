@@ -20,6 +20,45 @@ PORT = 8000
 URL = f"http://localhost:{PORT}"
 
 
+def _ensure_std_streams() -> None:
+    """콘솔 없는(windowed) EXE 에서 표준 출력/에러를 로그 파일로 연결.
+
+    PyInstaller windowed 빌드(console=False)에서는 sys.stdout/sys.stderr 가
+    None 이다. 이 상태로 uvicorn/logging 이 출력하려 하면 예외가 나면서
+    서버 스레드가 조용히 죽어버린다(=화면이 안 뜸). EXE 옆 music-outo.log 로
+    출력을 돌려서 이를 막고, 동시에 문제 발생 시 들여다볼 로그도 남긴다.
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    try:
+        log_dir = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+        f = open(log_dir / "music-outo.log", "a", encoding="utf-8", buffering=1)
+        if sys.stdout is None:
+            sys.stdout = f
+        if sys.stderr is None:
+            sys.stderr = f
+    except Exception:
+        import io
+        if sys.stdout is None:
+            sys.stdout = io.StringIO()
+        if sys.stderr is None:
+            sys.stderr = io.StringIO()
+
+
+def _add_bundled_ffmpeg_to_path() -> None:
+    """EXE(frozen) 환경에서 함께 묶인 ffmpeg/ffprobe 를 PATH 앞에 추가.
+
+    받는 PC 에 ffmpeg 가 설치돼 있지 않아도 영상 빌드(packager)·mp3 교정·
+    파형 분석이 동작하도록 한다. 일반 python 실행 때는 시스템 ffmpeg 를 쓰므로 건너뜀.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    ffmpeg_dir = base / "ffmpeg"
+    if ffmpeg_dir.exists():
+        os.environ["PATH"] = str(ffmpeg_dir) + os.pathsep + os.environ.get("PATH", "")
+
+
 def _open_browser(url: str = URL) -> None:
     """Windows 우선 os.startfile → 실패 시 webbrowser fallback.
     PyInstaller frozen 환경에서 webbrowser.open 이 침묵 실패하는 경우 대비."""
@@ -100,7 +139,9 @@ def _start_tray_icon() -> None:
 
 
 def main() -> None:
+    _ensure_std_streams()          # 콘솔 없는 EXE 에서 로깅 충돌 방지 (가장 먼저)
     _ensure_cwd_on_path()
+    _add_bundled_ffmpeg_to_path()  # 동봉 ffmpeg 를 PATH 에 (서버 임포트 전에 먼저)
 
     # uvicorn 을 백그라운드 스레드로
     server_thread = threading.Thread(target=_run_server, daemon=True)

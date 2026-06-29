@@ -50,5 +50,18 @@ tests/screenshots/
 build/
 dist/
 
+# 동봉용 외부 바이너리 (ffmpeg 등 — 용량 커서 git 제외, 빌드 시 로컬에 준비)
+vendor/
+
+# 프론트 빌드 로그
+frontend/build_frontend.log
+
+# 설치파일 빌드 산출물 (setup.exe — 용량 큼)
+installer/Output/
+
+# 런타임 로그
+backend/_uvicorn*.log
+backend/*.err.log
+
 # 사용자 학습 자료 (저작권 포함 가능)
 genre_materials/

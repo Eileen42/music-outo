@@ -15,6 +15,7 @@ import GeminiSetup from './components/GeminiSetup'
 import LandingPage from './components/LandingPage'
 import DownloadPage from './components/DownloadPage'
 import GuidePage from './components/GuidePage'
+import UpdateBanner from './components/UpdateBanner'
 
 type AuthState = 'loading' | 'landing' | 'register' | 'pending' | 'rejected' | 'approved'
 
@@ -411,6 +412,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-950">
+      {/* ── 새 버전 알림 배너 (새 버전 있을 때만 표시) ── */}
+      <UpdateBanner />
       {/* ── 헤더 ── */}
       <header className="bg-gray-900 border-b border-gray-800 px-5 py-3 flex items-center gap-4 shrink-0">
         <button
