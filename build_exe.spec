@@ -70,6 +70,11 @@ excludes = [
     'matplotlib',  # 안 씀
     'IPython',
     'jupyter',
+    # 용량 절감 — 설치돼 있어도 우리 코드가 안 쓰는 무거운 패키지 (있으면 제외해 용량↓)
+    'tensorboard',
+    'torchvision', 'torchaudio',
+    'pandas',
+    'pytest', '_pytest',
 ]
 
 block_cipher = None

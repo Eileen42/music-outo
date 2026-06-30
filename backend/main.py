@@ -560,30 +560,98 @@ async def check_update():
         return {"error": str(e), "current": VERSION}
 
 
-@app.post("/api/update/install")
-async def install_update():
-    """최신 버전 설치파일을 내려받아 조용히 설치한 뒤 앱을 자동 재시작한다.
+# 자동 업데이트 진행 상태 (프론트가 /api/update/progress 로 폴링)
+#   phase: idle | downloading | installing | restarting | error
+_update_progress = {
+    "phase": "idle", "percent": 0,
+    "downloaded_mb": 0.0, "total_mb": 0.0,
+    "latest": "", "error": "",
+}
 
-    동작 순서:
-      1) GitHub 최신 릴리스에서 setup.exe 주소를 찾는다
-      2) 임시 폴더로 다운로드
-      3) '앱 종료 대기 → 설치 → 재시작' 을 수행하는 배치파일을 만든다
-      4) 배치를 분리 실행하고, 1.5초 뒤 앱을 강제 종료한다
-         (실행 중이면 파일이 잠겨 설치가 안 되므로, 앱이 빠져야 배치가 설치를 진행)
 
-    ※ EXE(설치본)에서만 동작. 개발 모드(소스 실행)에서는 거부한다.
-    ※ 사용자 데이터(storage/.env)는 설치 스크립트의 Excludes 로 보존된다.
-    """
+def _do_update(url: str, latest: str) -> None:
+    """백그라운드 스레드: 설치파일을 진행률과 함께 내려받고 설치 → 앱 재시작."""
     import os
     import subprocess
     import tempfile
-    import threading
+    import time
     import urllib.request
+
+    try:
+        tmp = Path(tempfile.gettempdir()) / "music-outo-update"
+        tmp.mkdir(parents=True, exist_ok=True)
+        setup_path = tmp / "music-outo-setup.exe"
+
+        # ── 다운로드 (청크 단위로 받아 % 갱신) ──
+        _update_progress.update(phase="downloading", percent=0, downloaded_mb=0.0, latest=latest, error="")
+        req = urllib.request.Request(url, headers={"Accept": "application/octet-stream"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            total = int(resp.headers.get("Content-Length") or 0)
+            _update_progress["total_mb"] = round(total / 1024 / 1024, 1)
+            downloaded = 0
+            with open(setup_path, "wb") as f:
+                while True:
+                    chunk = resp.read(262144)  # 256KB
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    _update_progress["downloaded_mb"] = round(downloaded / 1024 / 1024, 1)
+                    if total:
+                        _update_progress["percent"] = int(downloaded * 100 / total)
+        _update_progress.update(phase="installing", percent=100)
+
+        # ── 설치 배치 작성 (앱 종료 대기 → 조용히 설치 → 재실행 → 자기삭제) ──
+        app_exe = Path(sys.executable)
+        bat = tmp / "apply_update.bat"
+        bat.write_text(
+            "@echo off\r\n"
+            ":waitloop\r\n"
+            'tasklist /FI "IMAGENAME eq music-outo.exe" 2>nul | find /I "music-outo.exe" >nul && (\r\n'
+            "  timeout /t 1 /nobreak >nul\r\n"
+            "  goto waitloop\r\n"
+            ")\r\n"
+            f'"{setup_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\r\n'
+            f'start "" "{app_exe}"\r\n'
+            'del "%~f0" >nul 2>&1\r\n',
+            encoding="utf-8",
+        )
+        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+        subprocess.Popen(["cmd", "/c", str(bat)], creationflags=flags, close_fds=True)
+
+        # ── 앱 강제 종료 (파일 잠금 해제 → 배치가 설치 진행) ──
+        _update_progress["phase"] = "restarting"
+        time.sleep(1.5)
+        os._exit(0)
+    except Exception as e:
+        _update_progress.update(phase="error", error=str(e)[:200])
+
+
+@app.get("/api/update/progress")
+async def update_progress():
+    """자동 업데이트 진행 상태 (다운로드 %, 단계)."""
+    return _update_progress
+
+
+@app.post("/api/update/install")
+async def install_update():
+    """최신 버전 설치파일을 진행률과 함께 내려받아 설치하고 앱을 자동 재시작한다.
+
+    실제 다운로드/설치는 백그라운드 스레드(_do_update)에서 진행하며,
+    프론트는 /api/update/progress 로 진행률(%)·단계를 폴링한다.
+    ※ EXE(설치본)에서만 동작. ※ 사용자 데이터(storage/.env)는 Excludes 로 보존.
+    """
+    import threading
 
     if not getattr(sys, "frozen", False):
         return {"ok": False, "error": "개발 모드에서는 자동 업데이트를 사용할 수 없습니다. (설치본에서만 가능)"}
 
-    # 1) 최신 릴리스의 setup.exe 주소
+    # 이미 진행 중이면 중복 시작 방지
+    if _update_progress["phase"] in ("downloading", "installing", "restarting"):
+        return {"ok": True, "alreadyRunning": True}
+
+    # 최신 릴리스의 setup.exe 주소 확인
+    import urllib.request
     try:
         req = urllib.request.Request(
             "https://api.github.com/repos/Eileen42/music-outo/releases/latest",
@@ -601,46 +669,11 @@ async def install_update():
         return {"ok": False, "error": f"릴리스 확인 실패: {e}"}
     if not url:
         return {"ok": False, "error": "릴리스에 설치파일(.exe)이 없습니다."}
-    # 안전장치: 진짜 더 높은 버전이 아니면 설치 거부 (다운그레이드/옛버전 설치 방지)
     if not _is_newer(latest, VERSION):
         return {"ok": False, "error": f"이미 최신 버전입니다. (현재 {VERSION}, 최신 {latest})"}
 
-    # 2) 설치파일 다운로드
-    try:
-        tmp = Path(tempfile.gettempdir()) / "music-outo-update"
-        tmp.mkdir(parents=True, exist_ok=True)
-        setup_path = tmp / "music-outo-setup.exe"
-        urllib.request.urlretrieve(url, str(setup_path))
-    except Exception as e:
-        return {"ok": False, "error": f"다운로드 실패: {e}"}
-
-    # 3) 재시작 배치 작성 (앱이 완전히 종료될 때까지 기다린 뒤 설치 → 재실행 → 자기삭제)
-    app_exe = Path(sys.executable)
-    bat = tmp / "apply_update.bat"
-    bat.write_text(
-        "@echo off\r\n"
-        ":waitloop\r\n"
-        'tasklist /FI "IMAGENAME eq music-outo.exe" 2>nul | find /I "music-outo.exe" >nul && (\r\n'
-        "  timeout /t 1 /nobreak >nul\r\n"
-        "  goto waitloop\r\n"
-        ")\r\n"
-        f'"{setup_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\r\n'
-        f'start "" "{app_exe}"\r\n'
-        'del "%~f0" >nul 2>&1\r\n',
-        encoding="utf-8",
-    )
-
-    # 4) 배치 분리 실행 + 잠시 후 앱 강제 종료 (파일 잠금 해제용)
-    flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
-    subprocess.Popen(["cmd", "/c", str(bat)], creationflags=flags, close_fds=True)
-
-    def _exit_soon():
-        import time
-        time.sleep(1.5)
-        os._exit(0)
-
-    threading.Thread(target=_exit_soon, daemon=True).start()
-    return {"ok": True, "installing": True, "latest": latest}
+    threading.Thread(target=_do_update, args=(url, latest), daemon=True).start()
+    return {"ok": True, "started": True, "latest": latest}
 
 
 # ─── SPA mount (catch-all) ──────────────────────────────────────────────────

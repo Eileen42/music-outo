@@ -255,9 +255,18 @@ export const api = {
         error?: string
       }>('/api/update/check').then(r => r.data),
     install: () =>
-      http.post<{ ok: boolean; installing?: boolean; latest?: string; error?: string }>(
+      http.post<{ ok: boolean; started?: boolean; alreadyRunning?: boolean; latest?: string; error?: string }>(
         '/api/update/install',
       ).then(r => r.data),
+    progress: () =>
+      http.get<{
+        phase: 'idle' | 'downloading' | 'installing' | 'restarting' | 'error'
+        percent: number
+        downloaded_mb: number
+        total_mb: number
+        latest?: string
+        error?: string
+      }>('/api/update/progress').then(r => r.data),
   },
 
   channels: {
