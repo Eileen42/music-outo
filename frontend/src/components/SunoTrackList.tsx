@@ -37,7 +37,13 @@ export default function SunoTrackList({ projectId, tracks, onChange }: Props) {
         audioRefs.current.get(playingIdx)?.pause()
       }
       setLoadingIdx(idx)
-      audio.src = url
+      // audio.src 를 새로 세팅한 뒤엔 명시적으로 load() 를 호출해야 일부 브라우저에서
+      // 직전 src 의 잔여 버퍼가 그대로 재생되는 현상이 사라짐. 트랙 순서 변경 후
+      // 같은 인덱스 위치에서 다른 곡을 눌렀을 때 옛 곡이 들리는 증상 방지.
+      if (audio.src !== url) {
+        audio.src = url
+        audio.load()
+      }
       audio.play()
         .then(() => { setPlayingIdx(idx); setLoadingIdx(null) })
         .catch(() => setLoadingIdx(null))
@@ -129,10 +135,15 @@ export default function SunoTrackList({ projectId, tracks, onChange }: Props) {
         const isLoading = loadingIdx === idx
         const isDragging = dragIdx === idx
         const isDragOver = dragOverIdx === idx && dragIdx !== idx
+        // key 를 idx 로 두면 React 가 위치 기준으로 DOM(특히 <audio>)을 재사용해서
+        // 순서 변경 후에도 이전에 로드된 src 가 그대로 남는 원인이 됨.
+        // file_path / suno_id 처럼 트랙 자체에 묶인 안정 키를 사용해 트랙별로 audio
+        // 엘리먼트가 따라다니도록 한다. 둘 다 비어있는 경우 idx 폴백.
+        const stableKey = track.file_path || (track.suno_id ? `${track.suno_id}-${track.slot ?? 0}` : `idx-${idx}`)
 
         return (
           <div
-            key={idx}
+            key={stableKey}
             draggable
             onDragStart={() => handleDragStart(idx)}
             onDragOver={e => handleDragOver(e, idx)}

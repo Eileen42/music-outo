@@ -1,18 +1,17 @@
 """
-곡 설계 & Suno 자동화 라우터.
+곡 설계 라우터 (Gemini 4단계 파이프라인 + 갤러리/CRUD).
 
 prefix: /api/tracks
 기존 /api/projects/{id}/tracks (오디오 업로드)와 별개.
+
+Suno 일괄 생성·다운로드 라우트는 routes/suno_batch.py 로 분리했다.
+이 파일은 곡 설계와 곡 단위 CRUD 만 담당한다.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import sys
 from pathlib import Path
-
-import aiohttp
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
@@ -26,12 +25,33 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tracks", tags=["track-design"])
 
-# 프로젝트별 Suno 자동화 진행 상태 (in-memory)
-_suno_tasks: dict[str, dict] = {}
-
-# 프로젝트별 곡 설계(/design) 진행 상태 (in-memory)
+# 프로젝트별 곡 설계(/design) 진행 상태 (in-memory + 디스크 미러)
 # Gemini 4단계 파이프라인이 30~60초 걸려 동기 응답 시 hang 위험. BackgroundTask로 분리.
+# 서버 재시작 시 메모리는 비지만 _design_progress.json 으로 마지막 상태 복원 가능.
 _design_tasks: dict[str, dict] = {}
+
+
+def _design_progress_path(project_id: str) -> Path:
+    return settings.storage_dir / "projects" / project_id / "_design_progress.json"
+
+
+def _persist_design_task(project_id: str) -> None:
+    """현재 _design_tasks[project_id] 를 디스크에 원자적으로 저장.
+    실패해도 메모리 진행 상황은 살아있으므로 경고만 남기고 계속 진행한다."""
+    task = _design_tasks.get(project_id)
+    if task is None:
+        return
+    path = _design_progress_path(project_id)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps(task, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        tmp.replace(path)
+    except Exception as e:
+        logger.warning(f"_design_progress 저장 실패 ({project_id}): {e}")
 
 
 # ──────────────────────────── schemas ────────────────────────────
@@ -45,12 +65,6 @@ class DesignRequest(BaseModel):
     mood: str = ""
     lyrics_hint: str = ""
     extra: str = ""
-
-
-class BatchCreateRequest(BaseModel):
-    channel_id: str
-    # "cookie" (기본·빠름) | "browser" (캡차 발생 시 fallback)
-    mode: str = "cookie"
 
 
 # ──────────────────────────── routes ────────────────────────────
@@ -80,6 +94,7 @@ async def design_tracks(body: DesignRequest, background_tasks: BackgroundTasks):
         "total":    body.count,
         "message":  "대기 중...",
     }
+    _persist_design_task(body.project_id)
 
     background_tasks.add_task(
         _run_design_task,
@@ -94,11 +109,27 @@ async def design_tracks(body: DesignRequest, background_tasks: BackgroundTasks):
 
 @router.get("/design-status/{project_id}", summary="곡 설계 진행 상태")
 async def design_status(project_id: str):
-    """폴링용. status: idle | running | completed | failed."""
+    """폴링용. status: idle | running | completed | failed.
+
+    서버가 재시작된 직후엔 메모리가 비어있을 수 있으니 디스크 미러를 fallback 으로 읽는다.
+    """
     task = _design_tasks.get(project_id)
-    if not task:
-        return {"status": "idle"}
-    return task
+    if task:
+        return task
+    # 서버 재시작 시: 메모리는 비었지만 디스크엔 마지막 상태가 남아있다.
+    path = _design_progress_path(project_id)
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            # running 상태 그대로 두면 영원히 running. 재시작이 일어났다는 것은
+            # 작업도 함께 죽었다는 뜻이므로 interrupted 로 강등.
+            if data.get("status") == "running":
+                data["status"] = "interrupted"
+                data["message"] = "서버 재시작으로 작업이 중단되었습니다. 다시 시작해주세요."
+            return data
+        except Exception:
+            pass
+    return {"status": "idle"}
 
 
 async def _run_design_task(
@@ -115,6 +146,7 @@ async def _run_design_task(
         task["message"] = message
         if progress is not None:
             task["progress"] = progress
+        _persist_design_task(project_id)
 
     try:
         _set("designing", "곡 설계 시작 (사용자 입력 + 채널 프로필 기반)...", 10)
@@ -153,6 +185,7 @@ async def _run_design_task(
             "concept":  concept,
             "total":    len(tracks),
         })
+        _persist_design_task(project_id)
         logger.info(f"[design] 완료: project={project_id}, {len(tracks)}곡")
 
     except Exception as e:
@@ -163,6 +196,7 @@ async def _run_design_task(
             "error":     f"[{type(e).__name__}] {e}",
             "traceback": _tb.format_exc()[-2000:],
         })
+        _persist_design_task(project_id)
         logger.error(f"[design] 실패: project={project_id}, {e}")
 
 
@@ -300,511 +334,6 @@ async def get_active_set(project_id: str):
     }
 
 
-@router.post("/{project_id}/batch-create", summary="Suno 일괄 생성 시작")
-async def batch_create(
-    project_id: str,
-    body: BatchCreateRequest,
-    background_tasks: BackgroundTasks,
-):
-    """
-    설계된 곡 전체를 Suno 자동화에 전달.
-    20곡 → 10회 생성 (1회 = 2곡).
-    """
-    state = state_manager.require(project_id)
-    tracks: list = state.get("designed_tracks", [])
-
-    if not tracks:
-        raise HTTPException(400, "설계된 곡이 없습니다. /design 먼저 실행하세요.")
-
-    # 진행 중일 때만 중복 방지 (failed/completed는 재시작 허용)
-    existing = _suno_tasks.get(project_id, {})
-    if existing.get("status") == "running":
-        raise HTTPException(409, "이미 Suno 생성이 진행 중입니다. 취소하려면 /batch-reset을 호출하세요.")
-
-    try:
-        profile = channel_profile.load(body.channel_id)
-    except FileNotFoundError:
-        raise HTTPException(404, f"채널을 찾을 수 없습니다: {body.channel_id}")
-
-    total_batches = len(tracks)  # 곡별 개별 생성 (1곡 = 1 Suno 호출 → 2 클립)
-
-    _suno_tasks[project_id] = {
-        "status":           "running",
-        "total_batches":    total_batches,
-        "completed":        0,
-        "tracks_collected": 0,
-        "errors":           [],
-    }
-
-    background_tasks.add_task(
-        _run_suno_batch,
-        project_id=project_id,
-        tracks=tracks,
-        has_lyrics=profile.get("has_lyrics", False),
-        mode=body.mode,
-    )
-
-    return {
-        "status":        "started",
-        "mode":          body.mode,
-        "total_batches": total_batches,
-        "total_tracks":  len(tracks),
-    }
-
-
-@router.post("/{project_id}/batch-reset", summary="Suno 배치 상태 초기화")
-async def batch_reset(project_id: str):
-    """stuck 된 running 상태를 강제로 초기화."""
-    state_manager.require(project_id)
-    existing = _suno_tasks.get(project_id, {})
-    old_status = existing.get("status", "idle")
-    _suno_tasks.pop(project_id, None)
-    return {"reset": True, "previous_status": old_status}
-
-
-@router.get("/{project_id}/suno-status", summary="Suno 자동화 진행 상태")
-async def suno_status(project_id: str):
-    """
-    Suno 일괄 생성 진행 상태.
-    progress.json 파일에서 직접 읽음 (별도 프로세스가 실시간 기록).
-    """
-    progress_path = settings.storage_dir / "projects" / project_id / "_suno_progress.json"
-    if progress_path.exists():
-        try:
-            data = json.loads(progress_path.read_text(encoding="utf-8"))
-            return data
-        except Exception:
-            pass
-
-    # fallback: in-memory
-    task = _suno_tasks.get(project_id)
-    if not task:
-        return {"status": "idle"}
-    return task
-
-
-@router.get("/{project_id}/suno-tracks", summary="완성된 Suno 트랙 목록")
-async def get_suno_tracks(project_id: str):
-    """
-    Suno 자동화로 생성·다운로드된 트랙 목록 반환.
-    file_path를 /storage/... URL로 변환해 프론트엔드에서 바로 재생 가능.
-    중복 파일 감지: 같은 음원이 다른 트랙에 할당된 경우 duplicate_of 표시.
-    """
-    import hashlib as _hl
-
-    state = state_manager.require(project_id)
-    tracks: list[dict] = state.get("suno_tracks", [])
-
-    storage_root = settings.storage_dir
-    # 워크트리 junction / symlink 등으로 prefix가 달라도 매칭되도록 resolve
-    try:
-        storage_root_resolved = storage_root.resolve()
-    except OSError:
-        storage_root_resolved = storage_root
-
-    # 1차: file_path → audio_url 변환
-    entries = []
-    for t in tracks:
-        fp = t.get("file_path", "")
-        audio_url = ""
-        if fp:
-            try:
-                fp_path = Path(fp)
-                try:
-                    fp_resolved = fp_path.resolve()
-                except OSError:
-                    fp_resolved = fp_path
-                # 1) 우선 resolved 경로로 relative_to 시도
-                try:
-                    rel = fp_resolved.relative_to(storage_root_resolved)
-                except ValueError:
-                    # 2) 원본 경로로도 시도
-                    rel = fp_path.relative_to(storage_root)
-                mtime = int(fp_resolved.stat().st_mtime) if fp_resolved.exists() else 0
-                audio_url = f"/storage/{rel.as_posix()}?t={mtime}"
-            except (ValueError, OSError):
-                audio_url = fp
-        entries.append({**t, "audio_url": audio_url, "slot": t.get("slot", 0)})
-
-    # 2차: 중복 감지 — 같은 index 내에서 slot 1,2가 같은 파일인지만 체크
-    from collections import defaultdict as _dd
-    idx_hashes: dict[int, list[str]] = _dd(list)
-    for entry in entries:
-        fp = entry.get("file_path", "")
-        if entry.get("status") != "completed" or not fp or not Path(fp).exists():
-            continue
-        try:
-            h = _hl.md5(Path(fp).read_bytes()).hexdigest()
-        except Exception:
-            continue
-        idx = entry.get("index", 0)
-        if h in idx_hashes[idx]:
-            # 같은 곡의 slot 1,2가 동일 파일
-            entry["status"] = "duplicate"
-            entry["duplicate_of"] = idx
-            entry["audio_url"] = ""
-        else:
-            idx_hashes[idx].append(h)
-
-    return {"tracks": entries, "total": len(entries)}
-
-
-@router.post("/{project_id}/suno-tracks/retry-download", summary="실패한 Suno 트랙 재다운로드")
-async def retry_download(project_id: str, body: dict):
-    """
-    suno_id가 있는 download_failed 트랙의 재다운로드 시도.
-    body: {"suno_id": str} 또는 {"retry_all": true}
-    """
-    import aiohttp
-
-    state = state_manager.require(project_id)
-    tracks: list[dict] = state.get("suno_tracks", [])
-    storage_root = settings.storage_dir
-
-    retry_all = body.get("retry_all", False)
-    target_suno_id = body.get("suno_id", "")
-
-    retried = 0
-    for t in tracks:
-        if t.get("status") != "download_failed":
-            continue
-        if not t.get("suno_id"):
-            continue
-        if not retry_all and t.get("suno_id") != target_suno_id:
-            continue
-
-        clip_id = t["suno_id"]
-        safe_title = t.get("title", "unknown").replace("/", "_").replace("\\", "_")
-        slot_suffix = f"_v{t.get('slot', 1)}" if t.get("slot") else ""
-        prefix = f"{t.get('index', 0):02d}_{safe_title}{slot_suffix}"
-        out_dir = storage_root / "projects" / project_id / "tracks"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        dest = out_dir / f"{prefix}.mp3"
-
-        urls = [
-            f"https://cdn1.suno.ai/{clip_id}.mp3",
-            f"https://cdn2.suno.ai/{clip_id}.mp3",
-        ]
-        downloaded = False
-        async with aiohttp.ClientSession() as http:
-            for url in urls:
-                try:
-                    async with http.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
-                        if resp.status == 200:
-                            content = await resp.read()
-                            if len(content) > 1000:  # 유효한 MP3인지 최소 크기 체크
-                                dest.write_bytes(content)
-                                # Suno MP3 헤더 교정 (container/Xing 재mux)
-                                from core.mp3_fix import fix_mp3_header
-                                await fix_mp3_header(dest)
-                                t["file_path"] = str(dest)
-                                t["status"] = "completed"
-                                downloaded = True
-                                retried += 1
-                                logger.info(f"재다운로드 성공: {clip_id[:8]} → {dest.name}")
-                                break
-                except Exception as e:
-                    logger.warning(f"재다운로드 실패 ({url[:40]}): {e}")
-
-    state_manager.update(project_id, {"suno_tracks": tracks})
-
-    # audio_url 변환해서 반환
-    result = []
-    for t in tracks:
-        fp = t.get("file_path", "")
-        audio_url = ""
-        if fp:
-            try:
-                rel = Path(fp).relative_to(storage_root)
-                audio_url = "/storage/" + rel.as_posix()
-            except ValueError:
-                audio_url = fp
-        entry = {**t, "audio_url": audio_url, "slot": t.get("slot", 0)}
-        result.append(entry)
-
-    return {"tracks": result, "retried": retried, "total": len(result)}
-
-
-@router.post("/{project_id}/suno-tracks/scan-siblings", summary="Suno에서 누락곡 제목 검색·다운로드")
-async def scan_siblings(project_id: str, background_tasks: BackgroundTasks):
-    """
-    모든 designed_tracks 제목으로 Suno 검색 → 곡당 최신 2곡 다운로드.
-    기존 해당 index의 suno_tracks는 삭제 후 새 2곡으로 교체.
-    slot이 정확히 2개가 아닌 곡만 대상.
-    """
-    state = state_manager.require(project_id)
-    suno_tracks: list[dict] = state.get("suno_tracks", [])
-    designed: list[dict] = state.get("designed_tracks", [])
-
-    if not designed:
-        raise HTTPException(400, "설계된 곡이 없습니다.")
-
-    # slot 1,2가 모두 있는 index만 완료로 판단
-    from collections import Counter
-    slot_count = Counter()
-    for t in suno_tracks:
-        if t.get("status") == "completed" and t.get("slot") in (1, 2):
-            slot_count[t.get("index")] += 1
-
-    missing_titles = []
-    missing_indices = []
-    for dt in designed:
-        idx = dt.get("index", 0)
-        if slot_count.get(idx, 0) != 2:  # 정확히 2개가 아니면 재검색
-            missing_titles.append(dt.get("title", ""))
-            missing_indices.append(idx)
-
-    missing_titles = [t for t in missing_titles if t]
-
-    if not missing_titles:
-        return {"status": "all_complete", "message": "모든 곡이 2개씩 완료됨"}
-
-    background_tasks.add_task(
-        _run_sibling_scan_http,
-        project_id=project_id,
-        designed=designed,
-        missing_indices=missing_indices,
-    )
-
-    return {"status": "started", "missing_count": len(missing_titles), "titles": missing_titles[:5]}
-
-
-async def _run_sibling_scan(project_id: str, titles: list[str], missing_indices: list[int]) -> None:
-    """누락곡 제목으로 Suno 검색 + 다운로드. 기존 해당 index 삭제 후 교체."""
-    import subprocess as _sp
-
-    backend_dir = Path(__file__).parent.parent
-    project_dir = backend_dir / "storage" / "projects" / project_id / "tracks"
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    script = f"""
-import asyncio, sys, json
-sys.path.insert(0, r'{backend_dir}')
-asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-async def main():
-    from browser.suno_automation import SunoAutomation
-    from core.state_manager import state_manager
-
-    titles = {json.dumps(titles, ensure_ascii=False)}
-    missing_indices = {json.dumps(missing_indices)}
-
-    # title → index 매핑
-    title_to_index = {{}}
-    for dt in designed:
-        title_to_index[dt.get('title', '')] = dt.get('index', 0)
-
-    async with SunoAutomation(max_concurrent=1, headless=False) as suno:
-        results = await suno.find_siblings_by_search(
-            titles=titles,
-            known_ids=set(),
-            output_dir=r'{project_dir}',
-            title_to_index=title_to_index,
-        )
-
-    if not results:
-        print("검색 결과 없음", file=sys.stderr)
-        return
-
-    state = state_manager.get('{project_id}') or {{}}
-    old_tracks = state.get('suno_tracks') or []
-    designed = state.get('designed_tracks') or []
-
-    # 제목 → index 매핑
-    title_to_index = {{}}
-    for dt in designed:
-        title_to_index[dt.get('title', '')] = dt.get('index', 0)
-
-    # 검색된 index의 기존 항목 삭제
-    indices_to_replace = set(missing_indices)
-    old_tracks = [t for t in old_tracks if t.get('index') not in indices_to_replace]
-
-    # 새 결과 추가
-    for r in results:
-        idx = title_to_index.get(r.get('title', ''), 0)
-        old_tracks.append({{
-            'index': idx,
-            'title': r.get('title', ''),
-            'suno_id': r['suno_id'],
-            'file_path': r.get('file_path', ''),
-            'status': r.get('status', 'failed'),
-            'slot': r.get('slot', 1),
-        }})
-
-    old_tracks.sort(key=lambda t: (t.get('index', 0), t.get('slot', 0)))
-    state_manager.update('{project_id}', {{'suno_tracks': old_tracks}})
-    print(f"{{len(results)}}곡 다운로드, {{len(indices_to_replace)}}곡 교체", file=sys.stderr)
-
-asyncio.run(main())
-"""
-    try:
-        proc = _sp.Popen(
-            [sys.executable, "-c", script],
-            stdout=_sp.PIPE, stderr=_sp.PIPE,
-        )
-        logger.info(f"누락곡 검색 시작: PID={proc.pid}, {len(titles)}곡")
-
-        while proc.poll() is None:
-            await asyncio.sleep(2)
-
-        stderr = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""
-        logger.info(f"누락곡 검색 완료: {stderr.strip()}")
-
-    except Exception as e:
-        logger.error(f"누락곡 검색 실패: {e}")
-
-
-async def _run_sibling_scan_http(project_id: str, designed: list[dict], missing_indices: list[int]) -> None:
-    """HTTP API로 Suno 피드 검색 + CDN 다운로드. 브라우저 불필요."""
-    from core.suno_api import suno_api, BASE_URL as SUNO_BASE_URL
-
-    logger.info(f"[HTTP 스캔] 시작: {len(missing_indices)}곡 누락")
-
-    try:
-        # 토큰 갱신
-        suno_api.load_session()
-        if not await suno_api.refresh_token():
-            logger.error("[HTTP 스캔] 토큰 갱신 실패")
-            return
-
-        # Suno 피드에서 최근 곡 가져오기 (전체 워크스페이스)
-        import aiohttp
-        auth = await suno_api._get_auth_token()
-        headers = {**suno_api._headers, "Cookie": suno_api._cookie_header()}
-        if auth:
-            headers["Authorization"] = auth
-
-        # 피드 조회 (최근 100곡)
-        all_clips = []
-        cursor = None
-        for _ in range(3):  # 최대 3페이지 (60곡)
-            payload = {
-                "cursor": cursor,
-                "limit": 20,
-                "filters": {
-                    "disliked": "False",
-                    "trashed": "False",
-                    "workspace": {"presence": "True", "workspaceId": "default"},
-                },
-            }
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{SUNO_BASE_URL}/api/feed/v3",
-                    json=payload, headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        logger.error(f"[HTTP 스캔] 피드 조회 실패: HTTP {resp.status}")
-                        break
-                    data = await resp.json()
-                    clips = data if isinstance(data, list) else data.get("clips", [])
-                    if not clips:
-                        break
-                    all_clips.extend(clips)
-                    # 다음 페이지 커서
-                    if isinstance(clips, list) and clips:
-                        cursor = clips[-1].get("id")
-                    else:
-                        break
-
-        logger.info(f"[HTTP 스캔] 피드에서 {len(all_clips)}개 clip 조회")
-
-        # designed_tracks 제목과 매칭
-        title_to_index = {}
-        for dt in designed:
-            title_to_index[dt.get("title", "").strip().lower()] = dt.get("index", 0)
-
-        # 매칭 + 다운로드
-        project_dir = Path(__file__).parent.parent / "storage" / "projects" / project_id / "tracks"
-        project_dir.mkdir(parents=True, exist_ok=True)
-
-        results = []
-        matched_indices = set()
-
-        for clip in all_clips:
-            clip_title = (clip.get("title", "") or "").strip().lower()
-            audio_url = clip.get("audio_url") or clip.get("stream_audio_url", "")
-            clip_id = clip.get("id", "")
-
-            if clip_title not in title_to_index:
-                continue
-
-            idx = title_to_index[clip_title]
-            if idx not in missing_indices:
-                continue
-
-            # 이미 이 index의 슬롯을 2개 채웠으면 스킵
-            slots_filled = sum(1 for r in results if r["index"] == idx)
-            if slots_filled >= 2:
-                continue
-
-            slot = slots_filled + 1
-            orig_title = next((dt.get("title", "") for dt in designed if dt.get("index") == idx), clip_title)
-            safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in orig_title[:30])
-            prefix = f"{idx:02d}_{safe_title}_v{slot}."
-
-            file_path = await suno_api.download_clip(
-                {"id": clip_id, "audio_url": audio_url},
-                project_dir, prefix,
-            )
-
-            results.append({
-                "index": idx,
-                "title": orig_title,
-                "suno_id": clip_id,
-                "file_path": file_path,
-                "status": "completed" if file_path else "download_failed",
-                "slot": slot,
-            })
-            matched_indices.add(idx)
-
-            logger.info(f"[HTTP 스캔] [{idx}] v{slot} {'OK' if file_path else 'FAIL'}: {orig_title}")
-
-        # state.json 업데이트
-        if results:
-            state = state_manager.get(project_id) or {}
-            old_tracks = state.get("suno_tracks") or []
-            # 매칭된 index의 기존 항목 삭제
-            old_tracks = [t for t in old_tracks if t.get("index") not in matched_indices]
-            old_tracks.extend(results)
-            old_tracks.sort(key=lambda t: (t.get("index", 0), t.get("slot", 0)))
-            state_manager.update(project_id, {"suno_tracks": old_tracks})
-
-        logger.info(f"[HTTP 스캔] 완료: {len(results)}개 다운로드, {len(matched_indices)}곡 매칭")
-
-    except Exception as e:
-        logger.error(f"[HTTP 스캔] 실패: {e}")
-
-
-@router.put("/{project_id}/suno-tracks/reorder", summary="Suno 트랙 순서 변경")
-async def reorder_suno_tracks(project_id: str, body: dict):
-    """body: {"order": [0, 2, 1, ...]}  — 새 순서의 인덱스 배열"""
-    state = state_manager.require(project_id)
-    tracks: list[dict] = state.get("suno_tracks", [])
-    order: list[int] = body.get("order", [])
-
-    if len(order) != len(tracks):
-        raise HTTPException(400, f"order 길이({len(order)}) ≠ 트랙 수({len(tracks)})")
-    if set(order) != set(range(len(tracks))):
-        raise HTTPException(400, "order에 중복 또는 범위 초과 인덱스가 있습니다.")
-
-    reordered = [tracks[i] for i in order]
-    state_manager.update(project_id, {"suno_tracks": reordered})
-    return {"tracks": reordered}
-
-
-@router.delete("/{project_id}/suno-tracks/{track_index}", summary="Suno 트랙 삭제")
-async def delete_suno_track(project_id: str, track_index: int):
-    """인덱스 기반 Suno 트랙 삭제 (파일은 유지, 목록에서만 제거)."""
-    state = state_manager.require(project_id)
-    tracks: list[dict] = state.get("suno_tracks", [])
-
-    if track_index < 0 or track_index >= len(tracks):
-        raise HTTPException(404, f"트랙 인덱스 범위 초과: {track_index}")
-
-    removed = tracks.pop(track_index)
-    state_manager.update(project_id, {"suno_tracks": tracks})
-    return {"deleted": removed}
 
 
 @router.post("/{project_id}/regenerate/{track_index}", summary="개별 곡 재생성")
@@ -889,84 +418,3 @@ async def delete_track(project_id: str, track_index: int):
 
     state_manager.update(project_id, {"designed_tracks": tracks, "suno_tracks": new_suno})
     return {"deleted": removed}
-
-
-# ──────────────────────────── background ────────────────────────────
-
-async def _run_suno_batch(
-    project_id: str,
-    tracks: list[dict],
-    has_lyrics: bool,
-    mode: str = "cookie",
-) -> None:
-    """
-    Suno 일괄 생성 백그라운드 작업.
-
-    mode="cookie": _suno_cookie_runner.py (HTTP 직접 호출, 브라우저 없음, 빠름)
-    mode="browser": _suno_batch_runner.py (Playwright 자동화 — 캡차 발생 시 사용)
-
-    Windows uvicorn의 SelectorEventLoop에서는 Playwright subprocess를 실행할 수 없으므로
-    런너를 별도 Python 프로세스로 띄워 완전히 격리한다.
-    진행 상황은 _suno_progress.json 을 폴링해 task dict에 반영한다.
-    """
-    task = _suno_tasks.get(project_id)
-    if not task:
-        return
-
-    import subprocess as _sp
-    backend_dir  = Path(__file__).parent.parent  # routes/ → backend/
-    progress_path = backend_dir / "storage" / "projects" / project_id / "_suno_progress.json"
-
-    runner_name = "_suno_cookie_runner.py" if mode == "cookie" else "_suno_batch_runner.py"
-    runner = backend_dir / runner_name
-    if not runner.exists():
-        # 안전장치: 쿠키 런너 없으면 브라우저 런너로 폴백
-        runner = backend_dir / "_suno_batch_runner.py"
-        mode = "browser"
-
-    try:
-        proc = _sp.Popen(
-            [sys.executable, str(runner), project_id],
-            stdout=_sp.PIPE, stderr=_sp.PIPE,
-        )
-        logger.info(f"Suno runner 시작 (mode={mode}): PID={proc.pid}, project={project_id}")
-
-        # progress.json 폴링 (2초 간격)
-        while proc.poll() is None:
-            await asyncio.sleep(2)
-            if progress_path.exists():
-                try:
-                    data = json.loads(progress_path.read_text(encoding="utf-8"))
-                    task["completed_batches"] = data.get("completed_batches", 0)
-                    task["tracks_collected"]  = data.get("tracks_collected", 0)
-                    if data.get("errors"):
-                        task["errors"] = data["errors"]
-                except Exception:
-                    pass
-
-        # 프로세스 종료 후 최종 결과 읽기
-        if progress_path.exists():
-            final = json.loads(progress_path.read_text(encoding="utf-8"))
-            task.update({
-                "status":           final.get("status", "failed"),
-                "completed_batches": final.get("completed_batches", 0),
-                "tracks_collected": final.get("tracks_collected", 0),
-                "errors":           final.get("errors", []),
-                "traceback":        final.get("traceback", ""),
-            })
-            if final.get("results"):
-                task["results"] = final["results"]
-        else:
-            rc = proc.returncode
-            stderr = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""
-            task["status"] = "failed"
-            task["errors"].append(f"runner 종료 (code={rc}): {stderr[-500:]}")
-
-        logger.info(f"Suno 배치 완료: {project_id}, status={task['status']}, {task['tracks_collected']}곡")
-
-    except Exception as e:
-        import traceback as _tb
-        task["status"] = "failed"
-        task["errors"].append(f"[{type(e).__name__}] {e}")
-        task["traceback"] = _tb.format_exc()
-        logger.error(f"Suno 배치 실패: {e}")

@@ -8,16 +8,17 @@ from pathlib import Path
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from config import settings
+from config import settings, ENV_FILE_PATH
+from core.errors import SunoUIChangedError, SunoGenerationError, SunoSessionError
 from core.state_manager import state_manager
 from routes import build, flow_images, images, layers, metadata, projects, tracks, youtube
-from routes import channels, track_design, suno as suno_routes
+from routes import channels, track_design, suno_batch, suno as suno_routes
 from routes import ontology_routes
-from routes import auth as auth_routes, admin as admin_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,6 +33,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"Gemini keys loaded: {len(settings.gemini_api_keys)}")
     # 서버 재시작 시 stuck된 빌드 자동 초기화
     _cleanup_stuck_builds()
+    # 곡 설계 진행상황도 동일 처리 — running 으로 남은 task 는 interrupted 로 강등
+    _cleanup_stuck_design()
+    # Suno 일괄 생성도 동일 처리. 서버 재시작 시 in-memory _suno_tasks 는 비어있어
+    # 무관하지만, _suno_progress.json 디스크 상태가 "running" 으로 남아있으면
+    # /suno-status 폴링이나 stale 감지가 헷갈려 새 batch-create 가 409 로 떨어질 수 있음.
+    _cleanup_stuck_suno()
     yield
 
 
@@ -55,6 +62,61 @@ def _cleanup_stuck_builds():
                 state_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning(f"Stuck build cleanup failed for {state_file}: {e}")
+
+
+def _cleanup_stuck_design():
+    """곡 설계 백그라운드 task 가 서버 재시작으로 사라졌는데 _design_progress.json 에
+    running 으로 남아있으면 사용자 안내 메시지와 함께 interrupted 로 강등.
+
+    routes/track_design.py 의 GET 엔드포인트도 같은 강등을 on-demand 로 한다.
+    이쪽은 startup 시 디스크 상태를 미리 정리해두는 것이 다름 (UI 첫 폴링 전에도 OK).
+    """
+    import json
+    projects_dir = settings.storage_dir / "projects"
+    if not projects_dir.exists():
+        return
+    for progress_file in projects_dir.glob("*/_design_progress.json"):
+        try:
+            data = json.loads(progress_file.read_text(encoding="utf-8"))
+            if data.get("status") == "running":
+                pid = progress_file.parent.name
+                logger.info(f"Stuck design 초기화: project={pid}")
+                data["status"] = "interrupted"
+                data["message"] = "서버 재시작으로 작업이 중단되었습니다. 다시 시작해주세요."
+                progress_file.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        except Exception as e:
+            logger.warning(f"Stuck design cleanup failed for {progress_file}: {e}")
+
+
+def _cleanup_stuck_suno():
+    """Suno 일괄 생성 runner subprocess 가 서버 재시작 / 비정상 종료로 사라졌는데
+    _suno_progress.json 이 "running" 으로 남아있으면 interrupted 로 강등.
+
+    in-memory _suno_tasks 는 서버 재시작 시 자동으로 비워지지만, 디스크 진행파일은
+    그대로 남아 stale 감지(age/status)를 통과해버려 새 batch-create 가 영영 409 로
+    떨어지는 케이스를 차단한다.
+    """
+    import json
+    projects_dir = settings.storage_dir / "projects"
+    if not projects_dir.exists():
+        return
+    for progress_file in projects_dir.glob("*/_suno_progress.json"):
+        try:
+            data = json.loads(progress_file.read_text(encoding="utf-8"))
+            if data.get("status") == "running":
+                pid = progress_file.parent.name
+                logger.info(f"Stuck Suno 초기화: project={pid}")
+                data["status"] = "interrupted"
+                data["message"] = "서버 재시작으로 작업이 중단되었습니다. 다시 시작해주세요."
+                progress_file.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        except Exception as e:
+            logger.warning(f"Stuck Suno cleanup failed for {progress_file}: {e}")
 
 
 app = FastAPI(
@@ -94,6 +156,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ─── 도메인 예외 → HTTP 응답 매핑 ────────────────────────────────────────────
+# 라우트에서 명시적으로 잡지 않고 raise SunoXxxError 만 해도 적절한 코드로 변환된다.
+# 라우트가 자체적으로 try/except 로 처리한 경우엔 거기서 끝나므로 이 핸들러까지 안 옴.
+
+@app.exception_handler(SunoUIChangedError)
+async def _suno_ui_changed_handler(_request: Request, exc: SunoUIChangedError) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"Suno 화면이 변경된 것 같습니다. 잠시 후 다시 시도해주세요. ({exc})"},
+    )
+
+
+@app.exception_handler(SunoGenerationError)
+async def _suno_generation_handler(_request: Request, exc: SunoGenerationError) -> JSONResponse:
+    # rate limit / insufficient credits / try again — 429 Too Many Requests
+    return JSONResponse(status_code=429, content={"detail": str(exc)})
+
+
+@app.exception_handler(SunoSessionError)
+async def _suno_session_handler(_request: Request, _exc: SunoSessionError) -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "Suno 로그인 세션이 만료되었습니다. 다시 로그인해주세요."},
+    )
+
+
 # 라우터 등록
 app.include_router(projects.router)
 app.include_router(tracks.router)
@@ -105,15 +193,32 @@ app.include_router(youtube.router)
 app.include_router(flow_images.router)
 app.include_router(channels.router)
 app.include_router(ontology_routes.router)
+# suno_batch 의 명시적 /{pid}/suno-* 라우트가 track_design 의 catch-all
+# /{pid}/{track_index} 보다 먼저 매칭되도록 등록 순서를 명시한다.
+app.include_router(suno_batch.router)
 app.include_router(track_design.router)
 app.include_router(suno_routes.router)
-app.include_router(auth_routes.router)
-app.include_router(admin_routes.router)
 
 # 정적 파일 서빙 (빌드된 영상 등)
 storage_static = settings.storage_dir
 if storage_static.exists():
     app.mount("/storage", StaticFiles(directory=str(storage_static)), name="storage")
+
+
+# ─── SPA 프론트엔드 서빙 ─────────────────────────────────────────────────────
+# 일반 Python 실행: backend/../frontend/dist
+# PyInstaller(frozen): sys._MEIPASS/frontend_dist 에 번들됨
+def _resolve_frontend_dist() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "frontend_dist"  # type: ignore[attr-defined]
+    return Path(__file__).parent.parent / "frontend" / "dist"
+
+
+_frontend_dist = _resolve_frontend_dist()
+if _frontend_dist.exists():
+    # html=True 가 디렉토리 접근 시 index.html 반환. /api/* 와 /ws/* 는 라우트 우선이므로 안전.
+    # ※ 라우터/Mount 모두 등록된 뒤 마지막 catch-all 로 동작하도록 파일 끝에서도 mount 가능.
+    pass  # 실제 mount 는 모든 라우터 등록 후 파일 끝에서 수행
 
 
 # ─── WebSocket (빌드 진행상황 실시간 전달) ─────────────────────────────────────
@@ -159,7 +264,6 @@ async def health():
 # ─── 버전 & 업데이트 ─────────────────────────────────────────────────────────
 
 from version import VERSION
-import subprocess
 import json
 
 
@@ -172,21 +276,37 @@ async def get_gemini_status():
     return {"configured": has_keys, "key_count": len(settings.gemini_api_keys)}
 
 
+_LOCALHOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
 @app.post("/api/settings/gemini")
-async def set_gemini_keys(body: dict):
-    """Gemini API 키 저장 (.env 파일에 기록)"""
+async def set_gemini_keys(request: Request, body: dict):
+    """Gemini API 키 저장 (.env 파일에 기록).
+
+    이 엔드포인트는 .env 파일을 직접 덮어쓰므로 외부에서 호출되면 위험하다.
+    1인 로컬 도구라는 정체성을 지키기 위해 클라이언트가 localhost 일 때만 허용한다.
+    """
+    client_host = request.client.host if request.client else ""
+    if client_host not in _LOCALHOSTS:
+        raise HTTPException(403, "이 엔드포인트는 로컬에서만 호출 가능합니다.")
+
     keys = body.get("keys", [])
     if not keys or not any(k.strip() for k in keys):
         return {"error": "API 키를 입력해주세요"}, 400
 
-    # .env 파일 업데이트
-    env_path = Path(settings.storage_dir).parent / ".env"
-    if not env_path.exists():
-        env_path = Path("/app/.env")
+    # config.py 의 _resolve_env_file() 과 동일 위치에 저장 (저장/읽기 일관성)
+    env_path = ENV_FILE_PATH
+    try:
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        return {"error": f".env 디렉토리 생성 실패: {e}"}, 500
 
     env_lines = []
     if env_path.exists():
-        env_lines = env_path.read_text(encoding="utf-8").splitlines()
+        try:
+            env_lines = env_path.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            env_lines = []
 
     # GEMINI_API_KEYS 라인 교체 또는 추가
     new_line = f'GEMINI_API_KEYS={json.dumps(keys)}'
@@ -199,12 +319,15 @@ async def set_gemini_keys(body: dict):
     if not found:
         env_lines.append(new_line)
 
-    env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    try:
+        env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    except Exception as e:
+        return {"error": f".env 저장 실패 ({env_path}): {e}"}, 500
 
-    # 런타임에도 반영
+    # 런타임에도 반영 (다음 재시작 안 해도 즉시 사용 가능)
     settings.gemini_api_keys = [k.strip() for k in keys if k.strip()]
 
-    return {"status": "ok", "key_count": len(settings.gemini_api_keys)}
+    return {"status": "ok", "key_count": len(settings.gemini_api_keys), "saved_to": str(env_path)}
 
 
 # ─── 에이전트 스킬 관리 ──────────────────────────────────────────────────────
@@ -392,21 +515,135 @@ async def get_version():
     return {"version": VERSION}
 
 
-@app.post("/api/update")
-async def trigger_update():
-    """Docker 이미지를 최신으로 pull하고 컨테이너를 재시작합니다."""
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "-f", "docker-compose.prod.yml", "pull", "backend"],
-            capture_output=True, text=True, timeout=120,
-        )
-        if result.returncode != 0:
-            return {"status": "error", "message": result.stderr}
+def _parse_ver(v: str) -> tuple:
+    """'1.2.3' → (1,2,3). 숫자 외 문자는 무시. 비교 가능한 튜플로 변환."""
+    out = []
+    for part in (v or "").split("."):
+        digits = "".join(ch for ch in part if ch.isdigit())
+        out.append(int(digits) if digits else 0)
+    return tuple(out) or (0,)
 
-        # 백그라운드에서 재시작 (현재 요청은 응답 후 종료됨)
-        subprocess.Popen(
-            ["docker", "compose", "-f", "docker-compose.prod.yml", "up", "-d", "--force-recreate", "backend"],
+
+def _is_newer(latest: str, current: str) -> bool:
+    """latest 가 current 보다 '진짜 더 높은' 버전일 때만 True.
+
+    단순 문자열 비교(!=)는 더 낮은/옛 버전으로도 업데이트를 권하는 위험이 있어
+    반드시 숫자 버전 비교를 쓴다. (예: 1.0.2 는 1.1.0 보다 낮으므로 업데이트 아님)
+    """
+    return bool(latest) and _parse_ver(latest) > _parse_ver(current)
+
+
+@app.get("/api/update/check")
+async def check_update():
+    """GitHub Releases 에서 최신 버전 확인. EXE 사용자는 새 EXE 받아서 재설치."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/Eileen42/music-outo/releases/latest",
+            headers={"Accept": "application/vnd.github+json"},
         )
-        return {"status": "updating", "message": "업데이트를 시작합니다. 잠시 후 새로고침해주세요."}
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+        latest = (data.get("tag_name") or "").lstrip("v")
+        return {
+            "current": VERSION,
+            "latest": latest,
+            "update_available": _is_newer(latest, VERSION),
+            "release_url": data.get("html_url"),
+            "exe_download_url": next(
+                (a["browser_download_url"] for a in data.get("assets", [])
+                 if a.get("name", "").endswith(".exe")),
+                None,
+            ),
+        }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"error": str(e), "current": VERSION}
+
+
+@app.post("/api/update/install")
+async def install_update():
+    """최신 버전 설치파일을 내려받아 조용히 설치한 뒤 앱을 자동 재시작한다.
+
+    동작 순서:
+      1) GitHub 최신 릴리스에서 setup.exe 주소를 찾는다
+      2) 임시 폴더로 다운로드
+      3) '앱 종료 대기 → 설치 → 재시작' 을 수행하는 배치파일을 만든다
+      4) 배치를 분리 실행하고, 1.5초 뒤 앱을 강제 종료한다
+         (실행 중이면 파일이 잠겨 설치가 안 되므로, 앱이 빠져야 배치가 설치를 진행)
+
+    ※ EXE(설치본)에서만 동작. 개발 모드(소스 실행)에서는 거부한다.
+    ※ 사용자 데이터(storage/.env)는 설치 스크립트의 Excludes 로 보존된다.
+    """
+    import os
+    import subprocess
+    import tempfile
+    import threading
+    import urllib.request
+
+    if not getattr(sys, "frozen", False):
+        return {"ok": False, "error": "개발 모드에서는 자동 업데이트를 사용할 수 없습니다. (설치본에서만 가능)"}
+
+    # 1) 최신 릴리스의 setup.exe 주소
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/Eileen42/music-outo/releases/latest",
+            headers={"Accept": "application/vnd.github+json"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+        latest = (data.get("tag_name") or "").lstrip("v")
+        url = next(
+            (a["browser_download_url"] for a in data.get("assets", [])
+             if a.get("name", "").endswith(".exe")),
+            None,
+        )
+    except Exception as e:
+        return {"ok": False, "error": f"릴리스 확인 실패: {e}"}
+    if not url:
+        return {"ok": False, "error": "릴리스에 설치파일(.exe)이 없습니다."}
+    # 안전장치: 진짜 더 높은 버전이 아니면 설치 거부 (다운그레이드/옛버전 설치 방지)
+    if not _is_newer(latest, VERSION):
+        return {"ok": False, "error": f"이미 최신 버전입니다. (현재 {VERSION}, 최신 {latest})"}
+
+    # 2) 설치파일 다운로드
+    try:
+        tmp = Path(tempfile.gettempdir()) / "music-outo-update"
+        tmp.mkdir(parents=True, exist_ok=True)
+        setup_path = tmp / "music-outo-setup.exe"
+        urllib.request.urlretrieve(url, str(setup_path))
+    except Exception as e:
+        return {"ok": False, "error": f"다운로드 실패: {e}"}
+
+    # 3) 재시작 배치 작성 (앱이 완전히 종료될 때까지 기다린 뒤 설치 → 재실행 → 자기삭제)
+    app_exe = Path(sys.executable)
+    bat = tmp / "apply_update.bat"
+    bat.write_text(
+        "@echo off\r\n"
+        ":waitloop\r\n"
+        'tasklist /FI "IMAGENAME eq music-outo.exe" 2>nul | find /I "music-outo.exe" >nul && (\r\n'
+        "  timeout /t 1 /nobreak >nul\r\n"
+        "  goto waitloop\r\n"
+        ")\r\n"
+        f'"{setup_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\r\n'
+        f'start "" "{app_exe}"\r\n'
+        'del "%~f0" >nul 2>&1\r\n',
+        encoding="utf-8",
+    )
+
+    # 4) 배치 분리 실행 + 잠시 후 앱 강제 종료 (파일 잠금 해제용)
+    flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+    subprocess.Popen(["cmd", "/c", str(bat)], creationflags=flags, close_fds=True)
+
+    def _exit_soon():
+        import time
+        time.sleep(1.5)
+        os._exit(0)
+
+    threading.Thread(target=_exit_soon, daemon=True).start()
+    return {"ok": True, "installing": True, "latest": latest}
+
+
+# ─── SPA mount (catch-all) ──────────────────────────────────────────────────
+# 모든 라우트 등록 뒤에 와야 /api/*, /ws/*, /health, /storage 가 우선순위 가짐.
+if _frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="spa")

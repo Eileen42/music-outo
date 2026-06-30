@@ -486,9 +486,15 @@ class CapcutBuilder:
         if tpl_path.exists():
             base = json.loads(tpl_path.read_text(encoding="utf-8"))
         else:
+            # 템플릿 파일이 없으면 빌드 결과가 깨지므로 명확히 경고를 남긴다.
+            logger.error(f"CapCut 템플릿이 없습니다: {tpl_path} — assets 가 빌드에 포함됐는지 확인 필요")
             base = {"tracks": [], "materials": {}}
 
         materials = base.get("materials", {})
+        # 템플릿이 비었거나 일부 키가 없어도 materials["videos"] 같은 직접 접근이
+        # KeyError 로 죽지 않도록, 직접 append 하는 리스트 키들을 미리 보장한다.
+        for _k in ("videos", "audios", "texts", "speeds", "canvases", "stickers", "effects"):
+            materials.setdefault(_k, [])
         track_list: list = []
 
         # canvas material (CapCut 필수)

@@ -30,21 +30,25 @@ class GeminiClient:
     # ──────────────────────────── public ────────────────────────────
 
     async def generate_text(self, prompt: str, model: str = "gemini-2.5-flash") -> str:
-        """텍스트 생성. 429/503 발생 시 fallback 모델로 자동 전환.
+        """텍스트 생성. 503(과부하)/429(한도)/404 발생 시 자동 대응.
 
-        gemini-2.0-flash는 폐기됨(404). 폴백 리스트에서 제외.
-        503은 길게 기다리기보다 다음 모델로 빠르게 전환하는 편이 효율적.
+        실측(2026-06) 기준 모델별 안정성:
+        - gemini-2.5-flash      : 품질 좋음, 가끔 503 → 같은 모델로 몇 번 재시도하면 대개 성공
+        - gemini-2.5-flash-lite : 가장 안정적(거의 항상 성공) → 최종 안전망 폴백
+        - gemini-flash-latest   : 사실상 2.5-flash 별칭이라 같이 503 → 폴백에서 제외(시간 낭비)
+        - gemini-2.0-flash 계열  : 무료 등급 429(한도 소진)가 잦음 → 폴백에서 제외
+        그래서 "기본 모델을 끈질기게 재시도 → 안 되면 lite" 전략이 가장 효율적.
         """
-        # 모델 우선순위: 요청된 모델 → 안정적인 alias 폴백
-        # (gemini-2.0-flash 제거 — 매번 404 반환하던 폐기 모델)
-        FALLBACKS = ("gemini-flash-latest", "gemini-2.5-flash-lite")
+        # 폴백은 '항상 잘 되는' lite 하나만. (죽은 별칭으로 시간 낭비 안 함)
+        FALLBACKS = ("gemini-2.5-flash-lite",)
         models_to_try = [model]
         for f in FALLBACKS:
             if f != model:
                 models_to_try.append(f)
 
-        # 503 시 같은 모델 재시도는 최대 2번 (짧게), 그 후 다음 모델로
-        MAX_503_RETRIES = 2
+        # 503은 일시적 과부하 → 같은 모델로 끈질기게 재시도(최대 3번)하면
+        # 대개 통과한다. 그래도 안 되면 안정적인 다음(lite) 모델로 전환.
+        MAX_503_RETRIES = 3
 
         last_err: Exception | None = None
 
@@ -77,7 +81,7 @@ class GeminiClient:
                             logger.warning(f"{current_model} 503 반복 — 다음 모델로 전환")
                             last_err = e
                             break
-                        wait = 2 + attempt * 3  # 2, 5초 (이전 10, 20, 30…에서 단축)
+                        wait = 1.5 + attempt * 1.5  # 1.5, 3, 4.5초 — 짧게 끈질기게
                         logger.warning(f"키 [{key_index}] 503 ({current_model}) — {wait}초 후 재시도 ({attempt+1}/{MAX_503_RETRIES})")
                         await asyncio.sleep(wait)
                         attempt += 1

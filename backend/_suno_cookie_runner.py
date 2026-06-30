@@ -26,6 +26,14 @@ from pathlib import Path
 _DIR = Path(__file__).parent
 sys.path.insert(0, str(_DIR))
 
+# storage 위치는 settings 통해 가져오기 (PyInstaller frozen 환경 호환).
+# config.py 가 frozen 모드에선 sys.executable.parent 를 _ROOT 로 잡음.
+try:
+    from config import settings as _app_settings
+    _STORAGE = _app_settings.storage_dir
+except Exception:
+    _STORAGE = _DIR / "storage"  # 안전 폴백 (config import 실패 시)
+
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
@@ -37,7 +45,7 @@ MAX_CONCURRENT = 3
 
 
 def _progress_path(pid: str) -> Path:
-    return _DIR / "storage" / "projects" / pid / "_suno_progress.json"
+    return _STORAGE / "projects" / pid / "_suno_progress.json"
 
 
 def _write_progress(pid: str, data: dict) -> None:
@@ -112,7 +120,7 @@ async def main(project_id: str) -> None:
 
     channel_id = state.get("channel_id", "")
     has_lyrics = False
-    ch_path = _DIR / "storage" / "channels" / f"{channel_id}.json"
+    ch_path = _STORAGE / "channels" / f"{channel_id}.json"
     if ch_path.exists():
         try:
             has_lyrics = json.loads(ch_path.read_text(encoding="utf-8")).get("has_lyrics", False)
@@ -120,7 +128,7 @@ async def main(project_id: str) -> None:
             has_lyrics = False
 
     total = len(all_tracks)
-    tracks_dir = _DIR / "storage" / "projects" / project_id / "tracks"
+    tracks_dir = _STORAGE / "projects" / project_id / "tracks"
     tracks_dir.mkdir(parents=True, exist_ok=True)
 
     tracker = {

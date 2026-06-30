@@ -29,8 +29,20 @@ http.interceptors.response.use(
     } else {
       msg = err.message || '알 수 없는 오류'
     }
-    const wrapped = new Error(msg)
-    ;(wrapped as Error & { axiosError?: AxiosError }).axiosError = err
+    // wrapped Error 에 axios 응답 필드를 함께 노출.
+    // 호출부가 `err.response?.status === 409` 처럼 axios-style 로 분기할 수 있게
+    // 하기 위함 (SongMaker handleBatchCreate 의 409 자동 복구 등). 이게 빠지면
+    // 인터셉터에서 새 Error 로 감싸는 순간 status 정보가 사라져 분기가 죽는다.
+    const wrapped = new Error(msg) as Error & {
+      axiosError?: AxiosError
+      response?: AxiosError['response']
+      status?: number
+    }
+    wrapped.axiosError = err
+    if (err.response) {
+      wrapped.response = err.response
+      wrapped.status = err.response.status
+    }
     return Promise.reject(wrapped)
   },
 )
@@ -48,6 +60,12 @@ export const api = {
     delete: (id: string) => http.delete(`/api/projects/${id}`).then(r => r.data),
     updateRepeat: (id: string, repeat: RepeatConfig) =>
       http.patch<Project>(`/api/projects/${id}`, { repeat }).then(r => r.data),
+    // 다운받은 음악 mp3 폴더를 OS 탐색기로 열기. 백엔드가 storage/downloads/{YYMMDD_채널_프로젝트}/
+    // 정션을 자동 생성·갱신한 뒤 그 폴더를 연다 (UUID 원본 폴더는 그대로 보존).
+    openFolder: (id: string) =>
+      http.post<{ folder: string; label: string; opened: boolean; error?: string }>(
+        `/api/projects/${id}/open-folder`,
+      ).then(r => r.data),
   },
 
   tracks: {
@@ -107,8 +125,17 @@ export const api = {
   metadata: {
     get: (projectId: string) =>
       http.get<ProjectMetadata>(`/api/projects/${projectId}/metadata`).then(r => r.data),
-    generate: (projectId: string, regenerate = false, instruction = '', language: 'ko' | 'en' = 'ko') =>
-      http.post<ProjectMetadata>(`/api/projects/${projectId}/metadata/generate`, { regenerate, instruction, language }).then(r => r.data),
+    generate: (
+      projectId: string,
+      regenerate = false,
+      instruction = '',
+      language: 'ko' | 'en' = 'ko',
+      template?: { title?: string; description?: string; tags?: string; comment?: string } | string,
+    ) =>
+      http.post<ProjectMetadata>(
+        `/api/projects/${projectId}/metadata/generate`,
+        { regenerate, instruction, language, template: template ?? '' },
+      ).then(r => r.data),
     readThumbnail: (projectId: string) =>
       http.get<{ text: string }>(`/api/projects/${projectId}/metadata/read-thumbnail`).then(r => r.data),
     update: (projectId: string, data: Partial<ProjectMetadata>) =>
@@ -216,9 +243,30 @@ export const api = {
     skillContent: (agent: string, skillId: string) => http.get<{ id: string; agent: string; content: string }>(`/api/agents/skills/${agent}/${skillId}`).then(r => r.data),
   },
 
+  // 자동 업데이트: 현재/최신 버전 비교, 원클릭 설치
+  update: {
+    check: () =>
+      http.get<{
+        current: string
+        latest?: string
+        update_available?: boolean
+        release_url?: string
+        exe_download_url?: string
+        error?: string
+      }>('/api/update/check').then(r => r.data),
+    install: () =>
+      http.post<{ ok: boolean; installing?: boolean; latest?: string; error?: string }>(
+        '/api/update/install',
+      ).then(r => r.data),
+  },
+
   channels: {
     list: () => http.get<Channel[]>('/api/channels').then(r => r.data),
     get: (id: string) => http.get<Channel>(`/api/channels/${id}`).then(r => r.data),
+    listGenres: () =>
+      http.get<{ genres: { id: string; kr_name: string; en_name: string }[]; count: number }>(
+        '/api/channels/_/genres',
+      ).then(r => r.data),
     create: (data: Omit<Channel, 'benchmark_history' | 'created_at' | 'updated_at'>) =>
       http.post<Channel>('/api/channels', data).then(r => r.data),
     update: (id: string, data: Partial<Channel>) =>

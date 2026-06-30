@@ -2,6 +2,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import type { Project, Channel, UploadSettings } from '../types'
 import { api } from '../api/client'
+import GenrePicker from './GenrePicker'
 
 interface Props {
   projects: Project[]
@@ -270,12 +271,11 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">장르 <span className="text-gray-600">(쉼표로 구분)</span></label>
-                <input
+                <label className="block text-xs text-gray-500 mb-1">장르 <span className="text-gray-600">(쉼표로 구분 / 검증된 장르 chip 클릭)</span></label>
+                <GenrePicker
                   value={form.genre}
-                  onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}
-                  placeholder="예: meditation, sleep, ambient"
-                  className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+                  onChange={next => setForm(f => ({ ...f, genre: next }))}
+                  placeholder="예: 재즈, 카페 또는 아래 chip 클릭"
                 />
               </div>
 
@@ -470,11 +470,11 @@ export default function ChannelSetup({ projects, onSelect, onCreate, onDelete }:
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">장르 <span className="text-gray-600">(쉼표로 구분)</span></label>
-                <input
+                <label className="block text-xs text-gray-500 mb-1">장르 <span className="text-gray-600">(쉼표로 구분 / 검증된 장르 chip 클릭)</span></label>
+                <GenrePicker
                   value={editForm.genre}
-                  onChange={e => setEditForm(f => ({ ...f, genre: e.target.value }))}
-                  className="w-full bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
+                  onChange={next => setEditForm(f => ({ ...f, genre: next }))}
+                  placeholder="예: 재즈, 카페 또는 아래 chip 클릭"
                 />
               </div>
 

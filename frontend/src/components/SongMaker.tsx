@@ -3,6 +3,10 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { Project, DesignedTrack, Channel, ProjectConcept, SunoTrack } from '../types'
 import { api } from '../api/client'
 import TrackEditor from './TrackEditor'
+import { categoryIcon, resolveAudioUrl } from './songMaker/utils'
+import { useSunoSession } from './songMaker/useSunoSession'
+import { useRecipeRecording } from './songMaker/useRecipeRecording'
+import BatchProgressPanel from './songMaker/BatchProgressPanel'
 
 interface Props {
   project: Project
@@ -10,23 +14,6 @@ interface Props {
 }
 
 type Tab = 'auto' | 'upload'
-
-const CATEGORY_ICON: Record<string, string> = {
-  morning: '🌅', sleep: '😴', drive: '🚗', focus: '💡',
-  relax: '☁️', meditation: '🧘', workout: '💪', cafe: '☕',
-  night: '🌙', default: '🎵',
-}
-
-function categoryIcon(cat: string): string {
-  return CATEGORY_ICON[cat] || CATEGORY_ICON.default
-}
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-function resolveAudioUrl(url: string): string {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return API_BASE + url
-}
 
 export default function SongMaker({ project, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>('auto')
@@ -42,7 +29,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
     const incoming = project.designed_tracks ?? []
     if (incoming.length > 0) setTracks(incoming)
   }, [project.designed_tracks])
-  const [count, setCount] = useState(20)
+  // 곡 수 디폴트: 이미 설계된 트랙이 있으면 그 수, 없으면 20.
+  // → 재설계 시 사용자가 처음에 정한 수가 자동 유지됨.
+  const [count, setCount] = useState(() => project.designed_tracks?.length || 20)
+
+  // designed_tracks 가 외부에서 갱신되면(설계 완료, 다른 화면에서 돌아옴 등)
+  // count 도 거기 맞춰서 동기화.
+  useEffect(() => {
+    const n = project.designed_tracks?.length
+    if (n && n > 0) setCount(n)
+  }, [project.designed_tracks?.length])
   const [designing, setDesigning] = useState(false)
   const [designError, setDesignError] = useState('')
   const [designPhase, setDesignPhase] = useState('')
@@ -155,63 +151,23 @@ export default function SongMaker({ project, onRefresh }: Props) {
     }
   }, [sunoTracks])
 
-  // Suno 세션 상태
-  const [sunoSession, setSunoSession] = useState<{ session_exists: boolean; login_status: string } | null>(null)
-  const [sunoLoginLoading, setSunoLoginLoading] = useState(false)
-  const [sunoLoginMsg, setSunoLoginMsg] = useState('')
+  // Suno 세션 + 레시피 녹화 — 커스텀 훅으로 추출되어 있음 (songMaker/)
+  const {
+    sunoSession, sunoLoginLoading, sunoLoginMsg,
+    handleSunoLogin, handleSunoConfirm, handleSunoLogout,
+  } = useSunoSession()
 
-  // 레시피 녹화 상태
-  const [recipe, setRecipe] = useState<{ exists: boolean; action_count?: number; recorded_at?: string } | null>(null)
-  const [recipeRecording, setRecipeRecording] = useState(false)
-  const [recipeActionCount, setRecipeActionCount] = useState(0)
-  const [recipeMsg, setRecipeMsg] = useState('')
+  const {
+    recipe, recipeRecording, recipeActionCount, recipeMsg,
+    handleRecordStart, handleRecordStop, handleRecordCancel, handleDeleteRecipe,
+  } = useRecipeRecording()
 
-  // 초기 데이터 병렬 로드 (채널 + Suno 세션 + 레시피)
+  // 채널 정보만 로드 (Suno 세션·레시피는 위 훅이 자체 mount effect 로 로드)
   useEffect(() => {
-    const loads: Promise<void>[] = [
-      api.suno.status().then(setSunoSession).catch(() => setSunoSession(null)),
-      api.suno.getRecipe().then(setRecipe).catch(() => setRecipe(null)),
-    ]
     if (project.channel_id) {
-      loads.push(api.channels.get(project.channel_id).then(setChannel).catch(() => setChannel(null)))
+      api.channels.get(project.channel_id).then(setChannel).catch(() => setChannel(null))
     }
-    Promise.all(loads)
   }, [project.channel_id])
-
-  const handleSunoLogin = async () => {
-    setSunoLoginLoading(true)
-    setSunoLoginMsg('')
-    try {
-      const res = await api.suno.openLogin()
-      setSunoLoginMsg(res.message)
-      setSunoSession(prev => ({ ...prev!, login_status: 'waiting' }))
-    } catch (e: unknown) {
-      setSunoLoginMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '브라우저 열기 실패')
-    } finally {
-      setSunoLoginLoading(false)
-    }
-  }
-
-  const handleSunoConfirm = async () => {
-    setSunoLoginLoading(true)
-    try {
-      const res = await api.suno.confirmLogin()
-      setSunoLoginMsg(res.message)
-      const status = await api.suno.status()
-      setSunoSession(status)
-    } catch (e: unknown) {
-      setSunoLoginMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '세션 저장 실패')
-    } finally {
-      setSunoLoginLoading(false)
-    }
-  }
-
-  const handleSunoLogout = async () => {
-    await api.suno.cancelLogin().catch(() => {})
-    await api.suno.deleteSession()
-    setSunoSession({ session_exists: false, login_status: 'idle' })
-    setSunoLoginMsg('')
-  }
 
   // 초기 suno 트랙 + 활성 세트 + QA 병렬 로드
   useEffect(() => {
@@ -311,8 +267,11 @@ export default function SongMaker({ project, onRefresh }: Props) {
 
   const handleDelete = async (idx: number) => {
     await api.trackDesign.delete(project.id, idx)
-    const updated = tracks.filter((_, i) => i !== idx).map((t, i) => ({ ...t, index: i + 1 }))
-    setTracks(updated)
+    // ⚠️ .index 를 재할당하지 않는다. designed_tracks.index 는 영구 ID 로,
+    // suno_tracks.index 와 mp3 파일명(`{idx:02d}_*.mp3`)이 모두 이 값을 참조한다.
+    // 재할당하면 이미 다운로드된 곡들과의 연결이 어긋나 "옛 노래 재생" / "▶ 사라짐"
+    // 증상이 발생함. 표시 번호는 화면에서 배열 위치(idx + 1)로 따로 그린다.
+    setTracks(tracks.filter((_, i) => i !== idx))
   }
 
   const handleSaveEdit = async () => {
@@ -334,57 +293,8 @@ export default function SongMaker({ project, onRefresh }: Props) {
     }
   }
 
-  const handleRecordStart = async () => {
-    setRecipeMsg('')
-    try {
-      await api.suno.record.start()
-      setRecipeRecording(true)
-      setRecipeActionCount(0)
-      setRecipeMsg('브라우저가 열렸습니다. 가사→스타일→제목→Create 순서로 시연하세요.')
-    } catch (e: unknown) {
-      setRecipeMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '녹화 시작 실패')
-    }
-  }
-
-  const handleRecordStop = async () => {
-    try {
-      const res = await api.suno.record.stop()
-      setRecipeRecording(false)
-      setRecipeMsg(`✅ 레시피 저장 완료 (${res.action_count}개 동작)`)
-      const r = await api.suno.getRecipe()
-      setRecipe(r)
-    } catch (e: unknown) {
-      setRecipeMsg((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '녹화 완료 실패')
-    }
-  }
-
-  const handleRecordCancel = async () => {
-    await api.suno.record.cancel().catch(() => {})
-    setRecipeRecording(false)
-    setRecipeMsg('')
-  }
-
-  const handleDeleteRecipe = async () => {
-    await api.suno.deleteRecipe()
-    setRecipe({ exists: false })
-    setRecipeMsg('')
-  }
-
-  // 녹화 중 폴링
-  useEffect(() => {
-    if (!recipeRecording) return
-    const timer = setInterval(async () => {
-      try {
-        const s = await api.suno.record.status()
-        setRecipeActionCount(s.action_count)
-        if (s.auto_done) {
-          clearInterval(timer)
-          await handleRecordStop()
-        }
-      } catch { clearInterval(timer) }
-    }, 2000)
-    return () => clearInterval(timer)
-  }, [recipeRecording])
+  // 레시피 녹화 핸들러는 useRecipeRecording 훅에서 가져온다 (handleRecordStart/Stop/Cancel/DeleteRecipe).
+  // 폴링도 훅 내부에 있음.
 
   const handleBatchStop = async () => {
     try {
@@ -400,9 +310,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
       const s = await api.trackDesign.sunoStatus(project.id)
       setBatchStatus(s)
     } catch (e: unknown) {
-      // 409 Conflict = 이전 배치가 stuck → 자동 리셋 후 재시도
-      const err = e as { response?: { status?: number } }
-      if (err?.response?.status === 409) {
+      // 409 Conflict = 이전 배치가 stuck → 자동 리셋 후 재시도.
+      // 인터셉터가 Error 로 감싸도 status 가 살아있도록 client.ts 가 response/status/
+      // axiosError 세 경로로 노출. 어디로 들어와도 잡히게 fallback 체인 사용.
+      const err = e as {
+        response?: { status?: number }
+        status?: number
+        axiosError?: { response?: { status?: number } }
+      }
+      const status = err?.response?.status ?? err?.status ?? err?.axiosError?.response?.status
+      if (status === 409) {
         try {
           await api.trackDesign.batchStop(project.id)
           await api.trackDesign.batchCreate(project.id, project.channel_id)
@@ -604,11 +521,24 @@ export default function SongMaker({ project, onRefresh }: Props) {
                   )}
                 </div>
                 <div className="flex gap-2">
+                  {/* 다운받은 mp3 폴더를 탐색기로 열기 — 음악 재활용용. 백엔드가 사람이
+                      구분하기 쉬운 라벨(YYMMDD_채널_프로젝트) 정션을 자동 생성한 뒤 연다. */}
                   <button
-                    onClick={() => { setTracks([]); setDesignError('') }}
-                    className="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
+                    onClick={async () => {
+                      try {
+                        const r = await api.projects.openFolder(project.id)
+                        if (!r.opened && r.error) {
+                          alert(`폴더 자동 열기 실패. 직접 여세요:\n${r.folder}`)
+                        }
+                      } catch (e) {
+                        const msg = e instanceof Error ? e.message : '폴더 열기 실패'
+                        alert(msg)
+                      }
+                    }}
+                    className="text-xs text-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors"
+                    title="다운받은 mp3 폴더를 탐색기에서 엽니다 (재활용용)"
                   >
-                    다시 설계
+                    📂 음악 폴더 열기
                   </button>
                   {project.channel_id && (() => {
                     const hasAnySuno = sunoTracks.length > 0 || (qaStatus && qaStatus.tracks.some(t => t.status !== 'missing'))
@@ -696,79 +626,7 @@ export default function SongMaker({ project, onRefresh }: Props) {
               </div>
 
               {/* Suno 진행 상태 */}
-              {batchStatus && (
-                <div className={`mb-4 p-3 rounded-xl border text-sm ${
-                  batchStatus.status === 'running'
-                    ? 'bg-green-900/20 border-green-700/50 text-green-300'
-                    : batchStatus.status === 'completed'
-                    ? 'bg-blue-900/20 border-blue-700/50 text-blue-300'
-                    : 'bg-red-900/20 border-red-700/50 text-red-300'
-                }`}>
-                  {batchStatus.status === 'running' && (() => {
-                    const done = batchStatus.completed_batches ?? batchStatus.completed ?? 0
-                    const total = batchStatus.total_batches || 1
-                    const pct = Math.round((done / total) * 100)
-                    const phaseLabel = {
-                      checking: '파일 확인 중',
-                      collecting: 'Suno에서 다운로드 중',
-                      creating: '곡 생성 중',
-                      waiting: 'Suno 처리 대기 중',
-                      verifying: '검수 중',
-                    }[batchStatus.phase || ''] || '진행 중'
-
-                    return (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <span className="inline-block w-3 h-3 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin shrink-0" />
-                          <div className="flex-1">
-                            <div className="font-semibold">
-                              {phaseLabel} {done}/{total}
-                              {batchStatus.round && batchStatus.round > 1 && (
-                                <span className="text-yellow-300 ml-2 text-xs font-normal">라운드 {batchStatus.round}</span>
-                              )}
-                            </div>
-                            {batchStatus.current_song && (
-                              <div className="text-xs text-green-200/70 mt-0.5">"{batchStatus.current_song}"</div>
-                            )}
-                          </div>
-                          <span className="text-xs text-green-400 shrink-0">
-                            {batchStatus.tracks_collected || 0}개 다운됨
-                          </span>
-                          <button
-                            onClick={handleBatchStop}
-                            className="text-xs bg-red-800 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0"
-                          >
-                            ⏹ 중지
-                          </button>
-                        </div>
-                        <div className="w-full bg-green-900/50 rounded-full h-2">
-                          <div
-                            className="bg-green-500 h-2 rounded-full transition-all"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <div className="text-[10px] text-green-500/60 text-right">{pct}%</div>
-                      </div>
-                    )
-                  })()}
-                  {batchStatus.status === 'completed' && (
-                    <div>
-                      ✓ Suno 생성 완료 — {batchStatus.tracks_collected || 0}개 다운로드
-                      {batchStatus.errors && batchStatus.errors.length > 0 && (
-                        <div className="text-xs text-yellow-400 mt-1">⚠ 에러 {batchStatus.errors.length}건</div>
-                      )}
-                    </div>
-                  )}
-                  {batchStatus.status === 'failed' && (
-                    <div>
-                      ✗ Suno 생성 실패
-                      {batchStatus.errors?.map((e, i) => (
-                        <div key={i} className="text-xs text-red-400/80 mt-1">{e}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <BatchProgressPanel batchStatus={batchStatus} onStop={handleBatchStop} />
 
               {/* QA 상태 요약 카드 */}
               {qaStatus && batchStatus?.status !== 'running' && (
@@ -881,12 +739,14 @@ export default function SongMaker({ project, onRefresh }: Props) {
                         const newTracks = [...tracks]
                         const [moved] = newTracks.splice(dragTrackIdx, 1)
                         newTracks.splice(dragOverTrackIdx, 0, moved)
-                        // index 재할당
-                        const reindexed = newTracks.map((tr, i) => ({ ...tr, index: i + 1 }))
-                        setTracks(reindexed)
+                        // ⚠️ .index 는 영구 ID — 재할당하지 않는다. 재할당하면 suno_tracks
+                        //   와 mp3 파일명(idx prefix)과의 연결이 어긋나 "다른 곡 재생" /
+                        //   "▶ 안 보임" 증상 발생. 순서는 배열 위치로만 표현, 표시 번호도
+                        //   배열 위치(idx + 1)로 따로 그린다.
+                        setTracks(newTracks)
                         // 백엔드 저장
                         try {
-                          await api.projects.update(project.id, { designed_tracks: reindexed } as Partial<Pick<Project, 'name' | 'playlist_title' | 'status' | 'channel_id'>>)
+                          await api.projects.update(project.id, { designed_tracks: newTracks } as Partial<Pick<Project, 'name' | 'playlist_title' | 'status' | 'channel_id'>>)
                         } catch { /* ignore */ }
                       }
                       setDragTrackIdx(null)
@@ -903,7 +763,14 @@ export default function SongMaker({ project, onRefresh }: Props) {
                       onClick={() => setExpandIdx(expandIdx === idx ? null : idx)}
                     >
                       <span className="text-gray-500 cursor-grab active:cursor-grabbing mr-1 select-none" title="드래그하여 순서 변경">⠿</span>
-                      <span className="text-gray-600 text-xs w-5 text-center shrink-0">{t.index}</span>
+                      {/* 표시 번호는 배열 위치(현재 순서) 기준. t.index 는 mp3 파일/Suno 연결을
+                          위한 영구 ID 라 재할당하지 않으며, 작은 회색 보조 텍스트로만 보여준다. */}
+                      <span
+                        className="text-gray-400 text-xs w-5 text-center shrink-0 font-medium"
+                        title={`원본 ID: ${t.index}`}
+                      >
+                        {idx + 1}
+                      </span>
                       {/* 생성 중 로딩 / QA 상태 표시 */}
                       {batchStatus?.status === 'running' && batchStatus?.current_song === t.title ? (
                         <span className="shrink-0 flex items-center gap-1.5">
@@ -1378,6 +1245,16 @@ export default function SongMaker({ project, onRefresh }: Props) {
                     placeholder="분위기"
                     className="flex-1 bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
                   />
+                  <select
+                    value={count}
+                    onChange={e => setCount(Number(e.target.value))}
+                    title="재설계할 곡 수"
+                    className="bg-gray-800 text-white rounded-xl px-3 py-2 text-sm border border-gray-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {[5, 10, 15, 20, 25, 30].map(n => (
+                      <option key={n} value={n}>{n}곡</option>
+                    ))}
+                  </select>
                   <button
                     onClick={handleDesign}
                     disabled={designing || !project.channel_id}

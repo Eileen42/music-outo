@@ -1,13 +1,18 @@
 """
-오케스트레이터 — Designer + Lyricist 2~3회 Gemini 호출로 곡 설계 완료.
+오케스트레이터 — 4역할 에이전트 순차 호출로 곡 설계 완료.
 
-이전: 4~5회 (analyzer + concept + tracklist + composer + lyricist)
-현재: 2회 (instrumental) / 3회 (가사 채널)
-- Step 1: design_concept_full → analysis + concept
-- Step 2: design_tracks_full → tracklist + suno_prompt (composer 통합)
-- Step 3: write_lyrics_batch (가사 채널만)
+역할 분담:
+  Step 1. Designer  → 채널 컨셉만 (analysis + concept)
+  Step 2. Composer  → 곡별 6줄 Suno 프롬프트 (★ suno_base_prompt 반영)
+  Step 3. Lyricist  → 가사 (가사 채널만)
+  Step 4. QA Agent  → 최종 검수·수정 (★ no intro/no humming 강제, 키워드 정합성)
 
-벤치마크 분석은 제거 (URL 입력 시에도 제대로 동작 안 함). 사용자 입력과 채널 프로필만 사용.
+Gemini 호출:
+  - 가사 없는 채널: 3회 (Designer + Composer + QA)
+  - 가사 채널:     4회 (위 + Lyricist)
+
+QA 의 rule-based 보정은 항상 적용되므로, 가사 곡의 인트로 최소화는
+Gemini 가 실패해도 보장된다.
 """
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ from typing import Callable
 from agents.designer import designer_agent
 from agents.composer import composer_agent
 from agents.lyricist import lyricist_agent
+from agents.qa import qa_agent
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +36,7 @@ class TrackDesigner:
         progress_cb: Callable[[str, str, int], None] | None = None,
     ) -> dict:
         """
-        곡 설계 파이프라인.
+        곡 설계 파이프라인 — Designer → Composer → Lyricist → QA.
 
         progress_cb(phase, message, progress%) — 백그라운드 작업의 진행상황 보고용.
 
@@ -41,30 +47,30 @@ class TrackDesigner:
         has_lyrics = channel_profile.get("has_lyrics", False)
         cb = progress_cb or (lambda *_a, **_kw: None)
 
-        # ── Step 1: 분석 + 컨셉 (1 Gemini call) ──
-        cb("step1", f"음악 방향성 + 컨셉 설계 중... ({count}곡)", 25)
-        logger.info("[1/2] 분석+컨셉 시작")
+        # ── Step 1: Designer — 채널 컨셉 ─────────────────────────────────
+        cb("designer", f"채널 컨셉 설계 중... ({count}곡)", 20)
+        logger.info("[1/4] Designer: 분석+컨셉 시작")
         result1 = await designer_agent.design_concept_full(channel_profile, ui, count)
         analysis = result1.get("analysis", {})
         concept = result1.get("concept", {})
-        logger.info(f"[1/2] 컨셉: {concept.get('project_name', '(unnamed)')}")
+        logger.info(f"[1/4] Designer 완료: {concept.get('project_name', '(unnamed)')}")
 
-        # ── Step 2: 트랙리스트 + Suno 프롬프트 (1 Gemini call) ──
-        cb("step2", f"{count}곡 트랙리스트 + Suno 프롬프트 생성 중...", 60)
-        logger.info("[2/2] 트랙+프롬프트 시작")
-        tracks = await designer_agent.design_tracks_full(
+        # ── Step 2: Composer — 곡별 6줄 Suno 프롬프트 ───────────────────
+        cb("composer", f"{count}곡 Suno 프롬프트 작성 중...", 50)
+        logger.info("[2/4] Composer: 곡별 프롬프트 시작")
+        tracks = await composer_agent.compose_tracks(
             concept=concept,
             analysis=analysis,
             channel_profile=channel_profile,
             user_input=ui,
             count=count,
         )
-        logger.info(f"[2/2] 완료: {len(tracks)}곡")
+        logger.info(f"[2/4] Composer 완료: {len(tracks)}곡")
 
-        # ── Step 3 (옵션): 가사 (1 Gemini call) ──
+        # ── Step 3 (옵션): Lyricist — 가사 ─────────────────────────────
         if has_lyrics and tracks:
-            cb("step3", f"가사 {len(tracks)}곡 생성 중...", 85)
-            logger.info("[3/3] 가사 생성")
+            cb("lyricist", f"가사 {len(tracks)}곡 작성 중...", 75)
+            logger.info("[3/4] Lyricist: 가사 시작")
             try:
                 lyrics_list = await lyricist_agent.write_lyrics_batch(
                     tracks, concept, channel_profile, ui
@@ -77,10 +83,27 @@ class TrackDesigner:
                     idx = track.get("index", 0)
                     if idx in lyrics_map and lyrics_map[idx]:
                         track["lyrics"] = lyrics_map[idx]
-                logger.info(f"[3/3] 가사: {len(lyrics_list)}곡")
+                logger.info(f"[3/4] Lyricist 완료: {len(lyrics_list)}곡")
             except Exception as e:
                 # 가사 실패해도 곡 설계는 살림
-                logger.warning(f"[3/3] 가사 생성 실패 (곡 설계는 유지): {e}")
+                logger.warning(f"[3/4] Lyricist 실패 (곡 설계는 유지): {e}")
+
+        # ── Step 4: QA Agent — 최종 검수·수정 ──────────────────────────
+        # rule-based 보정 (인트로 최소화 등) 은 Gemini 실패해도 항상 적용.
+        if tracks:
+            cb("qa", "최종 검수 및 자동 수정 중...", 92)
+            logger.info("[4/4] QA: 검수 시작")
+            try:
+                tracks = await qa_agent.verify_and_fix(
+                    tracks=tracks,
+                    concept=concept,
+                    channel_profile=channel_profile,
+                    user_input=ui,
+                )
+                fixed = sum(1 for t in tracks if t.get("qa_notes") and t.get("qa_notes") != "ok")
+                logger.info(f"[4/4] QA 완료: {fixed}/{len(tracks)}곡 보정")
+            except Exception as e:
+                logger.warning(f"[4/4] QA 실패 (Composer 결과 유지): {e}")
 
         return {
             "analysis": analysis,

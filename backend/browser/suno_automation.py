@@ -30,52 +30,33 @@ from playwright.async_api import (
 
 from config import settings
 from browser.suno_recorder import get_recipe
+from core.errors import SunoUIChangedError, SunoGenerationError
+from browser.suno_selectors import (
+    SELECTORS,
+    ADVANCED_TAB,
+    SEARCH_CLIPS_INPUT,
+    CREDITS_BADGE,
+    LYRICS_TEXTAREA_TESTID,
+    ERROR_TOAST,
+    parse_chain,
+    selectors_list,
+)
 
 logger = logging.getLogger("suno_automation")
 
-# ──────────────────────── UI 셀렉터 ─────────────────────────────────────────
-# 레코딩으로 확인된 v5.5 실제 셀렉터 우선, 하드코딩 fallback
-SELECTORS: dict[str, str] = {
-    # Lyrics — testid로 안정적
-    "lyrics_area": (
-        "[data-testid='lyrics-textarea'], "
-        "textarea[placeholder*='Write some lyrics'], "
-        "textarea[placeholder*='lyrics']"
-    ),
-    # 제목 — placeholder 안정적
-    "title_input": (
-        "input[placeholder='Song Title (Optional)'], "
-        "input[placeholder*='Song Title'], "
-        "input[placeholder*='Title']"
-    ),
-    # Create 버튼 — aria-label 녹화로 확인됨 (가장 안정적)
-    "create_btn": (
-        "[aria-label='Create song'], "
-        "button:has-text('Create'), "
-        "[data-testid='create-button']"
-    ),
-    # 곡 카드 (DOM 폴링 fallback용)
-    "song_card": (
-        "[data-testid='song-card'], "
-        "a[href*='/song/'], "
-        "[class*='SongCard'], "
-        "[class*='song-card']"
-    ),
-}
-
-# Edge 실행 파일 경로
-_EDGE_EXES = [
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-]
+# Edge 실행 파일 경로 — core.browser_locator 가 단일 출처
+from core.browser_locator import find_browser_str as _find_exe  # noqa: E402
 
 
-def _find_exe() -> str | None:
-    for p in _EDGE_EXES:
-        if Path(p).exists():
-            return p
-    return None
+# 봇 탐지 회피용 init script — browser_manager.py 와 동일한 패턴.
+# add_init_script 로 context 에 등록하면 모든 page 의 매 navigation 직후 실행됨.
+_STEALTH_SCRIPT = """
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+delete navigator.__proto__.webdriver;
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+window.chrome = { runtime: {} };
+"""
 
 
 def _session_path() -> Path:
@@ -94,7 +75,19 @@ class SunoAutomation:
     """
 
     def __init__(self, max_concurrent: int = 3, headless: bool = False) -> None:
-        self._max_concurrent = max_concurrent
+        # 봇 탐지 회피: headless=False (= 사용자가 화면을 보는 mode=browser) 일 때
+        # 동시 3페이지 = 동일 IP·동일 UA·동일 쿠키로 동시 요청 → 매우 의심스러운 패턴.
+        # 환경변수 SUNO_BROWSER_MAX_CONCURRENT 로 명시 override 가능.
+        import os as _os
+        env_override = _os.getenv("SUNO_BROWSER_MAX_CONCURRENT", "").strip()
+        if env_override.isdigit():
+            self._max_concurrent = max(1, int(env_override))
+        elif not headless:
+            # browser mode (headless=False) 는 1 강제 — 속도 1/3 이지만 봇 탐지 위험 ↓
+            self._max_concurrent = 1
+        else:
+            # headless 면 봇 탐지 위험은 비슷하지만 사용자 시각 부담은 없음 → 원래 값 유지
+            self._max_concurrent = max_concurrent
         self._headless = headless
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
@@ -139,7 +132,14 @@ class SunoAutomation:
                 "Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0"
             ),
         )
-        logger.info(f"SunoAutomation 시작: exe={exe}, headless={self._headless}")
+        # 봇 탐지 회피: navigator.webdriver 등 자동화 흔적을 페이지 로드 직후 숨김.
+        # 모든 page 에 자동 적용되며, 이전엔 browser_manager 만 적용하고 SunoAutomation
+        # 은 누락된 상태였음.
+        await self._context.add_init_script(_STEALTH_SCRIPT)
+        logger.info(
+            f"SunoAutomation 시작: exe={exe}, headless={self._headless}, "
+            f"max_concurrent={self._max_concurrent}"
+        )
 
     async def _stop(self) -> None:
         for obj in (self._context, self._browser):
@@ -354,7 +354,7 @@ class SunoAutomation:
         """
         try:
             # 먼저 'Advanced' 텍스트 요소 존재 여부 확인
-            adv_el = await page.query_selector("text=Advanced")
+            adv_el = await page.query_selector(ADVANCED_TAB)
             if adv_el:
                 await adv_el.click()
                 logger.info("Advanced 탭 클릭 완료")
@@ -406,7 +406,7 @@ class SunoAutomation:
 
     async def _react_fill(self, page: Page, selector: str, value: str, label: str) -> None:
         """React nativeValueSetter로 textarea/input을 채운다. 셀렉터 목록을 순서대로 시도."""
-        for sel in [s.strip() for s in selector.split(",")]:
+        for sel in parse_chain(selector):
             try:
                 ok = await page.evaluate("""
                     ([sel, text]) => {
@@ -429,7 +429,7 @@ class SunoAutomation:
             except Exception:
                 pass
         # fallback: Playwright fill
-        for sel in [s.strip() for s in selector.split(",")]:
+        for sel in parse_chain(selector):
             try:
                 el = await page.wait_for_selector(sel, timeout=5_000)
                 await el.click()
@@ -476,9 +476,10 @@ class SunoAutomation:
         Playwright visibility 체크를 우회해 React nativeValueSetter로 직접 입력.
         """
         try:
+            # 셀렉터는 suno_selectors.py 에서 주입 (UI 변경 시 한 곳만 수정)
             result = await page.evaluate("""
-                (text) => {
-                    const lyricsTA = document.querySelector('[data-testid="lyrics-textarea"]');
+                ([text, lyricsSel]) => {
+                    const lyricsTA = document.querySelector(lyricsSel);
                     const all = Array.from(document.querySelectorAll('textarea'));
                     let target = null;
 
@@ -506,7 +507,7 @@ class SunoAutomation:
                     target.dispatchEvent(new Event('change', {bubbles: true}));
                     return true;
                 }
-            """, style_prompt)
+            """, [style_prompt, LYRICS_TEXTAREA_TESTID])
             if result:
                 logger.info(f"스타일 입력 완료 (React setter): {style_prompt[:40]}...")
                 return True
@@ -518,7 +519,7 @@ class SunoAutomation:
     async def _click_create_btn(self, page: Page, title: str) -> None:
         """Create 버튼 클릭. aria-label → text → JS 순으로 시도."""
         # 1) CSS selector 시도
-        for sel in [s.strip() for s in SELECTORS["create_btn"].split(",")]:
+        for sel in selectors_list("create_btn"):
             try:
                 await page.wait_for_selector(sel, timeout=5_000)
                 await page.click(sel)
@@ -544,7 +545,7 @@ class SunoAutomation:
             logger.info(f"Create 클릭됨 (JS fallback): {title}")
             return
 
-        raise RuntimeError(f"Create 버튼을 찾을 수 없습니다: {title}")
+        raise SunoUIChangedError(f"Create 버튼을 찾을 수 없습니다: {title}")
 
     async def _click_create_and_wait(self, page: Page, title: str) -> list[dict]:
         """
@@ -614,8 +615,9 @@ class SunoAutomation:
                 break
             # Suno UI에서 에러/실패 감지 (5초마다)
             if tick > 0 and tick % 10 == 0:
+                # 에러 셀렉터는 suno_selectors.py 에서 주입 (UI 변경 시 한 곳만 수정)
                 fail_detected = await page.evaluate("""
-                    () => {
+                    (errSel) => {
                         const body = document.body.innerText || '';
                         // Suno의 에러 메시지 패턴
                         if (body.includes('Something went wrong') ||
@@ -627,18 +629,20 @@ class SunoAutomation:
                             return body.substring(0, 200);
                         }
                         // 에러 배너/toast 감지
-                        const errEls = document.querySelectorAll('[role="alert"], .error, .toast-error, [class*="error"], [class*="Error"]');
+                        const errEls = document.querySelectorAll(errSel);
                         for (const el of errEls) {
                             const t = (el.textContent || '').trim();
                             if (t && t.length > 5) return t.substring(0, 200);
                         }
                         return null;
                     }
-                """)
+                """, ERROR_TOAST)
                 if fail_detected:
                     logger.error(f"Suno UI 에러 감지: {fail_detected}")
                     page.remove_listener("response", on_response)
-                    raise RuntimeError(f"Suno 생성 실패: {fail_detected}")
+                    # fail_detected 는 'Insufficient credits', 'rate limit', 'try again' 등
+                    # Suno 가 띄운 사용자 메시지. UI 자체는 정상이라 GenerationError.
+                    raise SunoGenerationError(f"Suno 생성 실패: {fail_detected}")
             await asyncio.sleep(0.5)
 
         if len(clips) < 2:
@@ -792,7 +796,7 @@ class SunoAutomation:
     # ── 헬퍼 ─────────────────────────────────────────────────────────────────
 
     async def _click(self, page: Page, selector: str, label: str) -> None:
-        for sel in [s.strip() for s in selector.split(",")]:
+        for sel in parse_chain(selector):
             try:
                 await page.wait_for_selector(sel, timeout=8_000)
                 await page.click(sel)
@@ -800,7 +804,7 @@ class SunoAutomation:
                 return
             except Exception:
                 continue
-        raise RuntimeError(f"셀렉터 없음: {label} ({selector})")
+        raise SunoUIChangedError(f"셀렉터 없음: {label} ({selector})")
 
     async def find_siblings(
         self,
@@ -971,7 +975,7 @@ class SunoAutomation:
                 await page.goto("https://suno.com/create", wait_until="domcontentloaded", timeout=30_000)
                 await page.wait_for_timeout(3_000)
 
-                search_input = await page.query_selector('input[aria-label="Search clips"]')
+                search_input = await page.query_selector(SEARCH_CLIPS_INPUT)
                 if search_input:
                     await search_input.click()
                     await search_input.fill(title)
@@ -1028,7 +1032,7 @@ class SunoAutomation:
         try:
             await page.goto("https://suno.com", wait_until="domcontentloaded")
             await page.wait_for_timeout(2_000)
-            el = await page.query_selector("[data-testid='credits'], [class*='credits']")
+            el = await page.query_selector(CREDITS_BADGE)
             if el:
                 text = await el.inner_text()
                 m = re.search(r"\d+", text.replace(",", ""))

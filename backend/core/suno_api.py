@@ -218,14 +218,8 @@ class SunoAPIClient:
         try:
             from playwright.async_api import async_playwright
 
-            exe = None
-            for p in [
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            ]:
-                if Path(p).exists():
-                    exe = p
-                    break
+            from core.browser_locator import find_browser_str
+            exe = find_browser_str()
 
             pw = await async_playwright().start()
             browser = await pw.chromium.launch(
@@ -467,14 +461,8 @@ class SunoAPIClient:
             from playwright.async_api import async_playwright
 
             sp = _SESSION_DIR / "suno_context.json"
-            exe = None
-            for p in [
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            ]:
-                if Path(p).exists():
-                    exe = p
-                    break
+            from core.browser_locator import find_browser_str
+            exe = find_browser_str()
 
             pw = await async_playwright().start()
             browser = await pw.chromium.launch(
@@ -667,10 +655,20 @@ class SunoAPIClient:
                     logger.warning(f"상태 조회 실패: HTTP {resp.status}")
                     return []
 
-    async def wait_for_audio(self, clips: list[dict], timeout: int = 300) -> list[dict]:
+    async def wait_for_audio(
+        self,
+        clips: list[dict],
+        timeout: int = 300,
+        progress_cb=None,
+        title_hint: str = "",
+    ) -> list[dict]:
         """
         clip들의 audio_url이 채워질 때까지 폴링.
         timeout: 최대 대기 시간 (초).
+
+        progress_cb 가 있으면 폴링마다 (10초 주기) "audio 대기 N/M" 형태로
+        현재 상태를 보고한다. 이전엔 이 구간이 통째로 progress 무업데이트
+        블랙홀 (최대 300초) 이라 프론트가 "멈췄다"고 오인했음.
         """
         clip_ids = [c.get("id", "") for c in clips if c.get("id")]
         if not clip_ids:
@@ -679,15 +677,26 @@ class SunoAPIClient:
         deadline = time.time() + timeout
         while time.time() < deadline:
             statuses = await self.get_clip_status(clip_ids)
-            all_ready = True
-            for s in statuses:
-                audio = s.get("audio_url") or s.get("stream_audio_url", "")
-                if not audio:
-                    all_ready = False
-                    break
+            ready = sum(
+                1 for s in statuses
+                if s.get("audio_url") or s.get("stream_audio_url", "")
+            )
+            total = len(statuses)
 
-            if all_ready and statuses:
-                logger.info(f"전체 audio_url 준비 완료: {len(statuses)}개")
+            if progress_cb:
+                try:
+                    progress_cb({
+                        "phase": "waiting",
+                        "current_title": (
+                            f"{title_hint} — Suno 처리 중 ({ready}/{total})"
+                            if title_hint else f"Suno 처리 중 ({ready}/{total})"
+                        ),
+                    })
+                except Exception:
+                    pass
+
+            if ready == total and total > 0:
+                logger.info(f"전체 audio_url 준비 완료: {total}개")
                 return statuses
 
             await asyncio.sleep(10)
@@ -698,15 +707,29 @@ class SunoAPIClient:
     # ━━━ 다운로드 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def download_clip(self, clip: dict, output_dir: Path, prefix: str = "") -> Optional[str]:
-        """clip 1개 MP3 다운로드."""
+        """clip 1개 MP3 다운로드.
+
+        URL 후보를 순차 시도 + 모두 실패 시 backoff 재시도.
+        Suno CDN propagation 이 늦을 때 (특히 곡 생성 직후) 한 번에 안 받아지는
+        케이스를 자동 복구.
+
+        시도 순서: audio_url → cdn1 → cdn2  (총 3개)
+        모두 실패 → 5s 대기 → 다시 3개 시도 → 15s 대기 → 마지막 3개 시도
+        최악 = 약 9 attempts × 평균 ~10s = 90s 정도. 그래도 못 받으면 None.
+        """
         clip_id = clip.get("id", "")
         audio_url = clip.get("audio_url") or clip.get("stream_audio_url", "")
 
-        urls_to_try = [u for u in [
-            audio_url,
-            f"{CDN_URLS[0]}/{clip_id}.mp3",
-            f"{CDN_URLS[1]}/{clip_id}.mp3",
-        ] if u]
+        # clip_id 없으면 cdn URL 도 무효 — audio_url 만 있으면 그것만 시도
+        urls_to_try: list[str] = []
+        if audio_url:
+            urls_to_try.append(audio_url)
+        if clip_id:
+            urls_to_try.append(f"{CDN_URLS[0]}/{clip_id}.mp3")
+            urls_to_try.append(f"{CDN_URLS[1]}/{clip_id}.mp3")
+        if not urls_to_try:
+            logger.error(f"download_clip: 시도할 URL 없음 (clip_id 도 없고 audio_url 도 없음)")
+            return None
 
         output_dir.mkdir(parents=True, exist_ok=True)
         # 파일명: {prefix}mp3 (QA 패턴 호환: {idx:02d}_*_v{slot}.mp3)
@@ -722,24 +745,45 @@ class SunoAPIClient:
             "Cookie": self._cookie_header(),
         }
 
-        async with aiohttp.ClientSession() as session:
-            for url in urls_to_try:
-                try:
-                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                        if resp.status == 200:
-                            content = await resp.read()
-                            if len(content) > 10_000:  # 최소 10KB
-                                dest.write_bytes(content)
-                                # Suno MP3 헤더 교정 (container/Xing 재mux)
-                                from core.mp3_fix import fix_mp3_header
-                                await fix_mp3_header(dest)
-                                logger.info(f"다운로드 완료: {dest.name} ({len(content) // 1024}KB)")
-                                return str(dest)
-                except Exception as e:
-                    logger.warning(f"다운로드 실패 ({url[:40]}): {e}")
-                    continue
+        # CDN propagation 늦을 때 대비 backoff retry
+        # (5s, 15s) 두 번 더 시도 → 총 3 라운드 × 최대 3 URL = 최대 9 시도
+        retry_delays = [5, 15]
 
-        logger.error(f"모든 URL 실패: clip_id={clip_id}")
+        async with aiohttp.ClientSession() as session:
+            for round_idx in range(len(retry_delays) + 1):
+                for url in urls_to_try:
+                    try:
+                        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                            if resp.status == 200:
+                                content = await resp.read()
+                                if len(content) > 10_000:  # 최소 10KB
+                                    dest.write_bytes(content)
+                                    # Suno MP3 헤더 교정 (container/Xing 재mux)
+                                    from core.mp3_fix import fix_mp3_header
+                                    await fix_mp3_header(dest)
+                                    logger.info(
+                                        f"다운로드 완료: {dest.name} ({len(content) // 1024}KB)"
+                                        + (f" — round {round_idx + 1}" if round_idx > 0 else "")
+                                    )
+                                    return str(dest)
+                                else:
+                                    logger.warning(f"파일 크기 부족 ({len(content)} bytes): {url[:40]}")
+                            else:
+                                logger.warning(f"HTTP {resp.status}: {url[:40]}")
+                    except Exception as e:
+                        logger.warning(f"다운로드 실패 ({url[:40]}): {e}")
+                        continue
+
+                # 이번 라운드 모두 실패 — 다음 라운드 있으면 backoff
+                if round_idx < len(retry_delays):
+                    delay = retry_delays[round_idx]
+                    logger.info(
+                        f"다운로드 round {round_idx + 1} 모두 실패 — {delay}s 대기 후 재시도 "
+                        f"(clip_id={clip_id[:8] if clip_id else 'N/A'})"
+                    )
+                    await asyncio.sleep(delay)
+
+        logger.error(f"모든 URL × 모든 round 실패: clip_id={clip_id}")
         return None
 
     # ━━━ 배치 생성 (병렬) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -793,11 +837,24 @@ class SunoAPIClient:
 
                     logger.info(f"[#{idx} {title}] step2: wait_for_audio (timeout=300s)")
                     t0 = time.time()
-                    ready_clips = await self.wait_for_audio(clips, timeout=300)
+                    ready_clips = await self.wait_for_audio(
+                        clips,
+                        timeout=300,
+                        progress_cb=progress_cb,
+                        title_hint=f"#{idx} {title}",
+                    )
                     logger.info(f"[#{idx} {title}] step2 OK ({time.time()-t0:.1f}s) ready={len(ready_clips)}")
 
                     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in title[:30])
                     for slot, clip in enumerate(ready_clips[:2], 1):
+                        if progress_cb:
+                            try:
+                                progress_cb({
+                                    "phase": "collecting",
+                                    "current_title": f"#{idx} {title} — 다운로드 v{slot}",
+                                })
+                            except Exception:
+                                pass
                         prefix = f"{idx:02d}_{safe_title}_v{slot}."
                         logger.info(f"[#{idx} {title}] step3.{slot}: download_clip 호출")
                         t0 = time.time()

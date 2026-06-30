@@ -1,10 +1,29 @@
+import sys
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# .env를 backend/ 실행 시에도 프로젝트 루트에서 찾도록
-_HERE = Path(__file__).parent          # backend/
-_ROOT = _HERE.parent                   # 프로젝트 루트
-_ENV_FILE = _ROOT / ".env" if (_ROOT / ".env").exists() else _HERE / ".env"
+# .env / storage 루트 결정.
+# - 일반 Python 실행: __file__ 기준 backend/, 그 부모를 프로젝트 루트로
+# - PyInstaller frozen (EXE): sys.executable 의 폴더(= dist/music-outo) 를 루트로
+#   → 사용자 친화적 위치. EXE 옆에 .env, storage 폴더가 생김.
+_HERE = Path(__file__).parent          # backend/ (또는 frozen 시 _internal/)
+if getattr(sys, "frozen", False):
+    _ROOT = Path(sys.executable).parent  # EXE 가 있는 폴더
+else:
+    _ROOT = _HERE.parent                 # 프로젝트 루트
+
+
+def _resolve_env_file() -> Path:
+    """기존 .env 가 _ROOT 또는 _HERE 에 있으면 그걸 사용. 둘 다 없으면 _ROOT 디폴트.
+    덕분에 GeminiSetup 으로 저장한 .env 가 다음 시작 시 같은 위치에서 읽힘."""
+    for candidate in (_ROOT / ".env", _HERE / ".env"):
+        if candidate.exists():
+            return candidate
+    return _ROOT / ".env"
+
+
+_ENV_FILE = _resolve_env_file()
+ENV_FILE_PATH = _ENV_FILE  # 외부에서 import 해서 동일 경로에 쓰도록
 
 
 class Settings(BaseSettings):
@@ -20,15 +39,6 @@ class Settings(BaseSettings):
     )
     flow_generation_timeout: int = 120   # 이미지 생성 대기 최대 초
     flow_manual_timeout: int = 600       # 수동 fallback 대기 최대 초
-
-    # 관리자/인증
-    admin_secret: str = "admin1234"      # 관리자 페이지 접근 비밀번호. 배포 시 반드시 교체.
-    email_mode: str = "console"          # console | smtp — console 모드는 인증번호를 로그에 출력
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_pass: str = ""
-    smtp_from: str = ""                  # "Music Outo <noreply@domain.com>"
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")
 

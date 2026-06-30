@@ -1,5 +1,10 @@
 ; Music Outo 설치 스크립트 (Inno Setup)
-; 빌드: GitHub Actions 가 v*.*.* 태그 push 시 자동 실행 (installer.yml 참조)
+; 빌드: GitHub Actions 가 v*.*.* 태그 push 시 PyInstaller 빌드 후 자동 실행 (installer.yml 참조)
+;
+; 새 구조:
+;   - PyInstaller 가 dist/music-outo/ 안에 단일 실행 환경 생성 (music-outo.exe + 의존 dll)
+;   - Inno Setup 이 그 폴더를 그대로 패키징
+;   - Docker / WSL / Python / Node 의존 0개
 
 #define MyAppName "Music Outo"
 #define MyAppVersion GetEnv("APP_VERSION")
@@ -8,7 +13,7 @@
 #endif
 #define MyAppPublisher "Eileen42"
 #define MyAppURL "https://github.com/Eileen42/music-outo"
-#define MyAppExeName "start-music-outo.bat"
+#define MyAppExeName "music-outo.exe"
 
 [Setup]
 AppId={{C7A6E7F1-3F8E-4E3B-9B2C-8A5F2A9D4E1C}
@@ -34,27 +39,31 @@ Name: "desktopicon"; Description: "바탕화면 아이콘 만들기"; GroupDescr
 Name: "autostart"; Description: "PC 시작 시 자동 실행"; GroupDescription: "자동화:"; Flags: unchecked
 
 [Files]
-; 인스톨러에 포함할 실제 파일들 — Windows 빌드 러너에서 repo 체크아웃 후 이 경로에 위치
-Source: "start-music-outo.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\docker-compose.prod.yml"; DestDir: "{app}"; Flags: ignoreversion
-Source: "env.template"; DestDir: "{app}"; DestName: ".env"; Flags: onlyifdoesntexist
+; PyInstaller 가 dist/music-outo/ 폴더에 EXE + 의존 dll/data 를 모두 풀어둔다.
+; 여기서 그 폴더 통째로 설치 디렉토리에 복사.
+; ★ Excludes: 사용자 데이터는 절대 덮어쓰지 않는다 (업데이트 안전성의 핵심).
+;   - backend\storage\* : 프로젝트·채널·세션 등 실제 작업물
+;   - .env             : 사용자가 입력한 Gemini 키 등
+;   - *.log            : 실행 로그
+;   이 항목들이 패키지에 섞여도 설치/업데이트 시 복사에서 제외되어 기존 데이터가 보존된다.
+Source: "..\dist\music-outo\*"; DestDir: "{app}"; \
+  Flags: ignoreversion recursesubdirs createallsubdirs; \
+  Excludes: "backend\storage\*,*.log,.env"
 
 [Icons]
-Name: "{group}\{#MyAppName} 실행"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: autostart
 
 [Run]
 ; 설치 직후 실행 여부를 사용자가 선택
-; Docker Desktop 자동 설치는 start-music-outo.bat 내부에서 처리한다
-; (Inno Setup 의 중괄호 예약어 충돌 때문에 PowerShell 인라인 호출을 피함)
 Filename: "{app}\{#MyAppExeName}"; Description: "지금 {#MyAppName} 실행"; \
   Flags: shellexec postinstall skipifsilent nowait
 
 [UninstallRun]
-; 제거 시 컨테이너 정리
-Filename: "cmd.exe"; Parameters: "/c cd /d ""{app}"" && docker compose -f docker-compose.prod.yml down"; Flags: runhidden
+; 실행 중인 EXE 정리 (백엔드가 백그라운드에 떠 있을 수 있음)
+Filename: "taskkill.exe"; Parameters: "/F /IM music-outo.exe /T"; Flags: runhidden; RunOnceId: "KillEXE"
 
 [Code]
 function InitializeSetup(): Boolean;
