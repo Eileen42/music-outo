@@ -60,6 +60,18 @@ jobs:
           npm ci
           npm run build
 
+      - name: ffmpeg 다운로드 (EXE 동봉용 — vendor/ffmpeg 는 git 제외라 CI 에서 받음)
+        shell: powershell
+        run: |
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp -Force
+          $bin = (Get-ChildItem ffmpeg_tmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+          New-Item -ItemType Directory -Force -Path vendor\ffmpeg | Out-Null
+          Copy-Item (Join-Path $bin 'ffmpeg.exe')  vendor\ffmpeg\ -Force
+          Copy-Item (Join-Path $bin 'ffprobe.exe') vendor\ffmpeg\ -Force
+          Write-Host "ffmpeg 준비 완료: $(Get-ChildItem vendor\ffmpeg | Select-Object -ExpandProperty Name)"
+
       - name: PyInstaller 로 단일 실행 환경 빌드
         shell: powershell
         run: |
