@@ -384,10 +384,73 @@ async def fill_metadata(project_id: str):
             await asyncio.sleep(0.5)
             steps_done.append("아동용아님")
 
-            # ── 7. 다음 x3 ──
-            for step in range(3):
-                report(f"다음 페이지로 이동 ({step + 1}/3)", 8)
+            # ── 7. 마법사 페이지 이동 (수익화 ON/OFF 무관하게 동작하는 루프) ──
+            # 기존엔 "다음 x3" 으로 페이지 수를 고정했으나, 수익 창출이 켜지면
+            # '수익 창출' + '광고 적합성' 페이지가 추가돼 단계 수가 달라진다.
+            # → 페이지 수에 의존하지 말고, '공개 상태'(UNLISTED 라디오) 에 도달할
+            #   때까지 각 페이지를 감지해 처리하고 '다음' 을 누른다.
+            #   · 수익 창출: '동영상 재생 중 미드롤 광고 게재' 체크 보장
+            #     (보기페이지 광고/프리미엄 '사용'은 수익화 채널의 기본값이며,
+            #      영상 처리(검사) 중에는 강제 선택이 불가해 기본값에 맡긴다)
+            #   · 광고 적합성: '해당 사항 없음' 체크 보장 + '평가 제출' 클릭
+            MAX_WIZARD_PAGES = 8
+            for hop in range(MAX_WIZARD_PAGES):
+                # 공개 상태 페이지 도달 → 루프 종료
+                reached = await safe_eval(ws, f"""
+                    (() => !!document.querySelector('{SELECTORS["unlisted"]}'))()
+                """, "공개상태 도달 확인")
+                if reached:
+                    break
+
                 await dismiss_overlays(ws)
+
+                # (A) 광고 적합성 페이지: '해당 사항 없음' 체크 + '평가 제출' 클릭
+                handled_adsuit = await safe_eval(ws, r"""
+                    (() => {
+                      function deepAll(sel){
+                        const out=[]; (function w(r){ let e; try{e=r.querySelectorAll('*');}catch(x){return;}
+                          for(const el of e){ try{ if(el.matches&&el.matches(sel)) out.push(el);}catch(y){}
+                            if(el.shadowRoot) w(el.shadowRoot);} })(document);
+                        return out;
+                      }
+                      const isAdSuit = deepAll('[id^="VIDEO_SELF_CERTIFICATION_QUESTION"]').length>0
+                        || deepAll('ytcp-button,button').some(b=>(b.innerText||b.textContent||'').trim()==='평가 제출');
+                      if(!isAdSuit) return false;
+                      // '해당 사항 없음' 체크박스 보장
+                      for(const cb of deepAll('[role="checkbox"]')){
+                        const al=cb.getAttribute('aria-label')||'';
+                        if(al.includes('해당') && cb.getAttribute('aria-checked')!=='true'){ cb.click(); }
+                      }
+                      // '평가 제출' 버튼 클릭
+                      for(const b of deepAll('ytcp-button,button')){
+                        const t=(b.innerText||b.textContent||'').replace(/\s+/g,' ').trim();
+                        if(t==='평가 제출'){ const r=b.getBoundingClientRect(); if(r.width>0){ b.click(); break; } }
+                      }
+                      return true;
+                    })()
+                """, "광고적합성 처리")
+                if handled_adsuit:
+                    await asyncio.sleep(1.2)
+                    report("광고 적합성(해당없음+평가제출) 처리", 8)
+
+                # (B) 수익 창출 페이지: 미드롤 광고 게재 체크 보장
+                await safe_eval(ws, r"""
+                    (() => {
+                      function deepAll(sel){
+                        const out=[]; (function w(r){ let e; try{e=r.querySelectorAll('*');}catch(x){return;}
+                          for(const el of e){ try{ if(el.matches&&el.matches(sel)) out.push(el);}catch(y){}
+                            if(el.shadowRoot) w(el.shadowRoot);} })(document);
+                        return out;
+                      }
+                      for(const cb of deepAll('[role="checkbox"]')){
+                        const al=cb.getAttribute('aria-label')||'';
+                        if(al.includes('미드롤') && cb.getAttribute('aria-checked')!=='true'){ cb.click(); }
+                      }
+                      return true;
+                    })()
+                """, "수익창출 처리")
+
+                # 다음
                 await safe_eval(ws, f"""
                     (() => {{
                         const btn = document.querySelector('{SELECTORS["next_button"]}')
@@ -395,9 +458,9 @@ async def fill_metadata(project_id: str):
                         if (btn) btn.click();
                         return !!btn;
                     }})()
-                """, f"다음 {step+1}")
-                await asyncio.sleep(2)
-                steps_done.append(f"다음{step + 1}")
+                """, f"다음 ({hop+1})")
+                await asyncio.sleep(1.8)
+            steps_done.append("마법사이동")
 
             # ── 8. 일부공개 ──
             report("공개 범위 설정 중", 9)
