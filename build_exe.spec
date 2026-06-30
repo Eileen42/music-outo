@@ -19,6 +19,7 @@ FFMPEG_DIR = ROOT / 'vendor' / 'ffmpeg'   # ffmpeg.exe, ffprobe.exe (install.bat
 datas = [
     (str(FRONTEND_DIST), 'frontend_dist'),       # SPA 정적 — main.py 가 sys._MEIPASS/frontend_dist 로 찾음
     (str(BACKEND / 'templates'), 'templates'),   # 에이전트 스킬 .md 파일들
+    (str(BACKEND / 'assets'), 'assets'),         # ★ CapCut 드래프트 템플릿/스켈레톤/폰트 — capcut_builder 가 필수로 읽음
 ]
 
 # ffmpeg/ffprobe 동봉 — 받는 PC 에 ffmpeg 가 없어도 영상 빌드가 되도록.
