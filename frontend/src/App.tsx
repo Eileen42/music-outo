@@ -171,6 +171,9 @@ export default function App() {
         if (res.ok) {
           setServerOnline(true)
           localStorage.setItem('connected_before', 'true')
+          // 업데이트 설치 완료 후 재연결 → 플래그 정리
+          localStorage.removeItem('update_installing_ver')
+          localStorage.removeItem('update_installing_ts')
           // Gemini 키 설정 여부 확인
           try {
             const gRes = await fetch(backendUrl + '/api/settings/gemini')
@@ -357,22 +360,53 @@ export default function App() {
     )
   }
 
-  // 승인됨 + 서버 확인 중 → 연결 중 화면
-  if (authState === 'approved' && serverOnline === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <div className="text-gray-400 text-sm">서버 연결 중...</div>
-          <div className="text-gray-600 text-xs mt-1">5초마다 자동 재시도</div>
-        </div>
-      </div>
-    )
-  }
+  // 승인됨 + 서버 미연결 → 업데이트 중인지 감지해서 다른 화면 표시
+  if (authState === 'approved' && (serverOnline === null || serverOnline === false)) {
+    const updatingVer = localStorage.getItem('update_installing_ver') || ''
+    const updatingTs  = Number(localStorage.getItem('update_installing_ts') || 0)
+    const secsSince   = updatingTs ? Math.floor((Date.now() - updatingTs) / 1000) : 0
+    // 업데이트 시작 후 10분 이내면 "업데이트 중" 화면
+    const isUpdating  = !!updatingVer && secsSince < 600
 
-  // 승인됨 + 백엔드 미연결 → 로그인된 사용자는 항상 "연결 중..." 표시
-  // (로그인 자체가 등록된 사용자라는 증거 → 설치 안내 불필요)
-  if (authState === 'approved' && serverOnline === false) {
+    if (isUpdating) {
+      // 경과 시간 기반 진행률 추정
+      //   0~30s: 다운로드 완료 대기 (0~30%)
+      //   30~90s: 설치 중 (30~85%)
+      //   90s~: 재시작 중 (85~99%)
+      const pct = secsSince < 30  ? Math.min(30, Math.round(secsSince * 1))
+                : secsSince < 90  ? Math.min(85, 30 + Math.round((secsSince - 30) * 0.9))
+                : Math.min(99, 85 + Math.round((secsSince - 90) * 0.2))
+      const phaseLabel = secsSince < 30  ? '다운로드 완료 확인 중...'
+                       : secsSince < 90  ? '설치 중...'
+                       : '설치 완료, 앱 재시작 중...'
+      const mins = Math.floor(secsSince / 60), secs = secsSince % 60
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+          <div className="w-full max-w-sm text-center">
+            <div className="w-14 h-14 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+            <h2 className="text-xl font-bold text-white mb-1">업데이트 설치 중</h2>
+            <p className="text-purple-300 text-sm font-medium mb-5">버전 {updatingVer}</p>
+            {/* 진행바 */}
+            <div className="w-full bg-gray-800 rounded-full h-3 mb-2 overflow-hidden">
+              <div
+                className="h-full bg-purple-500 rounded-full transition-[width] duration-1000"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mb-4">
+              <span>{phaseLabel}</span>
+              <span>{pct}%</span>
+            </div>
+            <p className="text-gray-500 text-xs">
+              경과 {mins > 0 ? `${mins}분 ` : ''}{secs}초 · 완료 후 자동으로 화면이 새로고침됩니다
+            </p>
+            <p className="text-gray-700 text-xs mt-3">창을 닫지 말고 기다려주세요</p>
+          </div>
+        </div>
+      )
+    }
+
+    // 업데이트 아닌 일반 연결 끊김
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
         <div className="w-full max-w-md text-center">

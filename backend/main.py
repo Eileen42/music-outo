@@ -604,13 +604,18 @@ def _do_update(url: str, latest: str) -> None:
         # ── 설치 배치 작성 (앱 종료 대기 → 조용히 설치 → 재실행 → 자기삭제) ──
         app_exe = Path(sys.executable)
         bat = tmp / "apply_update.bat"
+        # 현재 프로세스 PID 기반으로 대기 — 이름 기반이면 새 프로세스와 혼동해 무한 대기 발생
+        my_pid = os.getpid()
         bat.write_text(
             "@echo off\r\n"
-            ":waitloop\r\n"
-            'tasklist /FI "IMAGENAME eq music-outo.exe" 2>nul | find /I "music-outo.exe" >nul && (\r\n'
+            # 현재 PID가 완전히 종료될 때까지 최대 30초 대기
+            f":waitloop\r\n"
+            f'tasklist /FI "PID eq {my_pid}" 2>nul | find /I "{my_pid}" >nul && (\r\n'
             "  timeout /t 1 /nobreak >nul\r\n"
             "  goto waitloop\r\n"
             ")\r\n"
+            # 혹시 이름으로도 남아있으면 강제 종료
+            'taskkill /FI "IMAGENAME eq music-outo.exe" /F >nul 2>&1\r\n'
             f'"{setup_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\r\n'
             f'start "" "{app_exe}"\r\n'
             'del "%~f0" >nul 2>&1\r\n',

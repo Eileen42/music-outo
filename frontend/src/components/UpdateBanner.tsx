@@ -44,7 +44,13 @@ export default function UpdateBanner() {
         setPhase('reconnect')
         try {
           const r = await fetch(window.location.origin + '/health', { cache: 'no-store' })
-          if (r.ok) { stop(); window.location.reload() }
+          if (r.ok) {
+            stop()
+            // 업데이트 완료 → localStorage 정리 후 새로고침
+            localStorage.removeItem('update_installing_ver')
+            localStorage.removeItem('update_installing_ts')
+            window.location.reload()
+          }
         } catch { /* 아직 재시작 중 — 계속 시도 */ }
       }
     }, 700)
@@ -53,12 +59,19 @@ export default function UpdateBanner() {
   const onUpdate = async () => {
     if (phase !== 'idle' && phase !== 'error') return
     setPhase('downloading'); setError(''); setPercent(0)
+    // 서버가 꺼져도 "업데이트 중" 화면이 보이도록 localStorage에 기록
+    localStorage.setItem('update_installing_ver', info.latest)
+    localStorage.setItem('update_installing_ts', String(Date.now()))
     try {
       const r = await api.update.install()
-      if (!r.ok) { setPhase('error'); setError(r.error || '업데이트를 시작할 수 없습니다'); return }
+      if (!r.ok) {
+        localStorage.removeItem('update_installing_ver')
+        localStorage.removeItem('update_installing_ts')
+        setPhase('error'); setError(r.error || '업데이트를 시작할 수 없습니다'); return
+      }
       startPolling()
     } catch {
-      // install 요청 직후 끊겨도 설치는 진행 중일 수 있음 → 재접속 폴링
+      // install 요청 직후 끊겨도 설치는 진행 중 → 재접속 폴링
       startPolling()
     }
   }
