@@ -59,6 +59,31 @@ def _add_bundled_ffmpeg_to_path() -> None:
         os.environ["PATH"] = str(ffmpeg_dir) + os.pathsep + os.environ.get("PATH", "")
 
 
+def _suppress_subprocess_console() -> None:
+    """windowed EXE 에서 ffmpeg 등 서브프로세스가 검은 콘솔창을 띄우지 않도록 설정.
+
+    console=False(windowed) 빌드에서는 자식 프로세스마다 새 콘솔창이 생긴다.
+    Python subprocess 모듈의 기본 플래그에 CREATE_NO_WINDOW 를 OR 해 두면,
+    이후 모든 subprocess.Popen / subprocess.run 호출에 자동으로 적용된다.
+    pydub(AudioSegment) 도 내부적으로 subprocess.Popen 을 쓰므로 같이 해결된다.
+    """
+    import subprocess as _sp
+    import sys as _sys
+    if _sys.platform != "win32":
+        return
+    CREATE_NO_WINDOW = 0x08000000
+    # subprocess 모듈의 기본 creationflags 에 OR — 이후 모든 호출에 자동 적용
+    _sp.CREATE_NO_WINDOW = CREATE_NO_WINDOW  # type: ignore[attr-defined]
+    _orig_popen_init = _sp.Popen.__init__
+
+    def _patched_popen_init(self, *args, **kwargs):
+        if _sys.platform == "win32":
+            kwargs["creationflags"] = kwargs.get("creationflags", 0) | CREATE_NO_WINDOW
+        _orig_popen_init(self, *args, **kwargs)
+
+    _sp.Popen.__init__ = _patched_popen_init  # type: ignore[method-assign]
+
+
 def _open_browser(url: str = URL) -> None:
     """Windows 우선 os.startfile → 실패 시 webbrowser fallback.
     PyInstaller frozen 환경에서 webbrowser.open 이 침묵 실패하는 경우 대비."""
@@ -140,6 +165,7 @@ def _start_tray_icon() -> None:
 
 def main() -> None:
     _ensure_std_streams()          # 콘솔 없는 EXE 에서 로깅 충돌 방지 (가장 먼저)
+    _suppress_subprocess_console() # ffmpeg 등 자식 프로세스 콘솔창 숨김 (windowed EXE 한정)
     _ensure_cwd_on_path()
     _add_bundled_ffmpeg_to_path()  # 동봉 ffmpeg 를 PATH 에 (서버 임포트 전에 먼저)
 
