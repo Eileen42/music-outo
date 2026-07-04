@@ -601,28 +601,43 @@ def _do_update(url: str, latest: str) -> None:
                         _update_progress["percent"] = int(downloaded * 100 / total)
         _update_progress.update(phase="installing", percent=100)
 
-        # ── 설치 배치 작성 (앱 종료 대기 → 조용히 설치 → 재실행 → 자기삭제) ──
+        # ── PowerShell 재시작 스크립트 작성 ──
+        # 배치(.bat) 방식은 windowed(콘솔 없는) EXE 재시작이 불안정.
+        # PowerShell + Start-Process -WindowStyle Hidden 이 더 안정적.
         app_exe = Path(sys.executable)
-        bat = tmp / "apply_update.bat"
-        # 현재 프로세스 PID 기반으로 대기 — 이름 기반이면 새 프로세스와 혼동해 무한 대기 발생
         my_pid = os.getpid()
-        bat.write_text(
-            "@echo off\r\n"
-            # 현재 PID가 완전히 종료될 때까지 최대 30초 대기
-            f":waitloop\r\n"
-            f'tasklist /FI "PID eq {my_pid}" 2>nul | find /I "{my_pid}" >nul && (\r\n'
-            "  timeout /t 1 /nobreak >nul\r\n"
-            "  goto waitloop\r\n"
-            ")\r\n"
-            # 혹시 이름으로도 남아있으면 강제 종료
-            'taskkill /FI "IMAGENAME eq music-outo.exe" /F >nul 2>&1\r\n'
-            f'"{setup_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\r\n'
-            f'start "" "{app_exe}"\r\n'
-            'del "%~f0" >nul 2>&1\r\n',
+        ps1 = tmp / "apply_update.ps1"
+        ps1.write_text(
+            "$logFile = Join-Path $env:TEMP 'music-outo-updater.log'\n"
+            f"Add-Content $logFile \"[$(Get-Date)] 업데이트 시작: PID {my_pid} 종료 대기\"\n"
+            # PID 기반 대기 (최대 60초)
+            f"$pid_to_wait = {my_pid}\n"
+            "$waited = 0\n"
+            "while ($waited -lt 60) {\n"
+            "    $proc = Get-Process -Id $pid_to_wait -ErrorAction SilentlyContinue\n"
+            "    if (-not $proc) { break }\n"
+            "    Start-Sleep -Seconds 1; $waited++\n"
+            "}\n"
+            # 이름으로 잔존 프로세스 강제 종료
+            "Stop-Process -Name music-outo -Force -ErrorAction SilentlyContinue\n"
+            "Start-Sleep -Seconds 1\n"
+            f"Add-Content $logFile \"[$(Get-Date)] 설치 시작\"\n"
+            # 설치 실행 (동기 대기)
+            f"$r = Start-Process -FilePath '{setup_path}' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru\n"
+            f"Add-Content $logFile \"[$(Get-Date)] 설치 완료: ExitCode=$($r.ExitCode)\"\n"
+            # 앱 재시작 — Start-Process -WindowStyle Hidden 이 windowed exe 에 안정적
+            f"Start-Sleep -Seconds 2\n"
+            f"$r2 = Start-Process -FilePath '{app_exe}' -WorkingDirectory '{app_exe.parent}' -WindowStyle Hidden -PassThru\n"
+            f"Add-Content $logFile \"[$(Get-Date)] 앱 재시작: PID=$($r2.Id)\"\n"
+            # 자기 삭제
+            f"Remove-Item -Path '{ps1}' -Force -ErrorAction SilentlyContinue\n",
             encoding="utf-8",
         )
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
-        subprocess.Popen(["cmd", "/c", str(bat)], creationflags=flags, close_fds=True)
+        subprocess.Popen(
+            ["powershell", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", str(ps1)],
+            creationflags=flags, close_fds=True,
+        )
 
         # ── 앱 강제 종료 (파일 잠금 해제 → 배치가 설치 진행) ──
         _update_progress["phase"] = "restarting"
